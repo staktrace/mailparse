@@ -10,9 +10,17 @@ pub struct MailParseError {
     position: usize,
 }
 
-pub fn parse_header(raw_data : &str) -> Result<MailHeader, MailParseError> {
-    let ix = raw_data.find(':').ok_or(MailParseError { description: "No ':' found in header".to_string(), position: raw_data.len() });
-    return ix.map(|ix| MailHeader { name: &raw_data[0..ix], value: &raw_data[ix + 1 ..] });
+pub fn parse_header(raw_data: &str) -> Result<MailHeader, MailParseError> {
+    let ix = raw_data.find(':').ok_or(MailParseError {
+        description: "No ':' found in header".to_string(),
+        position: raw_data.len(),
+    });
+    return ix.map(|ix| {
+        MailHeader {
+            name: &raw_data[0..ix],
+            value: &raw_data[ix + 1..],
+        }
+    });
 }
 
 #[cfg(test)]
