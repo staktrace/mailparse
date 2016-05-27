@@ -1,0 +1,6 @@
+[package]
+name = "mailparse"
+version = "0.1.0"
+authors = ["Kartikaya Gupta <kats@seldon.staktrace.com>"]
+
+[dependencies]
