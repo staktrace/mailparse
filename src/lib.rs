@@ -22,10 +22,12 @@ pub fn parse_header(raw_data: &str) -> Result<(MailHeader, usize), MailParseErro
     let mut it = raw_data.chars();
     let mut ix = 0;
     let mut c = match it.next() {
-        None => return Err(MailParseError {
+        None => {
+            return Err(MailParseError {
                 description: "Empty string provided".to_string(),
                 position: 0,
-            }),
+            })
+        }
         Some(v) => v,
     };
 
@@ -39,13 +41,15 @@ pub fn parse_header(raw_data: &str) -> Result<(MailHeader, usize), MailParseErro
             HeaderParseState::Initial => {
                 if c == ' ' {
                     return Err(MailParseError {
-                        description: "Header cannot start with a space; it is likely an overhanging line from a previous header".to_string(),
+                        description: "Header cannot start with a space; it is likely an \
+                                      overhanging line from a previous header"
+                            .to_string(),
                         position: ix,
                     });
                 };
                 state = HeaderParseState::Key;
                 continue;
-            },
+            }
             HeaderParseState::Key => {
                 if c == ':' {
                     ix_key_end = Some(ix);
@@ -88,15 +92,20 @@ pub fn parse_header(raw_data: &str) -> Result<(MailHeader, usize), MailParseErro
         };
     }
     match ix_key_end {
-        Some(v) => Ok((MailHeader {
-            key: &raw_data[0..v],
-            value: &raw_data[ix_value_start..ix_value_end],
-        }, ix)),
+        Some(v) => {
+            Ok((MailHeader {
+                key: &raw_data[0..v],
+                value: &raw_data[ix_value_start..ix_value_end],
+            },
+                ix))
+        }
 
-        None => Err(MailParseError {
-            description: "Unable to determine end of the header key component".to_string(),
-            position: ix,
-        }),
+        None => {
+            Err(MailParseError {
+                description: "Unable to determine end of the header key component".to_string(),
+                position: ix,
+            })
+        }
     }
 }
 
