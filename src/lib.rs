@@ -113,7 +113,12 @@ pub fn parse_headers(raw_data: &str) -> Result<Vec<MailHeader>, MailParseError> 
     let mut headers: Vec<MailHeader> = Vec::new();
     let mut ix = 0;
     loop {
-        let (header, ix_end) = try!(parse_header(&raw_data[ix..]).map_err(|e| MailParseError { description: e.description, position: e.position + ix }));
+        let (header, ix_end) = try!(parse_header(&raw_data[ix..]).map_err(|e| {
+            MailParseError {
+                description: e.description,
+                position: e.position + ix,
+            }
+        }));
         headers.push(header);
         ix = ix + ix_end;
         if ix >= raw_data.len() || raw_data.chars().nth(ix) == Some('\n') {
@@ -187,20 +192,19 @@ mod tests {
         assert_eq!(parsed[1].key, "Two");
         assert_eq!(parsed[1].value, "Second");
 
-        let parsed = parse_headers("Return-Path: <kats@foobar.staktrace.com>\n\
-                                    X-Original-To: kats@baz.staktrace.com\n\
-                                    Delivered-To: kats@baz.staktrace.com\n\
-                                    Received: from foobar.staktrace.com (localhost [127.0.0.1])\n    \
-                                        by foobar.staktrace.com (Postfix) with ESMTP id 139F711C1C34\n    \
-                                        for <kats@baz.staktrace.com>; Fri, 27 May 2016 02:34:26 -0400 (EDT)\n\
-                                    Date: Fri, 27 May 2016 02:34:25 -0400\n\
-                                    To: kats@baz.staktrace.com\n\
-                                    From: kats@foobar.staktrace.com\n\
-                                    Subject: test Fri, 27 May 2016 02:34:25 -0400\n\
-                                    X-Mailer: swaks v20130209.0 jetmore.org/john/code/swaks/\n\
-                                    Message-Id: <20160527063426.139F711C1C34@foobar.staktrace.com>\n\
-                                    \n\
-                                    This is a test mailing\n").unwrap();
+        let parsed =
+            parse_headers("Return-Path: <kats@foobar.staktrace.com>\nX-Original-To: \
+                           kats@baz.staktrace.com\nDelivered-To: \
+                           kats@baz.staktrace.com\nReceived: from foobar.staktrace.com \
+                           (localhost [127.0.0.1])\n    by foobar.staktrace.com (Postfix) with \
+                           ESMTP id 139F711C1C34\n    for <kats@baz.staktrace.com>; Fri, 27 May \
+                           2016 02:34:26 -0400 (EDT)\nDate: Fri, 27 May 2016 02:34:25 -0400\nTo: \
+                           kats@baz.staktrace.com\nFrom: kats@foobar.staktrace.com\nSubject: \
+                           test Fri, 27 May 2016 02:34:25 -0400\nX-Mailer: swaks v20130209.0 \
+                           jetmore.org/john/code/swaks/\nMessage-Id: \
+                           <20160527063426.139F711C1C34@foobar.staktrace.com>\n\nThis is a test \
+                           mailing\n")
+                .unwrap();
         assert_eq!(parsed.len(), 10);
         assert_eq!(parsed[0].key, "Return-Path");
         assert_eq!(parsed[9].key, "Message-Id");
