@@ -113,10 +113,7 @@ pub fn parse_headers(raw_data: &str) -> Result<Vec<MailHeader>, MailParseError> 
     let mut headers: Vec<MailHeader> = Vec::new();
     let mut ix = 0;
     loop {
-        let (header, ix_end) = match parse_header(&raw_data[ix..]) {
-            Ok(v) => v,
-            Err(e) => return Err(MailParseError {description: e.description, position: e.position + ix}),
-        };
+        let (header, ix_end) = try!(parse_header(&raw_data[ix..]).map_err(|e| MailParseError { description: e.description, position: e.position + ix }));
         headers.push(header);
         ix = ix + ix_end;
         if ix >= raw_data.len() || raw_data.chars().nth(ix) == Some('\n') {
