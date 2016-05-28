@@ -18,7 +18,7 @@ enum HeaderParseState {
     ValueNewline,
 }
 
-pub fn parse_header(raw_data: &str) -> Result<MailHeader, MailParseError> {
+pub fn parse_header(raw_data: &str) -> Result<(MailHeader, usize), MailParseError> {
     let mut it = raw_data.chars();
     let mut ix = 0;
     let mut c = match it.next() {
@@ -81,17 +81,17 @@ pub fn parse_header(raw_data: &str) -> Result<MailHeader, MailParseError> {
                 }
             }
         }
+        ix = ix + 1;
         c = match it.next() {
             None => break,
             Some(v) => v,
         };
-        ix = ix + 1;
     }
     match ix_key_end {
-        Some(v) => Ok(MailHeader {
+        Some(v) => Ok((MailHeader {
             key: &raw_data[0..v],
             value: &raw_data[ix_value_start..ix_value_end],
-        }),
+        }, ix)),
 
         None => Err(MailParseError {
             description: "Unable to determine end of the header key component".to_string(),
@@ -106,32 +106,36 @@ mod tests {
 
     #[test]
     fn parse_basic_header() {
-        let mut parsed = parse_header("Key: Value").expect("");
+        let (parsed, _) = parse_header("Key: Value").unwrap();
         assert_eq!(parsed.key, "Key");
         assert_eq!(parsed.value, "Value");
 
-        parsed = parse_header("Key :  Value ").expect("");
+        let (parsed, _) = parse_header("Key :  Value ").unwrap();
         assert_eq!(parsed.key, "Key ");
         assert_eq!(parsed.value, "Value ");
 
-        parsed = parse_header("Key:").expect("");
+        let (parsed, _) = parse_header("Key:").unwrap();
         assert_eq!(parsed.key, "Key");
         assert_eq!(parsed.value, "");
 
-        parsed = parse_header(":\n").expect("");
+        let (parsed, _) = parse_header(":\n").unwrap();
         assert_eq!(parsed.key, "");
         assert_eq!(parsed.value, "");
 
-        parsed = parse_header("Key:Multi-line\n value").expect("");
+        let (parsed, _) = parse_header("Key:Multi-line\n value").unwrap();
         assert_eq!(parsed.key, "Key");
         assert_eq!(parsed.value, "Multi-line\n value");
 
-        parsed = parse_header("Key:  Multi\n  line\n value\n").expect("");
+        let (parsed, _) = parse_header("Key:  Multi\n  line\n value\n").unwrap();
         assert_eq!(parsed.key, "Key");
         assert_eq!(parsed.value, "Multi\n  line\n value");
 
-        parsed = parse_header("Key: One\nKey2: Two").expect("");
+        let (parsed, _) = parse_header("Key: One\nKey2: Two").unwrap();
         assert_eq!(parsed.key, "Key");
         assert_eq!(parsed.value, "One");
+
+        parse_header(" Leading: Space").unwrap_err();
+        parse_header("Just a string").unwrap_err();
+        parse_header("Key\nBroken: Value").unwrap_err();
     }
 }
