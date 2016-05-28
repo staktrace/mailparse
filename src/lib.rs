@@ -109,23 +109,23 @@ pub fn parse_header(raw_data: &str) -> Result<(MailHeader, usize), MailParseErro
     }
 }
 
-pub fn parse_headers(raw_data: &str) -> Result<Vec<MailHeader>, MailParseError> {
+pub fn parse_headers(raw_data: &str) -> Result<(Vec<MailHeader>, usize), MailParseError> {
     let mut headers: Vec<MailHeader> = Vec::new();
     let mut ix = 0;
     loop {
-        let (header, ix_end) = try!(parse_header(&raw_data[ix..]).map_err(|e| {
+        let (header, ix_next) = try!(parse_header(&raw_data[ix..]).map_err(|e| {
             MailParseError {
                 description: e.description,
                 position: e.position + ix,
             }
         }));
         headers.push(header);
-        ix = ix + ix_end;
+        ix = ix + ix_next;
         if ix >= raw_data.len() || raw_data.chars().nth(ix) == Some('\n') {
             break;
         }
     }
-    Ok(headers)
+    Ok((headers, ix))
 }
 
 #[cfg(test)]
@@ -169,14 +169,14 @@ mod tests {
 
     #[test]
     fn parse_multiple_headers() {
-        let parsed = parse_headers("Key: Value\nTwo: Second").unwrap();
+        let (parsed, _) = parse_headers("Key: Value\nTwo: Second").unwrap();
         assert_eq!(parsed.len(), 2);
         assert_eq!(parsed[0].key, "Key");
         assert_eq!(parsed[0].value, "Value");
         assert_eq!(parsed[1].key, "Two");
         assert_eq!(parsed[1].value, "Second");
 
-        let parsed = parse_headers("Key: Value\n Overhang\nTwo: Second\nThree: Third").unwrap();
+        let (parsed, _) = parse_headers("Key: Value\n Overhang\nTwo: Second\nThree: Third").unwrap();
         assert_eq!(parsed.len(), 3);
         assert_eq!(parsed[0].key, "Key");
         assert_eq!(parsed[0].value, "Value\n Overhang");
@@ -185,14 +185,14 @@ mod tests {
         assert_eq!(parsed[2].key, "Three");
         assert_eq!(parsed[2].value, "Third");
 
-        let parsed = parse_headers("Key: Value\nTwo: Second\n\nBody").unwrap();
+        let (parsed, _) = parse_headers("Key: Value\nTwo: Second\n\nBody").unwrap();
         assert_eq!(parsed.len(), 2);
         assert_eq!(parsed[0].key, "Key");
         assert_eq!(parsed[0].value, "Value");
         assert_eq!(parsed[1].key, "Two");
         assert_eq!(parsed[1].value, "Second");
 
-        let parsed =
+        let (parsed, _) =
             parse_headers("Return-Path: <kats@foobar.staktrace.com>\nX-Original-To: \
                            kats@baz.staktrace.com\nDelivered-To: \
                            kats@baz.staktrace.com\nReceived: from foobar.staktrace.com \
