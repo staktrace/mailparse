@@ -1,13 +1,145 @@
+extern crate base64;
+extern crate encoding;
+extern crate quoted_printable;
+
+use std::error;
+use std::fmt;
+
+#[derive(Debug)]
+pub struct MailParseError {
+    description: String,
+    position: usize,
+}
+
+impl fmt::Display for MailParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} (offset {})", self.description, self.position)
+    }
+}
+
+impl error::Error for MailParseError {
+    fn description(&self) -> &str {
+        "An error occurred while attempting to parse the input"
+    }
+
+    fn cause(&self) -> Option<&error::Error> {
+        None
+    }
+}
+
+impl From<quoted_printable::QuotedPrintableError> for MailParseError {
+    fn from(err: quoted_printable::QuotedPrintableError) -> MailParseError {
+        use std::error::Error;
+        MailParseError { description: err.description().to_string(), position: 0 }
+    }
+}
+
+impl From<base64::Base64Error> for MailParseError {
+    fn from(err: base64::Base64Error) -> MailParseError {
+        use std::error::Error;
+        MailParseError { description: err.description().to_string(), position: 0 }
+    }
+}
+
 #[derive(Debug)]
 pub struct MailHeader<'a> {
     key: &'a str,
     value: &'a str,
 }
 
-#[derive(Debug)]
-pub struct MailParseError {
-    description: String,
-    position: usize,
+fn is_boundary(line: &str, ix: Option<usize>) -> bool {
+    ix.map_or_else(|| true, |v| v >= line.len() || line.chars().nth(v).unwrap().is_whitespace())
+}
+
+fn find_from(line: &str, ix_start: usize, key: &str) -> Option<usize> {
+    line[ix_start..].find(key).map(|v| ix_start + v)
+}
+
+impl<'a> MailHeader<'a> {
+    pub fn get_key(&self) -> String {
+        self.key.trim().to_string()
+    }
+
+    fn decode_word(&self, encoded: &str) -> Result<String, MailParseError> {
+        let ix_delim1 = try!(encoded.find("?").ok_or(MailParseError { description: "Unable to find '?' inside encoded-word".to_string(), position: 0 }));
+        let ix_delim2 = try!(find_from(encoded, ix_delim1 + 1, "?").ok_or(MailParseError { description: "Unable to find second '?' inside encoded-word".to_string(), position: ix_delim1 + 1 }));
+
+        let charset = &encoded[0..ix_delim1];
+        let transfer_coding = &encoded[ix_delim1 + 1..ix_delim2];
+        let input = &encoded[ix_delim2 + 1..];
+
+        let decoded = match transfer_coding {
+            "B" => try!(base64::u8de(input.as_bytes())),
+            "Q" => try!(quoted_printable::decode(&input.replace("_", " "), quoted_printable::ParseMode::Robust)),
+            _ => return Err(MailParseError { description: "Unknown transfer-coding name found in encoded-word".to_string(), position: ix_delim1 + 1 }),
+        };
+        let charset_conv = try!(encoding::label::encoding_from_whatwg_label(charset).ok_or(MailParseError { description: "Unknown charset found in encoded-word".to_string(), position: 0 }));
+        charset_conv.decode(&decoded, encoding::DecoderTrap::Replace).map_err(|_| MailParseError {
+            description: "Unable to convert transfer-decoded bytes from specified charset".to_string(), position: 0 })
+    }
+
+    pub fn get_value(&self) -> String {
+        let mut result = String::new();
+        let mut lines = self.value.lines();
+        let mut add_space = false;
+        loop {
+            let line = match lines.next() {
+                Some(v) => v.trim_left(),
+                None => break,
+            };
+
+            if add_space {
+                result.push(' ');
+            }
+            add_space = true;
+
+            let mut ix_search = 0;
+            loop {
+                match find_from(line, ix_search, "=?") {
+                    Some(v) => {
+                        let ix_begin = v + 2;
+                        if !is_boundary(line, ix_begin.checked_sub(3)) {
+                            result.push_str(&line[ix_search..ix_begin]);
+                            ix_search = ix_begin;
+                            continue;
+                        }
+                        result.push_str(&line[ix_search..ix_begin - 2]);
+                        let mut ix_end_search = ix_begin;
+                        loop {
+                            match find_from(line, ix_end_search, "?=") {
+                                Some(ix_end) => {
+                                    if !is_boundary(line, ix_end.checked_add(2)) {
+                                        ix_end_search = ix_end + 2;
+                                        continue;
+                                    }
+                                    match self.decode_word(&line[ix_begin..ix_end]) {
+                                        Ok(v) => {
+                                            result.push_str(&v);
+                                        }
+                                        Err(_) => {
+                                            result.push_str(&line[ix_begin - 2..ix_end + 2]);
+                                        }
+                                    };
+                                    ix_search = ix_end;
+                                }
+                                None => {
+                                    result.push_str(&"=?");
+                                }
+                            };
+                            break;
+                        }
+                        ix_search = ix_search + 2;
+                        continue;
+                    }
+                    None => {
+                        result.push_str(&line[ix_search..]);
+                        break;
+                    }
+                };
+            }
+        }
+        result
+    }
 }
 
 enum HeaderParseState {
@@ -136,7 +268,9 @@ mod tests {
     fn parse_basic_header() {
         let (parsed, _) = parse_header("Key: Value").unwrap();
         assert_eq!(parsed.key, "Key");
+        assert_eq!(parsed.get_key(), "Key");
         assert_eq!(parsed.value, "Value");
+        assert_eq!(parsed.get_value(), "Value");
 
         let (parsed, _) = parse_header("Key :  Value ").unwrap();
         assert_eq!(parsed.key, "Key ");
@@ -165,6 +299,13 @@ mod tests {
         parse_header(" Leading: Space").unwrap_err();
         parse_header("Just a string").unwrap_err();
         parse_header("Key\nBroken: Value").unwrap_err();
+    }
+
+    #[test]
+    fn parse_encoded_headers() {
+        let (parsed, _) = parse_header("Subject: =?iso-8859-1?Q?=A1Hola,_se=F1or!?=").unwrap();
+        assert_eq!(parsed.get_key(), "Subject");
+        assert_eq!(parsed.get_value(), "¡Hola, señor!");
     }
 
     #[test]

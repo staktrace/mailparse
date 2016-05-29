@@ -4,3 +4,6 @@ version = "0.1.0"
 authors = ["Kartikaya Gupta <kats@seldon.staktrace.com>"]
 
 [dependencies]
+base64 = "0.1.1"
+quoted_printable = "0.2.0"
+encoding = "0.2.32"
