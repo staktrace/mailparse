@@ -275,6 +275,7 @@ mod tests {
         let (parsed, _) = parse_header("Key :  Value ").unwrap();
         assert_eq!(parsed.key, "Key ");
         assert_eq!(parsed.value, "Value ");
+        assert_eq!(parsed.get_value(), "Value ");
 
         let (parsed, _) = parse_header("Key:").unwrap();
         assert_eq!(parsed.key, "Key");
@@ -287,10 +288,12 @@ mod tests {
         let (parsed, _) = parse_header("Key:Multi-line\n value").unwrap();
         assert_eq!(parsed.key, "Key");
         assert_eq!(parsed.value, "Multi-line\n value");
+        assert_eq!(parsed.get_value(), "Multi-line value");
 
         let (parsed, _) = parse_header("Key:  Multi\n  line\n value\n").unwrap();
         assert_eq!(parsed.key, "Key");
         assert_eq!(parsed.value, "Multi\n  line\n value");
+        assert_eq!(parsed.get_value(), "Multi line value");
 
         let (parsed, _) = parse_header("Key: One\nKey2: Two").unwrap();
         assert_eq!(parsed.key, "Key");
@@ -305,7 +308,11 @@ mod tests {
     fn parse_encoded_headers() {
         let (parsed, _) = parse_header("Subject: =?iso-8859-1?Q?=A1Hola,_se=F1or!?=").unwrap();
         assert_eq!(parsed.get_key(), "Subject");
-        assert_eq!(parsed.get_value(), "¡Hola, señor!");
+        assert_eq!(parsed.get_value(), "\u{a1}Hola, se\u{f1}or!");
+
+        let (parsed, _) = parse_header("Subject: =?iso-8859-1?Q?=A1Hola,?=\n =?iso-8859-1?Q?_se=F1or!?=").unwrap();
+        assert_eq!(parsed.get_key(), "Subject");
+        assert_eq!(parsed.get_value(), "\u{a1}Hola,  se\u{f1}or!");
     }
 
     #[test]
