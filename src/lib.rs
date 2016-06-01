@@ -30,14 +30,20 @@ impl error::Error for MailParseError {
 impl From<quoted_printable::QuotedPrintableError> for MailParseError {
     fn from(err: quoted_printable::QuotedPrintableError) -> MailParseError {
         use std::error::Error;
-        MailParseError { description: err.description().to_string(), position: 0 }
+        MailParseError {
+            description: err.description().to_string(),
+            position: 0,
+        }
     }
 }
 
 impl From<base64::Base64Error> for MailParseError {
     fn from(err: base64::Base64Error) -> MailParseError {
         use std::error::Error;
-        MailParseError { description: err.description().to_string(), position: 0 }
+        MailParseError {
+            description: err.description().to_string(),
+            position: 0,
+        }
     }
 }
 
@@ -48,7 +54,8 @@ pub struct MailHeader<'a> {
 }
 
 fn is_boundary(line: &str, ix: Option<usize>) -> bool {
-    ix.map_or_else(|| true, |v| v >= line.len() || line.chars().nth(v).unwrap().is_whitespace())
+    ix.map_or_else(|| true,
+                   |v| v >= line.len() || line.chars().nth(v).unwrap().is_whitespace())
 }
 
 fn find_from(line: &str, ix_start: usize, key: &str) -> Option<usize> {
@@ -61,8 +68,14 @@ impl<'a> MailHeader<'a> {
     }
 
     fn decode_word(&self, encoded: &str) -> Result<String, MailParseError> {
-        let ix_delim1 = try!(encoded.find("?").ok_or(MailParseError { description: "Unable to find '?' inside encoded-word".to_string(), position: 0 }));
-        let ix_delim2 = try!(find_from(encoded, ix_delim1 + 1, "?").ok_or(MailParseError { description: "Unable to find second '?' inside encoded-word".to_string(), position: ix_delim1 + 1 }));
+        let ix_delim1 = try!(encoded.find("?").ok_or(MailParseError {
+            description: "Unable to find '?' inside encoded-word".to_string(),
+            position: 0,
+        }));
+        let ix_delim2 = try!(find_from(encoded, ix_delim1 + 1, "?").ok_or(MailParseError {
+            description: "Unable to find second '?' inside encoded-word".to_string(),
+            position: ix_delim1 + 1,
+        }));
 
         let charset = &encoded[0..ix_delim1];
         let transfer_coding = &encoded[ix_delim1 + 1..ix_delim2];
@@ -70,12 +83,29 @@ impl<'a> MailHeader<'a> {
 
         let decoded = match transfer_coding {
             "B" => try!(base64::u8de(input.as_bytes())),
-            "Q" => try!(quoted_printable::decode(&input.replace("_", " "), quoted_printable::ParseMode::Robust)),
-            _ => return Err(MailParseError { description: "Unknown transfer-coding name found in encoded-word".to_string(), position: ix_delim1 + 1 }),
+            "Q" => {
+                try!(quoted_printable::decode(&input.replace("_", " "),
+                                              quoted_printable::ParseMode::Robust))
+            }
+            _ => {
+                return Err(MailParseError {
+                    description: "Unknown transfer-coding name found in encoded-word".to_string(),
+                    position: ix_delim1 + 1,
+                })
+            }
         };
-        let charset_conv = try!(encoding::label::encoding_from_whatwg_label(charset).ok_or(MailParseError { description: "Unknown charset found in encoded-word".to_string(), position: 0 }));
-        charset_conv.decode(&decoded, encoding::DecoderTrap::Replace).map_err(|_| MailParseError {
-            description: "Unable to convert transfer-decoded bytes from specified charset".to_string(), position: 0 })
+        let charset_conv = try!(encoding::label::encoding_from_whatwg_label(charset)
+            .ok_or(MailParseError {
+                description: "Unknown charset found in encoded-word".to_string(),
+                position: 0,
+            }));
+        charset_conv.decode(&decoded, encoding::DecoderTrap::Replace).map_err(|_| {
+            MailParseError {
+                description: "Unable to convert transfer-decoded bytes from specified charset"
+                    .to_string(),
+                position: 0,
+            }
+        })
     }
 
     pub fn get_value(&self) -> String {
@@ -310,7 +340,9 @@ mod tests {
         assert_eq!(parsed.get_key(), "Subject");
         assert_eq!(parsed.get_value(), "\u{a1}Hola, se\u{f1}or!");
 
-        let (parsed, _) = parse_header("Subject: =?iso-8859-1?Q?=A1Hola,?=\n =?iso-8859-1?Q?_se=F1or!?=").unwrap();
+        let (parsed, _) = parse_header("Subject: =?iso-8859-1?Q?=A1Hola,?=\n \
+                                        =?iso-8859-1?Q?_se=F1or!?=")
+            .unwrap();
         assert_eq!(parsed.get_key(), "Subject");
         assert_eq!(parsed.get_value(), "\u{a1}Hola,  se\u{f1}or!");
     }
@@ -324,7 +356,8 @@ mod tests {
         assert_eq!(parsed[1].key, "Two");
         assert_eq!(parsed[1].value, "Second");
 
-        let (parsed, _) = parse_headers("Key: Value\n Overhang\nTwo: Second\nThree: Third").unwrap();
+        let (parsed, _) = parse_headers("Key: Value\n Overhang\nTwo: Second\nThree: Third")
+            .unwrap();
         assert_eq!(parsed.len(), 3);
         assert_eq!(parsed[0].key, "Key");
         assert_eq!(parsed[0].value, "Value\n Overhang");
