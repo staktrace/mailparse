@@ -345,6 +345,34 @@ mod tests {
             .unwrap();
         assert_eq!(parsed.get_key(), "Subject");
         assert_eq!(parsed.get_value(), "\u{a1}Hola,  se\u{f1}or!");
+
+        let (parsed, _) = parse_header("Euro: =?utf-8?Q?=E2=82=AC?=").unwrap();
+        assert_eq!(parsed.get_key(), "Euro");
+        assert_eq!(parsed.get_value(), "\u{20ac}");
+
+        let (parsed, _) = parse_header("HelloWorld: =?utf-8?B?aGVsbG8gd29ybGQ=?=").unwrap();
+        assert_eq!(parsed.get_value(), "hello world");
+
+        let (parsed, _) = parse_header("Empty: =?utf-8?Q??=").unwrap();
+        assert_eq!(parsed.get_value(), "");
+
+        let (parsed, _) = parse_header("Incomplete: =?").unwrap();
+        assert_eq!(parsed.get_value(), "=?");
+
+        let (parsed, _) = parse_header("BadEncoding: =?garbage?Q??=").unwrap();
+        assert_eq!(parsed.get_value(), "=?garbage?Q??=");
+
+        let (parsed, _) = parse_header("Invalid: =?utf-8?Q?=E2=AC?=").unwrap();
+        assert_eq!(parsed.get_value(), "\u{fffd}");
+
+        let (parsed, _) = parse_header("LineBreak: =?utf-8?Q?=E2=82\n =AC?=").unwrap();
+        assert_eq!(parsed.get_value(), "=?utf-8?Q?=E2=82 =AC?=");
+
+        let (parsed, _) = parse_header("NotSeparateWord: hello=?utf-8?Q?world?=").unwrap();
+        assert_eq!(parsed.get_value(), "hello=?utf-8?Q?world?=");
+
+        let (parsed, _) = parse_header("NotSeparateWord2: =?utf-8?Q?hello?=world").unwrap();
+        assert_eq!(parsed.get_value(), "=?utf-8?Q?hello?=world");
     }
 
     #[test]
