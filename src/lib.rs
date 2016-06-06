@@ -271,6 +271,32 @@ pub fn parse_header(raw_data: &str) -> Result<(MailHeader, usize), MailParseErro
     }
 }
 
+pub trait MailHeaderMap {
+    fn get_first_value(&self, key: &str) -> Option<String>;
+    fn get_all_values(&self, key: &str) -> Vec<String>;
+}
+
+impl<'a> MailHeaderMap for Vec<MailHeader<'a>> {
+    fn get_first_value(&self, key: &str) -> Option<String> {
+        for x in self {
+            if x.get_key() == key {
+                return Some(x.get_value());
+            }
+        }
+        None
+    }
+
+    fn get_all_values(&self, key: &str) -> Vec<String> {
+        let mut values: Vec<String> = Vec::new();
+        for x in self {
+            if x.get_key() == key {
+                values.push(x.get_value());
+            }
+        }
+        values
+    }
+}
+
 pub fn parse_headers(raw_data: &str) -> Result<(Vec<MailHeader>, usize), MailParseError> {
     let mut headers: Vec<MailHeader> = Vec::new();
     let mut ix = 0;
@@ -417,6 +443,15 @@ mod tests {
         assert_eq!(parsed.len(), 10);
         assert_eq!(parsed[0].key, "Return-Path");
         assert_eq!(parsed[9].key, "Message-Id");
+
+        let (parsed, _) = parse_headers("Key: Value\nAnotherKey: AnotherValue\nKey: Value2\nKey: Value3\n").unwrap();
+        assert_eq!(parsed.len(), 4);
+        assert_eq!(parsed.get_first_value("Key"), Some("Value".to_string()));
+        assert_eq!(parsed.get_all_values("Key"), vec!["Value", "Value2", "Value3"]);
+        assert_eq!(parsed.get_first_value("AnotherKey"), Some("AnotherValue".to_string()));
+        assert_eq!(parsed.get_all_values("AnotherKey"), vec!["AnotherValue"]);
+        assert_eq!(parsed.get_first_value("NoKey"), None);
+        assert_eq!(parsed.get_all_values("NoKey"), Vec::<String>::new());
 
         assert_eq!(parse_headers("Bad\nKey").unwrap_err().position, 3);
         assert_eq!(parse_headers("K:V\nBad\nKey").unwrap_err().position, 7);
