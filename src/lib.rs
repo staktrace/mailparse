@@ -252,7 +252,7 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
                 }
             }
             HeaderParseState::ValueNewline => {
-                if c == b' ' {
+                if c == b' ' || c == b'\t' {
                     state = HeaderParseState::Value;
                     continue;
                 } else {
@@ -367,6 +367,11 @@ mod tests {
         let (parsed, _) = parse_header(b"Key: One\nKey2: Two").unwrap();
         assert_eq!(parsed.key, b"Key");
         assert_eq!(parsed.value, b"One");
+
+        let (parsed, _) = parse_header(b"Key: One\n\tOverhang").unwrap();
+        assert_eq!(parsed.key, b"Key");
+        assert_eq!(parsed.value, b"One\n\tOverhang");
+        assert_eq!(parsed.get_value().unwrap(), "One Overhang");
 
         parse_header(b" Leading: Space").unwrap_err();
         parse_header(b"Just a string").unwrap_err();
