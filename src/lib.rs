@@ -6,6 +6,8 @@ use std::error;
 use std::fmt;
 use std::str;
 
+use encoding::Encoding;
+
 #[derive(Debug)]
 pub enum MailParseError {
     QuotedPrintableDecodeError(quoted_printable::QuotedPrintableError),
@@ -53,10 +55,9 @@ impl From<base64::Base64Error> for MailParseError {
     }
 }
 
-impl From<str::Utf8Error> for MailParseError {
-    fn from(err: str::Utf8Error) -> MailParseError {
-        use std::error::Error;
-        MailParseError::Generic(err.description().to_string(), 0)
+impl From<std::borrow::Cow<'static, str>> for MailParseError {
+    fn from(err: std::borrow::Cow<'static, str>) -> MailParseError {
+        MailParseError::Generic(err.into_owned().to_string(), 0)
     }
 }
 
@@ -77,8 +78,7 @@ fn find_from(line: &str, ix_start: usize, key: &str) -> Option<usize> {
 
 impl<'a> MailHeader<'a> {
     pub fn get_key(&self) -> Result<String, MailParseError> {
-        let utf = try!(str::from_utf8(self.key));
-        Ok(utf.trim().to_string())
+        Ok(try!(encoding::all::ISO_8859_1.decode(self.key, encoding::DecoderTrap::Strict)).trim().to_string())
     }
 
     fn decode_word(&self, encoded: &str) -> Result<String, MailParseError> {
@@ -124,8 +124,8 @@ impl<'a> MailHeader<'a> {
 
     pub fn get_value(&self) -> Result<String, MailParseError> {
         let mut result = String::new();
-        let utf = try!(str::from_utf8(self.value));
-        let mut lines = utf.lines();
+        let chars = try!(encoding::all::ISO_8859_1.decode(self.value, encoding::DecoderTrap::Strict));
+        let mut lines = chars.lines();
         let mut add_space = false;
         loop {
             let line = match lines.next() {
