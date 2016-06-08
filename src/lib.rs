@@ -336,6 +336,15 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
 mod tests {
     use super::*;
 
+    macro_rules! assert_match {
+        ( $x:expr, $p:pat ) => {
+            match $x {
+                $p => (),
+                _ => panic!("Expression {} does not match given pattern", $x),
+            }
+        }
+    }
+
     #[test]
     fn parse_basic_header() {
         let (parsed, _) = parse_header(b"Key: Value").unwrap();
@@ -474,13 +483,7 @@ mod tests {
         assert_eq!(parsed.get_first_value("NoKey").unwrap(), None);
         assert_eq!(parsed.get_all_values("NoKey").unwrap(), Vec::<String>::new());
 
-        assert!(match parse_headers(b"Bad\nKey").unwrap_err() {
-            MailParseError::Generic(_, 3) => true,
-            _ => false,
-        });
-        assert!(match parse_headers(b"K:V\nBad\nKey").unwrap_err() {
-            MailParseError::Generic(_, 7) => true,
-            _ => false,
-        });
+        assert_match!(parse_headers(b"Bad\nKey").unwrap_err(), MailParseError::Generic(_, 3));
+        assert_match!(parse_headers(b"K:V\nBad\nKey").unwrap_err(), MailParseError::Generic(_, 7));
     }
 }
