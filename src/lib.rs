@@ -4,6 +4,7 @@ extern crate quoted_printable;
 
 use std::error;
 use std::fmt;
+use std::str;
 
 #[derive(Debug)]
 pub struct MailParseError {
@@ -47,10 +48,20 @@ impl From<base64::Base64Error> for MailParseError {
     }
 }
 
+impl From<str::Utf8Error> for MailParseError {
+    fn from(err: str::Utf8Error) -> MailParseError {
+        use std::error::Error;
+        MailParseError {
+            description: err.description().to_string(),
+            position: 0,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct MailHeader<'a> {
-    key: &'a str,
-    value: &'a str,
+    key: &'a [u8],
+    value: &'a [u8],
 }
 
 fn is_boundary(line: &str, ix: Option<usize>) -> bool {
@@ -63,8 +74,9 @@ fn find_from(line: &str, ix_start: usize, key: &str) -> Option<usize> {
 }
 
 impl<'a> MailHeader<'a> {
-    pub fn get_key(&self) -> String {
-        self.key.trim().to_string()
+    pub fn get_key(&self) -> Result<String, MailParseError> {
+        let utf = try!(str::from_utf8(self.key));
+        Ok(utf.trim().to_string())
     }
 
     fn decode_word(&self, encoded: &str) -> Result<String, MailParseError> {
@@ -108,9 +120,10 @@ impl<'a> MailHeader<'a> {
         })
     }
 
-    pub fn get_value(&self) -> String {
+    pub fn get_value(&self) -> Result<String, MailParseError> {
         let mut result = String::new();
-        let mut lines = self.value.lines();
+        let utf = try!(str::from_utf8(self.value));
+        let mut lines = utf.lines();
         let mut add_space = false;
         loop {
             let line = match lines.next() {
@@ -147,7 +160,7 @@ impl<'a> MailHeader<'a> {
                                             result.push_str(&v);
                                         }
                                         Err(_) => {
-                                            result.push_str(&line[ix_begin - 2..ix_end + 2]);
+                                            result.push_str(&line[ix_begin - 2..ix_end + 2])
                                         }
                                     };
                                     ix_search = ix_end;
@@ -168,7 +181,7 @@ impl<'a> MailHeader<'a> {
                 };
             }
         }
-        result
+        Ok(result)
     }
 }
 
@@ -180,8 +193,8 @@ enum HeaderParseState {
     ValueNewline,
 }
 
-pub fn parse_header(raw_data: &str) -> Result<(MailHeader, usize), MailParseError> {
-    let mut it = raw_data.chars();
+pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseError> {
+    let mut it = raw_data.iter();
     let mut ix = 0;
     let mut c = match it.next() {
         None => {
@@ -190,7 +203,7 @@ pub fn parse_header(raw_data: &str) -> Result<(MailHeader, usize), MailParseErro
                 position: 0,
             })
         }
-        Some(v) => v,
+        Some(v) => *v,
     };
 
     let mut ix_key_end = None;
@@ -201,7 +214,7 @@ pub fn parse_header(raw_data: &str) -> Result<(MailHeader, usize), MailParseErro
     loop {
         match state {
             HeaderParseState::Initial => {
-                if c == ' ' {
+                if c == b' ' {
                     return Err(MailParseError {
                         description: "Header cannot start with a space; it is likely an \
                                       overhanging line from a previous header"
@@ -213,10 +226,10 @@ pub fn parse_header(raw_data: &str) -> Result<(MailHeader, usize), MailParseErro
                 continue;
             }
             HeaderParseState::Key => {
-                if c == ':' {
+                if c == b':' {
                     ix_key_end = Some(ix);
                     state = HeaderParseState::PreValue;
-                } else if c == '\n' {
+                } else if c == b'\n' {
                     return Err(MailParseError {
                         description: "Unexpected newline in header key".to_string(),
                         position: ix,
@@ -224,7 +237,7 @@ pub fn parse_header(raw_data: &str) -> Result<(MailHeader, usize), MailParseErro
                 }
             }
             HeaderParseState::PreValue => {
-                if c != ' ' {
+                if c != b' ' {
                     ix_value_start = ix;
                     ix_value_end = ix;
                     state = HeaderParseState::Value;
@@ -232,14 +245,14 @@ pub fn parse_header(raw_data: &str) -> Result<(MailHeader, usize), MailParseErro
                 }
             }
             HeaderParseState::Value => {
-                if c == '\n' {
+                if c == b'\n' {
                     state = HeaderParseState::ValueNewline;
                 } else {
                     ix_value_end = ix + 1;
                 }
             }
             HeaderParseState::ValueNewline => {
-                if c == ' ' {
+                if c == b' ' {
                     state = HeaderParseState::Value;
                     continue;
                 } else {
@@ -250,7 +263,7 @@ pub fn parse_header(raw_data: &str) -> Result<(MailHeader, usize), MailParseErro
         ix = ix + 1;
         c = match it.next() {
             None => break,
-            Some(v) => v,
+            Some(v) => *v,
         };
     }
     match ix_key_end {
@@ -272,32 +285,32 @@ pub fn parse_header(raw_data: &str) -> Result<(MailHeader, usize), MailParseErro
 }
 
 pub trait MailHeaderMap {
-    fn get_first_value(&self, key: &str) -> Option<String>;
-    fn get_all_values(&self, key: &str) -> Vec<String>;
+    fn get_first_value(&self, key: &str) -> Result<Option<String>, MailParseError>;
+    fn get_all_values(&self, key: &str) -> Result<Vec<String>, MailParseError>;
 }
 
 impl<'a> MailHeaderMap for Vec<MailHeader<'a>> {
-    fn get_first_value(&self, key: &str) -> Option<String> {
+    fn get_first_value(&self, key: &str) -> Result<Option<String>, MailParseError> {
         for x in self {
-            if x.get_key() == key {
-                return Some(x.get_value());
+            if try!(x.get_key()) == key {
+                return x.get_value().map(|v| Some(v));
             }
         }
-        None
+        Ok(None)
     }
 
-    fn get_all_values(&self, key: &str) -> Vec<String> {
+    fn get_all_values(&self, key: &str) -> Result<Vec<String>, MailParseError> {
         let mut values: Vec<String> = Vec::new();
         for x in self {
-            if x.get_key() == key {
-                values.push(x.get_value());
+            if try!(x.get_key()) == key {
+                values.push(try!(x.get_value()));
             }
         }
-        values
+        Ok(values)
     }
 }
 
-pub fn parse_headers(raw_data: &str) -> Result<(Vec<MailHeader>, usize), MailParseError> {
+pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailParseError> {
     let mut headers: Vec<MailHeader> = Vec::new();
     let mut ix = 0;
     loop {
@@ -309,7 +322,7 @@ pub fn parse_headers(raw_data: &str) -> Result<(Vec<MailHeader>, usize), MailPar
         }));
         headers.push(header);
         ix = ix + ix_next;
-        if ix >= raw_data.len() || raw_data.chars().nth(ix) == Some('\n') {
+        if ix >= raw_data.len() || raw_data[ix] == b'\n' {
             break;
         }
     }
@@ -322,113 +335,113 @@ mod tests {
 
     #[test]
     fn parse_basic_header() {
-        let (parsed, _) = parse_header("Key: Value").unwrap();
-        assert_eq!(parsed.key, "Key");
-        assert_eq!(parsed.get_key(), "Key");
-        assert_eq!(parsed.value, "Value");
-        assert_eq!(parsed.get_value(), "Value");
+        let (parsed, _) = parse_header(b"Key: Value").unwrap();
+        assert_eq!(parsed.key, b"Key");
+        assert_eq!(parsed.get_key().unwrap(), "Key");
+        assert_eq!(parsed.value, b"Value");
+        assert_eq!(parsed.get_value().unwrap(), "Value");
 
-        let (parsed, _) = parse_header("Key :  Value ").unwrap();
-        assert_eq!(parsed.key, "Key ");
-        assert_eq!(parsed.value, "Value ");
-        assert_eq!(parsed.get_value(), "Value ");
+        let (parsed, _) = parse_header(b"Key :  Value ").unwrap();
+        assert_eq!(parsed.key, b"Key ");
+        assert_eq!(parsed.value, b"Value ");
+        assert_eq!(parsed.get_value().unwrap(), "Value ");
 
-        let (parsed, _) = parse_header("Key:").unwrap();
-        assert_eq!(parsed.key, "Key");
-        assert_eq!(parsed.value, "");
+        let (parsed, _) = parse_header(b"Key:").unwrap();
+        assert_eq!(parsed.key, b"Key");
+        assert_eq!(parsed.value, b"");
 
-        let (parsed, _) = parse_header(":\n").unwrap();
-        assert_eq!(parsed.key, "");
-        assert_eq!(parsed.value, "");
+        let (parsed, _) = parse_header(b":\n").unwrap();
+        assert_eq!(parsed.key, b"");
+        assert_eq!(parsed.value, b"");
 
-        let (parsed, _) = parse_header("Key:Multi-line\n value").unwrap();
-        assert_eq!(parsed.key, "Key");
-        assert_eq!(parsed.value, "Multi-line\n value");
-        assert_eq!(parsed.get_value(), "Multi-line value");
+        let (parsed, _) = parse_header(b"Key:Multi-line\n value").unwrap();
+        assert_eq!(parsed.key, b"Key");
+        assert_eq!(parsed.value, b"Multi-line\n value");
+        assert_eq!(parsed.get_value().unwrap(), "Multi-line value");
 
-        let (parsed, _) = parse_header("Key:  Multi\n  line\n value\n").unwrap();
-        assert_eq!(parsed.key, "Key");
-        assert_eq!(parsed.value, "Multi\n  line\n value");
-        assert_eq!(parsed.get_value(), "Multi line value");
+        let (parsed, _) = parse_header(b"Key:  Multi\n  line\n value\n").unwrap();
+        assert_eq!(parsed.key, b"Key");
+        assert_eq!(parsed.value, b"Multi\n  line\n value");
+        assert_eq!(parsed.get_value().unwrap(), "Multi line value");
 
-        let (parsed, _) = parse_header("Key: One\nKey2: Two").unwrap();
-        assert_eq!(parsed.key, "Key");
-        assert_eq!(parsed.value, "One");
+        let (parsed, _) = parse_header(b"Key: One\nKey2: Two").unwrap();
+        assert_eq!(parsed.key, b"Key");
+        assert_eq!(parsed.value, b"One");
 
-        parse_header(" Leading: Space").unwrap_err();
-        parse_header("Just a string").unwrap_err();
-        parse_header("Key\nBroken: Value").unwrap_err();
+        parse_header(b" Leading: Space").unwrap_err();
+        parse_header(b"Just a string").unwrap_err();
+        parse_header(b"Key\nBroken: Value").unwrap_err();
     }
 
     #[test]
     fn parse_encoded_headers() {
-        let (parsed, _) = parse_header("Subject: =?iso-8859-1?Q?=A1Hola,_se=F1or!?=").unwrap();
-        assert_eq!(parsed.get_key(), "Subject");
-        assert_eq!(parsed.get_value(), "\u{a1}Hola, se\u{f1}or!");
+        let (parsed, _) = parse_header(b"Subject: =?iso-8859-1?Q?=A1Hola,_se=F1or!?=").unwrap();
+        assert_eq!(parsed.get_key().unwrap(), "Subject");
+        assert_eq!(parsed.get_value().unwrap(), "\u{a1}Hola, se\u{f1}or!");
 
-        let (parsed, _) = parse_header("Subject: =?iso-8859-1?Q?=A1Hola,?=\n \
+        let (parsed, _) = parse_header(b"Subject: =?iso-8859-1?Q?=A1Hola,?=\n \
                                         =?iso-8859-1?Q?_se=F1or!?=")
             .unwrap();
-        assert_eq!(parsed.get_key(), "Subject");
-        assert_eq!(parsed.get_value(), "\u{a1}Hola,  se\u{f1}or!");
+        assert_eq!(parsed.get_key().unwrap(), "Subject");
+        assert_eq!(parsed.get_value().unwrap(), "\u{a1}Hola,  se\u{f1}or!");
 
-        let (parsed, _) = parse_header("Euro: =?utf-8?Q?=E2=82=AC?=").unwrap();
-        assert_eq!(parsed.get_key(), "Euro");
-        assert_eq!(parsed.get_value(), "\u{20ac}");
+        let (parsed, _) = parse_header(b"Euro: =?utf-8?Q?=E2=82=AC?=").unwrap();
+        assert_eq!(parsed.get_key().unwrap(), "Euro");
+        assert_eq!(parsed.get_value().unwrap(), "\u{20ac}");
 
-        let (parsed, _) = parse_header("HelloWorld: =?utf-8?B?aGVsbG8gd29ybGQ=?=").unwrap();
-        assert_eq!(parsed.get_value(), "hello world");
+        let (parsed, _) = parse_header(b"HelloWorld: =?utf-8?B?aGVsbG8gd29ybGQ=?=").unwrap();
+        assert_eq!(parsed.get_value().unwrap(), "hello world");
 
-        let (parsed, _) = parse_header("Empty: =?utf-8?Q??=").unwrap();
-        assert_eq!(parsed.get_value(), "");
+        let (parsed, _) = parse_header(b"Empty: =?utf-8?Q??=").unwrap();
+        assert_eq!(parsed.get_value().unwrap(), "");
 
-        let (parsed, _) = parse_header("Incomplete: =?").unwrap();
-        assert_eq!(parsed.get_value(), "=?");
+        let (parsed, _) = parse_header(b"Incomplete: =?").unwrap();
+        assert_eq!(parsed.get_value().unwrap(), "=?");
 
-        let (parsed, _) = parse_header("BadEncoding: =?garbage?Q??=").unwrap();
-        assert_eq!(parsed.get_value(), "=?garbage?Q??=");
+        let (parsed, _) = parse_header(b"BadEncoding: =?garbage?Q??=").unwrap();
+        assert_eq!(parsed.get_value().unwrap(), "=?garbage?Q??=");
 
-        let (parsed, _) = parse_header("Invalid: =?utf-8?Q?=E2=AC?=").unwrap();
-        assert_eq!(parsed.get_value(), "\u{fffd}");
+        let (parsed, _) = parse_header(b"Invalid: =?utf-8?Q?=E2=AC?=").unwrap();
+        assert_eq!(parsed.get_value().unwrap(), "\u{fffd}");
 
-        let (parsed, _) = parse_header("LineBreak: =?utf-8?Q?=E2=82\n =AC?=").unwrap();
-        assert_eq!(parsed.get_value(), "=?utf-8?Q?=E2=82 =AC?=");
+        let (parsed, _) = parse_header(b"LineBreak: =?utf-8?Q?=E2=82\n =AC?=").unwrap();
+        assert_eq!(parsed.get_value().unwrap(), "=?utf-8?Q?=E2=82 =AC?=");
 
-        let (parsed, _) = parse_header("NotSeparateWord: hello=?utf-8?Q?world?=").unwrap();
-        assert_eq!(parsed.get_value(), "hello=?utf-8?Q?world?=");
+        let (parsed, _) = parse_header(b"NotSeparateWord: hello=?utf-8?Q?world?=").unwrap();
+        assert_eq!(parsed.get_value().unwrap(), "hello=?utf-8?Q?world?=");
 
-        let (parsed, _) = parse_header("NotSeparateWord2: =?utf-8?Q?hello?=world").unwrap();
-        assert_eq!(parsed.get_value(), "=?utf-8?Q?hello?=world");
+        let (parsed, _) = parse_header(b"NotSeparateWord2: =?utf-8?Q?hello?=world").unwrap();
+        assert_eq!(parsed.get_value().unwrap(), "=?utf-8?Q?hello?=world");
     }
 
     #[test]
     fn parse_multiple_headers() {
-        let (parsed, _) = parse_headers("Key: Value\nTwo: Second").unwrap();
+        let (parsed, _) = parse_headers(b"Key: Value\nTwo: Second").unwrap();
         assert_eq!(parsed.len(), 2);
-        assert_eq!(parsed[0].key, "Key");
-        assert_eq!(parsed[0].value, "Value");
-        assert_eq!(parsed[1].key, "Two");
-        assert_eq!(parsed[1].value, "Second");
+        assert_eq!(parsed[0].key, b"Key");
+        assert_eq!(parsed[0].value, b"Value");
+        assert_eq!(parsed[1].key, b"Two");
+        assert_eq!(parsed[1].value, b"Second");
 
-        let (parsed, _) = parse_headers("Key: Value\n Overhang\nTwo: Second\nThree: Third")
+        let (parsed, _) = parse_headers(b"Key: Value\n Overhang\nTwo: Second\nThree: Third")
             .unwrap();
         assert_eq!(parsed.len(), 3);
-        assert_eq!(parsed[0].key, "Key");
-        assert_eq!(parsed[0].value, "Value\n Overhang");
-        assert_eq!(parsed[1].key, "Two");
-        assert_eq!(parsed[1].value, "Second");
-        assert_eq!(parsed[2].key, "Three");
-        assert_eq!(parsed[2].value, "Third");
+        assert_eq!(parsed[0].key, b"Key");
+        assert_eq!(parsed[0].value, b"Value\n Overhang");
+        assert_eq!(parsed[1].key, b"Two");
+        assert_eq!(parsed[1].value, b"Second");
+        assert_eq!(parsed[2].key, b"Three");
+        assert_eq!(parsed[2].value, b"Third");
 
-        let (parsed, _) = parse_headers("Key: Value\nTwo: Second\n\nBody").unwrap();
+        let (parsed, _) = parse_headers(b"Key: Value\nTwo: Second\n\nBody").unwrap();
         assert_eq!(parsed.len(), 2);
-        assert_eq!(parsed[0].key, "Key");
-        assert_eq!(parsed[0].value, "Value");
-        assert_eq!(parsed[1].key, "Two");
-        assert_eq!(parsed[1].value, "Second");
+        assert_eq!(parsed[0].key, b"Key");
+        assert_eq!(parsed[0].value, b"Value");
+        assert_eq!(parsed[1].key, b"Two");
+        assert_eq!(parsed[1].value, b"Second");
 
         let (parsed, _) =
-            parse_headers("Return-Path: <kats@foobar.staktrace.com>\nX-Original-To: \
+            parse_headers(b"Return-Path: <kats@foobar.staktrace.com>\nX-Original-To: \
                            kats@baz.staktrace.com\nDelivered-To: \
                            kats@baz.staktrace.com\nReceived: from foobar.staktrace.com \
                            (localhost [127.0.0.1])\n    by foobar.staktrace.com (Postfix) with \
@@ -441,19 +454,19 @@ mod tests {
                            mailing\n")
                 .unwrap();
         assert_eq!(parsed.len(), 10);
-        assert_eq!(parsed[0].key, "Return-Path");
-        assert_eq!(parsed[9].key, "Message-Id");
+        assert_eq!(parsed[0].key, b"Return-Path");
+        assert_eq!(parsed[9].key, b"Message-Id");
 
-        let (parsed, _) = parse_headers("Key: Value\nAnotherKey: AnotherValue\nKey: Value2\nKey: Value3\n").unwrap();
+        let (parsed, _) = parse_headers(b"Key: Value\nAnotherKey: AnotherValue\nKey: Value2\nKey: Value3\n").unwrap();
         assert_eq!(parsed.len(), 4);
-        assert_eq!(parsed.get_first_value("Key"), Some("Value".to_string()));
-        assert_eq!(parsed.get_all_values("Key"), vec!["Value", "Value2", "Value3"]);
-        assert_eq!(parsed.get_first_value("AnotherKey"), Some("AnotherValue".to_string()));
-        assert_eq!(parsed.get_all_values("AnotherKey"), vec!["AnotherValue"]);
-        assert_eq!(parsed.get_first_value("NoKey"), None);
-        assert_eq!(parsed.get_all_values("NoKey"), Vec::<String>::new());
+        assert_eq!(parsed.get_first_value("Key").unwrap(), Some("Value".to_string()));
+        assert_eq!(parsed.get_all_values("Key").unwrap(), vec!["Value", "Value2", "Value3"]);
+        assert_eq!(parsed.get_first_value("AnotherKey").unwrap(), Some("AnotherValue".to_string()));
+        assert_eq!(parsed.get_all_values("AnotherKey").unwrap(), vec!["AnotherValue"]);
+        assert_eq!(parsed.get_first_value("NoKey").unwrap(), None);
+        assert_eq!(parsed.get_all_values("NoKey").unwrap(), Vec::<String>::new());
 
-        assert_eq!(parse_headers("Bad\nKey").unwrap_err().position, 3);
-        assert_eq!(parse_headers("K:V\nBad\nKey").unwrap_err().position, 7);
+        assert_eq!(parse_headers(b"Bad\nKey").unwrap_err().position, 3);
+        assert_eq!(parse_headers(b"K:V\nBad\nKey").unwrap_err().position, 7);
     }
 }
