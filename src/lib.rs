@@ -4,7 +4,6 @@ extern crate quoted_printable;
 
 use std::error;
 use std::fmt;
-use std::str;
 
 use encoding::Encoding;
 
