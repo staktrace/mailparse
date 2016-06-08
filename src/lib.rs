@@ -18,9 +18,13 @@ pub enum MailParseError {
 impl fmt::Display for MailParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            MailParseError::QuotedPrintableDecodeError(ref err) => write!(f, "QuotedPrintable decode error: {}", err),
+            MailParseError::QuotedPrintableDecodeError(ref err) => {
+                write!(f, "QuotedPrintable decode error: {}", err)
+            }
             MailParseError::Base64DecodeError(ref err) => write!(f, "Base64 decode error: {}", err),
-            MailParseError::Generic(ref description, ref position) => write!(f, "{} (offset {})", description, position),
+            MailParseError::Generic(ref description, ref position) => {
+                write!(f, "{} (offset {})", description, position)
+            }
         }
     }
 }
@@ -38,7 +42,7 @@ impl error::Error for MailParseError {
         match *self {
             MailParseError::QuotedPrintableDecodeError(ref err) => Some(err),
             MailParseError::Base64DecodeError(ref err) => Some(err),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -78,18 +82,19 @@ fn find_from(line: &str, ix_start: usize, key: &str) -> Option<usize> {
 
 impl<'a> MailHeader<'a> {
     pub fn get_key(&self) -> Result<String, MailParseError> {
-        Ok(try!(encoding::all::ISO_8859_1.decode(self.key, encoding::DecoderTrap::Strict)).trim().to_string())
+        Ok(try!(encoding::all::ISO_8859_1.decode(self.key, encoding::DecoderTrap::Strict))
+            .trim()
+            .to_string())
     }
 
     fn decode_word(&self, encoded: &str) -> Result<String, MailParseError> {
-        let ix_delim1 = try!(encoded.find("?").ok_or(MailParseError::Generic(
-            "Unable to find '?' inside encoded-word".to_string(),
-            0,
-        )));
-        let ix_delim2 = try!(find_from(encoded, ix_delim1 + 1, "?").ok_or(MailParseError::Generic(
-            "Unable to find second '?' inside encoded-word".to_string(),
-            ix_delim1 + 1,
-        )));
+        let ix_delim1 = try!(encoded.find("?")
+            .ok_or(MailParseError::Generic("Unable to find '?' inside encoded-word".to_string(),
+                                           0)));
+        let ix_delim2 = try!(find_from(encoded, ix_delim1 + 1, "?")
+            .ok_or(MailParseError::Generic("Unable to find second '?' inside encoded-word"
+                                               .to_string(),
+                                           ix_delim1 + 1)));
 
         let charset = &encoded[0..ix_delim1];
         let transfer_coding = &encoded[ix_delim1 + 1..ix_delim2];
@@ -102,29 +107,27 @@ impl<'a> MailHeader<'a> {
                                               quoted_printable::ParseMode::Robust))
             }
             _ => {
-                return Err(MailParseError::Generic(
-                    "Unknown transfer-coding name found in encoded-word".to_string(),
-                    ix_delim1 + 1,
-                ))
+                return Err(MailParseError::Generic("Unknown transfer-coding name found in \
+                                                    encoded-word"
+                                                       .to_string(),
+                                                   ix_delim1 + 1))
             }
         };
         let charset_conv = try!(encoding::label::encoding_from_whatwg_label(charset)
-            .ok_or(MailParseError::Generic(
-                "Unknown charset found in encoded-word".to_string(),
-                0,
-            )));
+            .ok_or(MailParseError::Generic("Unknown charset found in encoded-word".to_string(),
+                                           0)));
         charset_conv.decode(&decoded, encoding::DecoderTrap::Replace).map_err(|_| {
-            MailParseError::Generic(
-                "Unable to convert transfer-decoded bytes from specified charset"
-                    .to_string(),
-                0,
-            )
+            MailParseError::Generic("Unable to convert transfer-decoded bytes from specified \
+                                     charset"
+                                        .to_string(),
+                                    0)
         })
     }
 
     pub fn get_value(&self) -> Result<String, MailParseError> {
         let mut result = String::new();
-        let chars = try!(encoding::all::ISO_8859_1.decode(self.value, encoding::DecoderTrap::Strict));
+        let chars =
+            try!(encoding::all::ISO_8859_1.decode(self.value, encoding::DecoderTrap::Strict));
         let mut lines = chars.lines();
         let mut add_space = false;
         loop {
@@ -161,9 +164,7 @@ impl<'a> MailHeader<'a> {
                                         Ok(v) => {
                                             result.push_str(&v);
                                         }
-                                        Err(_) => {
-                                            result.push_str(&line[ix_begin - 2..ix_end + 2])
-                                        }
+                                        Err(_) => result.push_str(&line[ix_begin - 2..ix_end + 2]),
                                     };
                                     ix_search = ix_end;
                                 }
@@ -199,12 +200,7 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
     let mut it = raw_data.iter();
     let mut ix = 0;
     let mut c = match it.next() {
-        None => {
-            return Err(MailParseError::Generic(
-                "Empty string provided".to_string(),
-                0,
-            ))
-        }
+        None => return Err(MailParseError::Generic("Empty string provided".to_string(), 0)),
         Some(v) => *v,
     };
 
@@ -217,12 +213,11 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
         match state {
             HeaderParseState::Initial => {
                 if c == b' ' {
-                    return Err(MailParseError::Generic(
-                        "Header cannot start with a space; it is likely an \
-                                      overhanging line from a previous header"
-                            .to_string(),
-                        ix,
-                    ));
+                    return Err(MailParseError::Generic("Header cannot start with a space; it is \
+                                                        likely an overhanging line from a \
+                                                        previous header"
+                                                           .to_string(),
+                                                       ix));
                 };
                 state = HeaderParseState::Key;
                 continue;
@@ -232,10 +227,9 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
                     ix_key_end = Some(ix);
                     state = HeaderParseState::PreValue;
                 } else if c == b'\n' {
-                    return Err(MailParseError::Generic(
-                        "Unexpected newline in header key".to_string(),
-                        ix,
-                    ));
+                    return Err(MailParseError::Generic("Unexpected newline in header key"
+                                                           .to_string(),
+                                                       ix));
                 }
             }
             HeaderParseState::PreValue => {
@@ -278,10 +272,9 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
         }
 
         None => {
-            Err(MailParseError::Generic(
-                "Unable to determine end of the header key component".to_string(),
-                ix,
-            ))
+            Err(MailParseError::Generic("Unable to determine end of the header key component"
+                                            .to_string(),
+                                        ix))
         }
     }
 }
@@ -318,8 +311,9 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
     loop {
         let (header, ix_next) = try!(parse_header(&raw_data[ix..]).map_err(|e| {
             match e {
-                MailParseError::Generic(ref description, ref position) =>
-                    MailParseError::Generic(description.clone(), position + ix),
+                MailParseError::Generic(ref description, ref position) => {
+                    MailParseError::Generic(description.clone(), position + ix)
+                }
                 err => err,
             }
         }));
@@ -457,8 +451,7 @@ mod tests {
         assert_eq!(parsed[1].key, b"Two");
         assert_eq!(parsed[1].value, b"Second");
 
-        let (parsed, _) =
-            parse_headers(b"Return-Path: <kats@foobar.staktrace.com>\nX-Original-To: \
+        let (parsed, _) = parse_headers(b"Return-Path: <kats@foobar.staktrace.com>\nX-Original-To: \
                            kats@baz.staktrace.com\nDelivered-To: \
                            kats@baz.staktrace.com\nReceived: from foobar.staktrace.com \
                            (localhost [127.0.0.1])\n    by foobar.staktrace.com (Postfix) with \
@@ -469,19 +462,26 @@ mod tests {
                            jetmore.org/john/code/swaks/\nMessage-Id: \
                            <20160527063426.139F711C1C34@foobar.staktrace.com>\n\nThis is a test \
                            mailing\n")
-                .unwrap();
+            .unwrap();
         assert_eq!(parsed.len(), 10);
         assert_eq!(parsed[0].key, b"Return-Path");
         assert_eq!(parsed[9].key, b"Message-Id");
 
-        let (parsed, _) = parse_headers(b"Key: Value\nAnotherKey: AnotherValue\nKey: Value2\nKey: Value3\n").unwrap();
+        let (parsed, _) =
+            parse_headers(b"Key: Value\nAnotherKey: AnotherValue\nKey: Value2\nKey: Value3\n")
+                .unwrap();
         assert_eq!(parsed.len(), 4);
-        assert_eq!(parsed.get_first_value("Key").unwrap(), Some("Value".to_string()));
-        assert_eq!(parsed.get_all_values("Key").unwrap(), vec!["Value", "Value2", "Value3"]);
-        assert_eq!(parsed.get_first_value("AnotherKey").unwrap(), Some("AnotherValue".to_string()));
-        assert_eq!(parsed.get_all_values("AnotherKey").unwrap(), vec!["AnotherValue"]);
+        assert_eq!(parsed.get_first_value("Key").unwrap(),
+                   Some("Value".to_string()));
+        assert_eq!(parsed.get_all_values("Key").unwrap(),
+                   vec!["Value", "Value2", "Value3"]);
+        assert_eq!(parsed.get_first_value("AnotherKey").unwrap(),
+                   Some("AnotherValue".to_string()));
+        assert_eq!(parsed.get_all_values("AnotherKey").unwrap(),
+                   vec!["AnotherValue"]);
         assert_eq!(parsed.get_first_value("NoKey").unwrap(), None);
-        assert_eq!(parsed.get_all_values("NoKey").unwrap(), Vec::<String>::new());
+        assert_eq!(parsed.get_all_values("NoKey").unwrap(),
+                   Vec::<String>::new());
 
         assert_match!(parse_headers(b"Bad\nKey").unwrap_err(), MailParseError::Generic(_, 3));
         assert_match!(parse_headers(b"K:V\nBad\nKey").unwrap_err(), MailParseError::Generic(_, 7));
