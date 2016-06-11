@@ -411,6 +411,11 @@ mod tests {
         assert_eq!(parsed.value, b"One\n\tOverhang");
         assert_eq!(parsed.get_value().unwrap(), "One Overhang");
 
+        let (parsed, _) = parse_header(b"SPAM: VIAGRA \xAE").unwrap();
+        assert_eq!(parsed.key, b"SPAM");
+        assert_eq!(parsed.value, b"VIAGRA \xAE");
+        assert_eq!(parsed.get_value().unwrap(), "VIAGRA \u{ae}");
+
         parse_header(b" Leading: Space").unwrap_err();
         parse_header(b"Just a string").unwrap_err();
         parse_header(b"Key\nBroken: Value").unwrap_err();
