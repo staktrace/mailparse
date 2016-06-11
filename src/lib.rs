@@ -358,6 +358,41 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
     Ok((headers, ix))
 }
 
+#[derive(Debug)]
+pub struct ParsedContentType {
+    pub mimetype: String,
+    pub charset: String,
+    pub boundary: Option<String>,
+}
+
+pub fn parse_content_type(header: &str) -> Result<ParsedContentType, MailParseError> {
+    let mut parsed_type = ParsedContentType{
+        mimetype: "text/plain".to_string(),
+        charset: "us-ascii".to_string(),
+        boundary: None
+    };
+    let mut tokens = header.split(';');
+    // There must be at least one token produced by split, even if it's empty.
+    parsed_type.mimetype = String::from(tokens.next().unwrap().trim());
+    while let Some(param) = tokens.next() {
+        if let Some(ix_eq) = param.find('=') {
+            let attr = param[0..ix_eq].trim();
+            let mut value = param[ix_eq+1..].trim();
+            if value.starts_with('"') && value.ends_with('"') {
+                value = &value[1..value.len() - 1];
+            }
+            if attr == "charset" {
+                parsed_type.charset = String::from(value);
+            } else if attr == "boundary" {
+                parsed_type.boundary = Some(String::from(value));
+            }
+        } else {
+            return Err(MailParseError::Generic("Content-Type parameter did not have an '=' character".to_string(), 0));
+        }
+    }
+    Ok(parsed_type)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -522,5 +557,23 @@ mod tests {
 
         assert_match!(parse_headers(b"Bad\nKey").unwrap_err(), MailParseError::Generic(_, 3));
         assert_match!(parse_headers(b"K:V\nBad\nKey").unwrap_err(), MailParseError::Generic(_, 7));
+    }
+
+    #[test]
+    fn test_parse_content_type() {
+        let ctype = parse_content_type("text/html; charset=utf-8").unwrap();
+        assert_eq!(ctype.mimetype, "text/html");
+        assert_eq!(ctype.charset, "utf-8");
+        assert_eq!(ctype.boundary, None);
+
+        let ctype = parse_content_type(" foo/bar; x=y; charset=\"fake\" ; x2=y2").unwrap();
+        assert_eq!(ctype.mimetype, "foo/bar");
+        assert_eq!(ctype.charset, "fake");
+        assert_eq!(ctype.boundary, None);
+
+        let ctype = parse_content_type(" multipart/bar; boundary=foo ").unwrap();
+        assert_eq!(ctype.mimetype, "multipart/bar");
+        assert_eq!(ctype.charset, "us-ascii");
+        assert_eq!(ctype.boundary.unwrap(), "foo");
     }
 }
