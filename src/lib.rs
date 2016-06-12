@@ -383,24 +383,73 @@ pub fn parse_content_type(header: &str) -> Result<ParsedContentType, MailParseEr
     };
     let mut tokens = header.split(';');
     // There must be at least one token produced by split, even if it's empty.
-    parsed_type.mimetype = String::from(tokens.next().unwrap().trim());
+    parsed_type.mimetype = String::from(tokens.next().unwrap().trim()).to_lowercase();
     while let Some(param) = tokens.next() {
         if let Some(ix_eq) = param.find('=') {
-            let attr = param[0..ix_eq].trim();
+            let attr = param[0..ix_eq].trim().to_lowercase();
             let mut value = param[ix_eq+1..].trim();
             if value.starts_with('"') && value.ends_with('"') {
                 value = &value[1..value.len() - 1];
             }
             if attr == "charset" {
-                parsed_type.charset = String::from(value);
+                parsed_type.charset = String::from(value).to_lowercase();
             } else if attr == "boundary" {
                 parsed_type.boundary = Some(String::from(value));
             }
-        } else {
-            return Err(MailParseError::Generic("Content-Type parameter did not have an '=' character".to_string(), 0));
-        }
+        } // else invalid token, ignore. We could throw an error but this
+          // actually happens in some cases that we want to otherwise handle.
     }
     Ok(parsed_type)
+}
+
+#[derive(Debug)]
+pub struct ParsedMail<'a> {
+    pub headers: Vec<MailHeader<'a>>,
+    pub ctype: ParsedContentType,
+    body: &'a [u8],
+    pub subparts: Vec<ParsedMail<'a>>,
+}
+
+impl<'a> ParsedMail<'a> {
+    pub fn get_body(&self) -> Result<String, MailParseError> {
+        Ok(try!(encoding::all::ISO_8859_1.decode(self.body, encoding::DecoderTrap::Strict))
+            .to_string())
+    }
+}
+
+pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
+    let (headers, ix_body) = try!(parse_headers(raw_data));
+    let ctype = match try!(headers.get_first_value("Content-Type")) {
+        Some(s) => try!(parse_content_type(&s)),
+        None => ParsedContentType {
+                    mimetype: "text/plain".to_string(),
+                    charset: "us-ascii".to_string(),
+                    boundary: None,
+                },
+    };
+    let mut result = ParsedMail{ headers: headers, ctype: ctype, body: &raw_data[ix_body..], subparts: Vec::<ParsedMail>::new() };
+    if result.ctype.mimetype.starts_with("multipart/") && result.ctype.boundary.is_some() {
+        let boundary = String::from("--") + result.ctype.boundary.as_ref().unwrap();
+        if let Some(ix_body_end) = find_from_u8(raw_data, ix_body, boundary.as_bytes()) {
+            result.body = &raw_data[ix_body..ix_body_end];
+            let mut ix_boundary_end = ix_body_end + boundary.len();
+            while let Some(ix_part_start) = find_from_u8(raw_data, ix_boundary_end, b"\n").map(|v| v + 1) {
+                if let Some(ix_part_end) = find_from_u8(raw_data, ix_part_start, boundary.as_bytes()) {
+                    result.subparts.push(try!(parse_mail(&raw_data[ix_part_start..ix_part_end])));
+                    ix_boundary_end = ix_part_end + boundary.len();
+                    if ix_boundary_end + 2 <= raw_data.len()
+                        && raw_data[ix_boundary_end] == b'-'
+                        && raw_data[ix_boundary_end + 1] == b'-'
+                    {
+                        break;
+                    }
+                } else {
+                    return Err(MailParseError::Generic("Unable to terminating boundary of multipart message".to_string(), 0));
+                }
+            }
+        }
+    }
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -591,5 +640,39 @@ mod tests {
         assert_eq!(ctype.mimetype, "multipart/bar");
         assert_eq!(ctype.charset, "us-ascii");
         assert_eq!(ctype.boundary.unwrap(), "foo");
+    }
+
+    #[test]
+    fn test_parse_mail() {
+        let mail = parse_mail(b"Key: value\r\n\r\nSome body stuffs").unwrap();
+        assert_eq!(mail.headers.len(), 1);
+        assert_eq!(mail.headers[0].get_key().unwrap(), "Key");
+        assert_eq!(mail.headers[0].get_value().unwrap(), "value");
+        assert_eq!(mail.ctype.mimetype, "text/plain");
+        assert_eq!(mail.ctype.charset, "us-ascii");
+        assert_eq!(mail.ctype.boundary, None);
+        assert_eq!(mail.body, b"Some body stuffs");
+        assert_eq!(mail.subparts.len(), 0);
+
+        let mail = parse_mail(b"Content-Type: MULTIpart/alternative; bounDAry=myboundary\r\n\r\n \
+                                --myboundary\r\nContent-Type: text/plain\r\n\r\n \
+                                This is the plaintext version.\r\n
+                                --myboundary\r\nContent-Type: text/html;chARset=utf-8\r\n\r\n \
+                                This is the <b>HTML</b> version with fake --MYBOUNDARY.\r\n
+                                --myboundary--")
+            .unwrap();
+        assert_eq!(mail.headers.len(), 1);
+        assert_eq!(mail.headers[0].get_key().unwrap(), "Content-Type");
+        assert_eq!(mail.ctype.mimetype, "multipart/alternative");
+        assert_eq!(mail.ctype.charset, "us-ascii");
+        assert_eq!(mail.ctype.boundary.unwrap(), "myboundary");
+        assert_eq!(mail.subparts.len(), 2);
+        assert_eq!(mail.subparts[0].headers.len(), 1);
+        assert_eq!(mail.subparts[0].ctype.mimetype, "text/plain");
+        assert_eq!(mail.subparts[0].ctype.charset, "us-ascii");
+        assert_eq!(mail.subparts[0].ctype.boundary, None);
+        assert_eq!(mail.subparts[1].ctype.mimetype, "text/html");
+        assert_eq!(mail.subparts[1].ctype.charset, "utf-8");
+        assert_eq!(mail.subparts[1].ctype.boundary, None);
     }
 }
