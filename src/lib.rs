@@ -351,8 +351,18 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
         }));
         headers.push(header);
         ix = ix + ix_next;
-        if ix >= raw_data.len() || raw_data[ix] == b'\n' {
+        if ix >= raw_data.len() {
             break;
+        } else if raw_data[ix] == b'\n' {
+            ix = ix + 1;
+            break;
+        } else if raw_data[ix] == b'\r' {
+            if ix + 1 < raw_data.len() && raw_data[ix+1] == b'\n' {
+                ix = ix + 2;
+                break;
+            } else {
+                return Err(MailParseError::Generic("Headers were followed by an unexpected lone CR character!".to_string(), 0));
+            }
         }
     }
     Ok((headers, ix))
@@ -554,6 +564,12 @@ mod tests {
         assert_eq!(parsed.get_first_value("NoKey").unwrap(), None);
         assert_eq!(parsed.get_all_values("NoKey").unwrap(),
                    Vec::<String>::new());
+
+        let (parsed, _) =
+            parse_headers(b"Key: value\r\nWith: CRLF\r\n\r\nBody").unwrap();
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed.get_first_value("Key").unwrap(), Some("value".to_string()));
+        assert_eq!(parsed.get_first_value("With").unwrap(), Some("CRLF".to_string()));
 
         assert_match!(parse_headers(b"Bad\nKey").unwrap_err(), MailParseError::Generic(_, 3));
         assert_match!(parse_headers(b"K:V\nBad\nKey").unwrap_err(), MailParseError::Generic(_, 7));
