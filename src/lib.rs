@@ -135,8 +135,8 @@ impl<'a> MailHeader<'a> {
         let decoded = match transfer_coding {
             "B" => try!(base64::u8de(input.as_bytes())),
             "Q" => {
-                try!(quoted_printable::decode(&input.replace("_", " "),
-                                              quoted_printable::ParseMode::Robust))
+                try!(quoted_printable::decode_str(&input.replace("_", " "),
+                                                  quoted_printable::ParseMode::Robust))
             }
             _ => {
                 return Err(MailParseError::Generic("Unknown transfer-coding name found in \
