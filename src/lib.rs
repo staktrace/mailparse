@@ -412,8 +412,20 @@ pub struct ParsedMail<'a> {
 
 impl<'a> ParsedMail<'a> {
     pub fn get_body(&self) -> Result<String, MailParseError> {
-        Ok(try!(encoding::all::ISO_8859_1.decode(self.body, encoding::DecoderTrap::Strict))
-            .to_string())
+        let transfer_coding = try!(self.headers.get_first_value("Content-Transfer-Encoding"))
+            .map(|s| s.to_lowercase());
+        let decoded = match transfer_coding.unwrap_or(String::new()).as_ref() {
+            "base64" => try!(base64::u8de(self.body)),
+            "quoted-printable" => try!(quoted_printable::decode(self.body, quoted_printable::ParseMode::Robust)),
+            _ => Vec::<u8>::from(self.body),
+        };
+        let charset_conv = try!(encoding::label::encoding_from_whatwg_label(&self.ctype.charset)
+            .ok_or(MailParseError::Generic("Unknown charset found".to_string(),
+                                           0)));
+        let str_body = try!(charset_conv.decode(&decoded, encoding::DecoderTrap::Replace).map_err(|_| {
+            MailParseError::Generic("Unable to convert transfer-decoded bytes from specified charset".to_string(), 0)
+        }));
+        Ok(str_body)
     }
 }
 
