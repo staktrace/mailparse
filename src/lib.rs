@@ -472,7 +472,7 @@ mod tests {
         ( $x:expr, $p:pat ) => {
             match $x {
                 $p => (),
-                _ => panic!("Expression {} does not match given pattern", $x),
+                _ => panic!("Expression {} does not match pattern {}", $x, stringify!($p)),
             }
         }
     }
