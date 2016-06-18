@@ -4,6 +4,7 @@ extern crate quoted_printable;
 
 use std::error;
 use std::fmt;
+use std::ops::Deref;
 
 use encoding::Encoding;
 
@@ -11,7 +12,8 @@ use encoding::Encoding;
 pub enum MailParseError {
     QuotedPrintableDecodeError(quoted_printable::QuotedPrintableError),
     Base64DecodeError(base64::Base64Error),
-    Generic(String, usize),
+    EncodingError(std::borrow::Cow<'static, str>),
+    Generic(&'static str, usize),
 }
 
 impl fmt::Display for MailParseError {
@@ -21,6 +23,7 @@ impl fmt::Display for MailParseError {
                 write!(f, "QuotedPrintable decode error: {}", err)
             }
             MailParseError::Base64DecodeError(ref err) => write!(f, "Base64 decode error: {}", err),
+            MailParseError::EncodingError(ref err) => write!(f, "Encoding error: {}", err),
             MailParseError::Generic(ref description, ref position) => {
                 write!(f, "{} (offset {})", description, position)
             }
@@ -33,6 +36,7 @@ impl error::Error for MailParseError {
         match *self {
             MailParseError::QuotedPrintableDecodeError(ref err) => err.description(),
             MailParseError::Base64DecodeError(ref err) => err.description(),
+            MailParseError::EncodingError(ref err) => err.deref(),
             _ => "An error occurred while attempting to parse the input",
         }
     }
@@ -60,7 +64,7 @@ impl From<base64::Base64Error> for MailParseError {
 
 impl From<std::borrow::Cow<'static, str>> for MailParseError {
     fn from(err: std::borrow::Cow<'static, str>) -> MailParseError {
-        MailParseError::Generic(err.into_owned().to_string(), 0)
+        MailParseError::EncodingError(err)
     }
 }
 
@@ -121,12 +125,9 @@ impl<'a> MailHeader<'a> {
 
     fn decode_word(&self, encoded: &str) -> Result<String, MailParseError> {
         let ix_delim1 = try!(encoded.find("?")
-            .ok_or(MailParseError::Generic("Unable to find '?' inside encoded-word".to_string(),
-                                           0)));
+            .ok_or(MailParseError::Generic("Unable to find '?' inside encoded-word", 0)));
         let ix_delim2 = try!(find_from(encoded, ix_delim1 + 1, "?")
-            .ok_or(MailParseError::Generic("Unable to find second '?' inside encoded-word"
-                                               .to_string(),
-                                           ix_delim1 + 1)));
+            .ok_or(MailParseError::Generic("Unable to find second '?' inside encoded-word", ix_delim1 + 1)));
 
         let charset = &encoded[0..ix_delim1];
         let transfer_coding = &encoded[ix_delim1 + 1..ix_delim2];
@@ -139,20 +140,14 @@ impl<'a> MailHeader<'a> {
                                                   quoted_printable::ParseMode::Robust))
             }
             _ => {
-                return Err(MailParseError::Generic("Unknown transfer-coding name found in \
-                                                    encoded-word"
-                                                       .to_string(),
+                return Err(MailParseError::Generic("Unknown transfer-coding name found in encoded-word",
                                                    ix_delim1 + 1))
             }
         };
         let charset_conv = try!(encoding::label::encoding_from_whatwg_label(charset)
-            .ok_or(MailParseError::Generic("Unknown charset found in encoded-word".to_string(),
-                                           0)));
+            .ok_or(MailParseError::Generic("Unknown charset found in encoded-word", 0)));
         charset_conv.decode(&decoded, encoding::DecoderTrap::Replace).map_err(|_| {
-            MailParseError::Generic("Unable to convert transfer-decoded bytes from specified \
-                                     charset"
-                                        .to_string(),
-                                    0)
+            MailParseError::Generic("Unable to convert transfer-decoded bytes from specified charset", 0)
         })
     }
 
@@ -232,7 +227,7 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
     let mut it = raw_data.iter();
     let mut ix = 0;
     let mut c = match it.next() {
-        None => return Err(MailParseError::Generic("Empty string provided".to_string(), 0)),
+        None => return Err(MailParseError::Generic("Empty string provided", 0)),
         Some(v) => *v,
     };
 
@@ -247,8 +242,7 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
                 if c == b' ' {
                     return Err(MailParseError::Generic("Header cannot start with a space; it is \
                                                         likely an overhanging line from a \
-                                                        previous header"
-                                                           .to_string(),
+                                                        previous header",
                                                        ix));
                 };
                 state = HeaderParseState::Key;
@@ -259,9 +253,7 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
                     ix_key_end = Some(ix);
                     state = HeaderParseState::PreValue;
                 } else if c == b'\n' {
-                    return Err(MailParseError::Generic("Unexpected newline in header key"
-                                                           .to_string(),
-                                                       ix));
+                    return Err(MailParseError::Generic("Unexpected newline in header key", ix));
                 }
             }
             HeaderParseState::PreValue => {
@@ -304,9 +296,7 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
         }
 
         None => {
-            Err(MailParseError::Generic("Unable to determine end of the header key component"
-                                            .to_string(),
-                                        ix))
+            Err(MailParseError::Generic("Unable to determine end of the header key component", ix))
         }
     }
 }
@@ -344,7 +334,7 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
         let (header, ix_next) = try!(parse_header(&raw_data[ix..]).map_err(|e| {
             match e {
                 MailParseError::Generic(ref description, ref position) => {
-                    MailParseError::Generic(description.clone(), position + ix)
+                    MailParseError::Generic(description, position + ix)
                 }
                 err => err,
             }
@@ -361,7 +351,7 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
                 ix = ix + 2;
                 break;
             } else {
-                return Err(MailParseError::Generic("Headers were followed by an unexpected lone CR character!".to_string(), 0));
+                return Err(MailParseError::Generic("Headers were followed by an unexpected lone CR character!", 0));
             }
         }
     }
@@ -420,10 +410,9 @@ impl<'a> ParsedMail<'a> {
             _ => Vec::<u8>::from(self.body),
         };
         let charset_conv = try!(encoding::label::encoding_from_whatwg_label(&self.ctype.charset)
-            .ok_or(MailParseError::Generic("Unknown charset found".to_string(),
-                                           0)));
+            .ok_or(MailParseError::Generic("Unknown charset found", 0)));
         let str_body = try!(charset_conv.decode(&decoded, encoding::DecoderTrap::Replace).map_err(|_| {
-            MailParseError::Generic("Unable to convert transfer-decoded bytes from specified charset".to_string(), 0)
+            MailParseError::Generic("Unable to convert transfer-decoded bytes from specified charset", 0)
         }));
         Ok(str_body)
     }
@@ -456,7 +445,7 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
                         break;
                     }
                 } else {
-                    return Err(MailParseError::Generic("Unable to terminating boundary of multipart message".to_string(), 0));
+                    return Err(MailParseError::Generic("Unable to terminating boundary of multipart message", 0));
                 }
             }
         }
