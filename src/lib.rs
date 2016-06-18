@@ -405,7 +405,15 @@ impl<'a> ParsedMail<'a> {
         let transfer_coding = try!(self.headers.get_first_value("Content-Transfer-Encoding"))
             .map(|s| s.to_lowercase());
         let decoded = match transfer_coding.unwrap_or(String::new()).as_ref() {
-            "base64" => try!(base64::u8de(self.body)),
+            "base64" => {
+                let cleaned = self.body.iter().filter_map(
+                    |&c| match c {
+                        b' ' | b'\t' | b'\r' | b'\n' => None,
+                        v => Some(v),
+                    }
+                ).collect::<Vec<u8>>();
+                try!(base64::u8de(&cleaned))
+            }
             "quoted-printable" => try!(quoted_printable::decode(self.body, quoted_printable::ParseMode::Robust)),
             _ => Vec::<u8>::from(self.body),
         };
@@ -653,6 +661,7 @@ mod tests {
         assert_eq!(mail.ctype.charset, "us-ascii");
         assert_eq!(mail.ctype.boundary, None);
         assert_eq!(mail.body, b"Some body stuffs");
+        assert_eq!(mail.get_body().unwrap(), "Some body stuffs");
         assert_eq!(mail.subparts.len(), 0);
 
         let mail = parse_mail(b"Content-Type: MULTIpart/alternative; bounDAry=myboundary\r\n\r\n \
@@ -675,5 +684,8 @@ mod tests {
         assert_eq!(mail.subparts[1].ctype.mimetype, "text/html");
         assert_eq!(mail.subparts[1].ctype.charset, "utf-8");
         assert_eq!(mail.subparts[1].ctype.boundary, None);
+
+        let mail = parse_mail(b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG 8gd\r\n29ybGQ=").unwrap();
+        assert_eq!(mail.get_body().unwrap(), "hello world");
     }
 }
