@@ -8,6 +8,9 @@ use std::ops::Deref;
 
 use encoding::Encoding;
 
+#[macro_use]
+mod macros;
+
 #[derive(Debug)]
 pub enum MailParseError {
     QuotedPrintableDecodeError(quoted_printable::QuotedPrintableError),
@@ -123,32 +126,24 @@ impl<'a> MailHeader<'a> {
             .to_string())
     }
 
-    fn decode_word(&self, encoded: &str) -> Result<String, MailParseError> {
-        let ix_delim1 = try!(encoded.find("?")
-            .ok_or(MailParseError::Generic("Unable to find '?' inside encoded-word", 0)));
-        let ix_delim2 = try!(find_from(encoded, ix_delim1 + 1, "?")
-            .ok_or(MailParseError::Generic("Unable to find second '?' inside encoded-word", ix_delim1 + 1)));
+    fn decode_word(&self, encoded: &str) -> Option<String> {
+        let ix_delim1 = try_none!(encoded.find("?"));
+        let ix_delim2 = try_none!(find_from(encoded, ix_delim1 + 1, "?"));
 
         let charset = &encoded[0..ix_delim1];
         let transfer_coding = &encoded[ix_delim1 + 1..ix_delim2];
         let input = &encoded[ix_delim2 + 1..];
 
         let decoded = match transfer_coding {
-            "B" => try!(base64::u8de(input.as_bytes())),
+            "B" => try_none!(base64::u8de(input.as_bytes()).ok()),
             "Q" => {
-                try!(quoted_printable::decode_str(&input.replace("_", " "),
-                                                  quoted_printable::ParseMode::Robust))
-            }
-            _ => {
-                return Err(MailParseError::Generic("Unknown transfer-coding name found in encoded-word",
-                                                   ix_delim1 + 1))
-            }
+                let d = quoted_printable::decode_str(&input.replace("_", " "), quoted_printable::ParseMode::Robust);
+                try_none!(d.ok())
+            },
+            _ => return None,
         };
-        let charset_conv = try!(encoding::label::encoding_from_whatwg_label(charset)
-            .ok_or(MailParseError::Generic("Unknown charset found in encoded-word", 0)));
-        charset_conv.decode(&decoded, encoding::DecoderTrap::Replace).map_err(|_| {
-            MailParseError::Generic("Unable to convert transfer-decoded bytes from specified charset", 0)
-        })
+        let charset_conv = try_none!(encoding::label::encoding_from_whatwg_label(charset));
+        charset_conv.decode(&decoded, encoding::DecoderTrap::Replace).ok()
     }
 
     pub fn get_value(&self) -> Result<String, MailParseError> {
@@ -188,10 +183,8 @@ impl<'a> MailHeader<'a> {
                                         continue;
                                     }
                                     match self.decode_word(&line[ix_begin..ix_end]) {
-                                        Ok(v) => {
-                                            result.push_str(&v);
-                                        }
-                                        Err(_) => result.push_str(&line[ix_begin - 2..ix_end + 2]),
+                                        Some(v) => result.push_str(&v),
+                                        None => result.push_str(&line[ix_begin - 2..ix_end + 2]),
                                     };
                                     ix_search = ix_end;
                                 }
