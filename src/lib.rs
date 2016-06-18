@@ -764,17 +764,21 @@ mod tests {
         assert_eq!(parsed[1].key, b"Two");
         assert_eq!(parsed[1].value, b"Second");
 
-        let (parsed, _) = parse_headers(b"Return-Path: <kats@foobar.staktrace.com>\nX-Original-To: \
-                           kats@baz.staktrace.com\nDelivered-To: \
-                           kats@baz.staktrace.com\nReceived: from foobar.staktrace.com \
-                           (localhost [127.0.0.1])\n    by foobar.staktrace.com (Postfix) with \
-                           ESMTP id 139F711C1C34\n    for <kats@baz.staktrace.com>; Fri, 27 May \
-                           2016 02:34:26 -0400 (EDT)\nDate: Fri, 27 May 2016 02:34:25 -0400\nTo: \
-                           kats@baz.staktrace.com\nFrom: kats@foobar.staktrace.com\nSubject: \
-                           test Fri, 27 May 2016 02:34:25 -0400\nX-Mailer: swaks v20130209.0 \
-                           jetmore.org/john/code/swaks/\nMessage-Id: \
-                           <20160527063426.139F711C1C34@foobar.staktrace.com>\n\nThis is a test \
-                           mailing\n")
+        let (parsed, _) = parse_headers(concat!(
+                "Return-Path: <kats@foobar.staktrace.com>\n",
+                "X-Original-To: kats@baz.staktrace.com\n",
+                "Delivered-To: kats@baz.staktrace.com\n",
+                "Received: from foobar.staktrace.com (localhost [127.0.0.1])\n",
+                "    by foobar.staktrace.com (Postfix) with ESMTP id 139F711C1C34\n",
+                "    for <kats@baz.staktrace.com>; Fri, 27 May 2016 02:34:26 -0400 (EDT)\n",
+                "Date: Fri, 27 May 2016 02:34:25 -0400\n",
+                "To: kats@baz.staktrace.com\n",
+                "From: kats@foobar.staktrace.com\n",
+                "Subject: test Fri, 27 May 2016 02:34:25 -0400\n",
+                "X-Mailer: swaks v20130209.0 jetmore.org/john/code/swaks/\n",
+                "Message-Id: <20160527063426.139F711C1C34@foobar.staktrace.com>\n",
+                "\n",
+                "This is a test mailing\n").as_bytes())
             .unwrap();
         assert_eq!(parsed.len(), 10);
         assert_eq!(parsed[0].key, b"Return-Path");
@@ -837,12 +841,15 @@ mod tests {
         assert_eq!(mail.get_body().unwrap(), "Some body stuffs");
         assert_eq!(mail.subparts.len(), 0);
 
-        let mail = parse_mail(b"Content-Type: MULTIpart/alternative; bounDAry=myboundary\r\n\r\n \
-                                --myboundary\r\nContent-Type: text/plain\r\n\r\n \
-                                This is the plaintext version.\r\n
-                                --myboundary\r\nContent-Type: text/html;chARset=utf-8\r\n\r\n \
-                                This is the <b>HTML</b> version with fake --MYBOUNDARY.\r\n
-                                --myboundary--")
+        let mail = parse_mail(concat!(
+                "Content-Type: MULTIpart/alternative; bounDAry=myboundary\r\n\r\n",
+                "--myboundary\r\n",
+                "Content-Type: text/plain\r\n\r\n",
+                "This is the plaintext version.\r\n",
+                "--myboundary\r\n",
+                "Content-Type: text/html;chARset=utf-8\r\n\r\n",
+                "This is the <b>HTML</b> version with fake --MYBOUNDARY.\r\n",
+                "--myboundary--").as_bytes())
             .unwrap();
         assert_eq!(mail.headers.len(), 1);
         assert_eq!(mail.headers[0].get_key().unwrap(), "Content-Type");
