@@ -11,11 +11,21 @@ use encoding::Encoding;
 #[macro_use]
 mod macros;
 
+/// An error type that represents the different kinds of errors that may be
+/// encountered during message parsing.
 #[derive(Debug)]
 pub enum MailParseError {
+    /// Data that was specified as being in the quoted-printable transfer-encoding
+    /// could not be successfully decoded as quoted-printable data.
     QuotedPrintableDecodeError(quoted_printable::QuotedPrintableError),
+    /// Data that was specified as being in the base64 transfer-encoding could
+    /// not be successfully decoded as base64 data.
     Base64DecodeError(base64::Base64Error),
+    /// An error occurred when converting the raw byte data to Rust UTF-8 string
+    /// format using the charset specified in the message.
     EncodingError(std::borrow::Cow<'static, str>),
+    /// Some other error occurred while parsing the message; the description string
+    /// provides additional details.
     Generic(&'static str),
 }
 
@@ -69,6 +79,11 @@ impl From<std::borrow::Cow<'static, str>> for MailParseError {
     }
 }
 
+/// A struct that represents a single header in the message.
+/// It holds slices into the raw byte array passed to parse_mail, and so the
+/// lifetime of this struct must be contained within the lifetime of the raw
+/// input. There are additional accessor functions on this struct to extract
+/// the data as Rust strings.
 #[derive(Debug)]
 pub struct MailHeader<'a> {
     key: &'a [u8],
@@ -118,6 +133,7 @@ fn test_find_from_u8() {
 }
 
 impl<'a> MailHeader<'a> {
+    /// Get the name of the header. Note that header names are case-sensitive.
     pub fn get_key(&self) -> Result<String, MailParseError> {
         Ok(try!(encoding::all::ISO_8859_1.decode(self.key, encoding::DecoderTrap::Strict))
             .trim()
@@ -144,6 +160,19 @@ impl<'a> MailHeader<'a> {
         charset_conv.decode(&decoded, encoding::DecoderTrap::Replace).ok()
     }
 
+    /// Get the value of the header. Any sequences of newlines characters followed
+    /// by whitespace are collapsed into a single space. In effect, header values
+    /// wrapped across multiple lines are compacted back into one line, while
+    /// discarding the extra whitespace required by the MIME format. Additionally,
+    /// any quoted-printable words in the value are decoded.
+    ///
+    /// # Examples
+    /// ```
+    ///     use mailparse::parse_header;
+    ///     let (parsed, _) = parse_header(b"Subject: =?iso-8859-1?Q?=A1Hola,_se=F1or!?=").unwrap();
+    ///     assert_eq!(parsed.get_key().unwrap(), "Subject");
+    ///     assert_eq!(parsed.get_value().unwrap(), "\u{a1}Hola, se\u{f1}or!");
+    /// ```
     pub fn get_value(&self) -> Result<String, MailParseError> {
         let mut result = String::new();
         let chars =
@@ -214,6 +243,26 @@ enum HeaderParseState {
     ValueNewline,
 }
 
+/// Parse a single header from the raw data given.
+/// This function takes raw byte data, and starts parsing it, expecting there
+/// to be a MIME header key-value pair right at the beginning. It parses that
+/// header and returns it, along with the index at which the next header is
+/// expected to start. If you just want to parse a single header, you can ignore
+/// the second component of the tuple, which is the index of the next header.
+/// Error values are returned if the data could not be successfully interpreted
+/// as a MIME key-value pair.
+///
+/// # Examples
+/// ```
+///     use mailparse::parse_header;
+///     let (parsed, _) = parse_header(concat!(
+///             "Subject: Hello, sir,\n",
+///             "   I am multiline\n",
+///             "Next:Header").as_bytes())
+///         .unwrap();
+///     assert_eq!(parsed.get_key().unwrap(), "Subject");
+///     assert_eq!(parsed.get_value().unwrap(), "Hello, sir, I am multiline");
+/// ```
 pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseError> {
     let mut it = raw_data.iter();
     let mut ix = 0;
@@ -291,8 +340,41 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
     }
 }
 
+/// A trait that is implemented by the Vec<MailHeader> returned by the parse_headers
+/// function. It provides a map-like interface to look up header values by their
+/// name.
 pub trait MailHeaderMap {
+    /// Look through the list of headers and return the value of the first one
+    /// that matches the provided key. It returns Ok(None) if the no matching
+    /// header was found.
+    ///
+    /// # Examples
+    /// ```
+    ///     use mailparse::{parse_mail, MailHeaderMap};
+    ///     let headers = parse_mail(concat!(
+    ///             "Subject: Test\n",
+    ///             "\n",
+    ///             "This is a test message").as_bytes())
+    ///         .unwrap().headers;
+    ///     assert_eq!(headers.get_first_value("Subject").unwrap(), Some("Test".to_string()));
+    /// ```
     fn get_first_value(&self, key: &str) -> Result<Option<String>, MailParseError>;
+
+    /// Look through the list of headers and return the values of all headers
+    /// matching the provided key. Returns an empty vector if no matching headers
+    /// were found. The order of the returned values is the same as the order
+    /// of the matching headers in the message.
+    ///
+    /// # Examples
+    /// ```
+    ///     use mailparse::{parse_mail, MailHeaderMap};
+    ///     let headers = parse_mail(concat!(
+    ///             "Key: Value1\n",
+    ///             "Key: Value2").as_bytes())
+    ///         .unwrap().headers;
+    ///     assert_eq!(headers.get_all_values("Key").unwrap(),
+    ///         vec!["Value1".to_string(), "Value2".to_string()]);
+    /// ```
     fn get_all_values(&self, key: &str) -> Result<Vec<String>, MailParseError>;
 }
 
@@ -317,6 +399,29 @@ impl<'a> MailHeaderMap for Vec<MailHeader<'a>> {
     }
 }
 
+/// Parses all the headers from the raw data given.
+/// This function takes raw byte data, and starts parsing it, expecting there
+/// to be zero or more MIME header key-value pair right at the beginning,
+/// followed by two consecutive newlines (i.e. a blank line). It parses those
+/// headers and returns them in a vector. The normal vector functions can be
+/// used to access the headers linearly, or the MailHeaderMap trait can be used
+/// to access them in a map-like fashion. Along with this vector, the function
+/// returns the index at which the message body is expected to start. If you
+/// just care about the headers, you can ignore the second component of the
+/// returned tuple.
+/// Error values are returned if there was some sort of parsing error.
+///
+/// # Examples
+/// ```
+///     use mailparse::{parse_headers, MailHeaderMap};
+///     let (headers, _) = parse_headers(concat!(
+///             "Subject: Test\n",
+///             "From: me@myself.com\n",
+///             "To: you@yourself.com").as_bytes())
+///         .unwrap();
+///     assert_eq!(headers[1].get_key().unwrap(), "From");
+///     assert_eq!(headers.get_first_value("To").unwrap(), Some("you@yourself.com".to_string()));
+/// ```
 pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailParseError> {
     let mut headers: Vec<MailHeader> = Vec::new();
     let mut ix = 0;
@@ -341,13 +446,44 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
     Ok((headers, ix))
 }
 
+/// A struct to hold a more structured representation of the Content-Type header.
+/// This is provided mostly as a convenience since this metadata is usually
+/// needed to interpret the message body properly.
 #[derive(Debug)]
 pub struct ParsedContentType {
+    /// The type of the data, for example "text/plain" or "application/pdf".
     pub mimetype: String,
+    /// The charset used to decode the raw byte data, for example "iso-8859-1"
+    /// or "utf-8".
     pub charset: String,
+    /// The boundary used to separate the different parts of a multipart message.
+    /// This boundary is taken straight from the Content-Type header, and so
+    /// the body will actually contain the boundary string prefixed by two
+    /// dashes.
     pub boundary: Option<String>,
 }
 
+/// Helper method to parse a header value as a Content-Type header. The charset
+/// defaults to "us-ascii" if no charset parameter is provided in the header
+/// value.
+///
+/// # Examples
+/// ```
+///     use mailparse::{parse_header, parse_content_type};
+///     let (parsed, _) = parse_header(b"Content-Type: text/html; charset=foo; boundary=\"quotes_are_removed\"").unwrap();
+///     let ctype = parse_content_type(&parsed.get_value().unwrap()).unwrap();
+///     assert_eq!(ctype.mimetype, "text/html");
+///     assert_eq!(ctype.charset, "foo");
+///     assert_eq!(ctype.boundary, Some("quotes_are_removed".to_string()));
+/// ```
+/// ```
+///     use mailparse::{parse_header, parse_content_type};
+///     let (parsed, _) = parse_header(b"Content-Type: bogus").unwrap();
+///     let ctype = parse_content_type(&parsed.get_value().unwrap()).unwrap();
+///     assert_eq!(ctype.mimetype, "bogus");
+///     assert_eq!(ctype.charset, "us-ascii");
+///     assert_eq!(ctype.boundary, None);
+/// ```
 pub fn parse_content_type(header: &str) -> Result<ParsedContentType, MailParseError> {
     let mut parsed_type = ParsedContentType{
         mimetype: "text/plain".to_string(),
@@ -375,15 +511,39 @@ pub fn parse_content_type(header: &str) -> Result<ParsedContentType, MailParseEr
     Ok(parsed_type)
 }
 
+/// Struct that holds the structured representation of the message. Note that
+/// since MIME allows for nested multipart messages, a tree-like structure is
+/// necessary to represent it properly. This struct accomplishes that by holding
+/// a vector of other ParsedMail structures for the subparts.
 #[derive(Debug)]
 pub struct ParsedMail<'a> {
+    /// The headers for the message (or message subpart).
     pub headers: Vec<MailHeader<'a>>,
+    /// The Content-Type information for the message (or message subpart).
     pub ctype: ParsedContentType,
+    /// The raw bytes that make up the body of the message (or message subpart).
     body: &'a [u8],
+    /// The subparts of this message or subpart. This vector is only non-empty
+    /// if ctype.mimetype starts with "multipart/".
     pub subparts: Vec<ParsedMail<'a>>,
 }
 
 impl<'a> ParsedMail<'a> {
+    /// Get the body of the message as a Rust string. This function tries to
+    /// unapply the Content-Transfer-Encoding if there is one, and then converts
+    /// the result into a Rust UTF-8 string using the charset in the Content-Type
+    /// (or "us-ascii" if the charset was missing or not recognized).
+    ///
+    /// # Examples
+    /// ```
+    ///     use mailparse::parse_mail;
+    ///     let p = parse_mail(concat!(
+    ///             "Subject: test\n",
+    ///             "\n",
+    ///             "This is the body").as_bytes())
+    ///         .unwrap();
+    ///     assert_eq!(p.get_body().unwrap(), "This is the body");
+    /// ```
     pub fn get_body(&self) -> Result<String, MailParseError> {
         let transfer_coding = try!(self.headers.get_first_value("Content-Transfer-Encoding"))
             .map(|s| s.to_lowercase());
@@ -406,6 +566,39 @@ impl<'a> ParsedMail<'a> {
     }
 }
 
+/// The main mail-parsing entry point.
+/// This function takes the raw data making up the message body and returns a
+/// structured version of it, which allows easily accessing the header and body
+/// information as needed.
+///
+/// # Examples
+/// ```
+///     use mailparse::*;
+///     let parsed = parse_mail(concat!(
+///             "Subject: This is a test email\n",
+///             "Content-Type: multipart/alternative; boundary=foobar\n",
+///             "\n",
+///             "--foobar\n",
+///             "Content-Type: text/plain; charset=utf-8\n",
+///             "Content-Transfer-Encoding: quoted-printable\n",
+///             "\n",
+///             "This is the plaintext version, in utf-8. Proof by Euro: =E2=82=AC\n",
+///             "--foobar\n",
+///             "Content-Type: text/html\n",
+///             "Content-Transfer-Encoding: base64\n",
+///             "\n",
+///             "PGh0bWw+PGJvZHk+VGhpcyBpcyB0aGUgPGI+SFRNTDwvYj4gdmVyc2lvbiwgaW4g \n",
+///             "dXMtYXNjaWkuIFByb29mIGJ5IEV1cm86ICZldXJvOzwvYm9keT48L2h0bWw+Cg== \n",
+///             "--foobar--\n",
+///             "After the final boundary stuff gets ignored.\n").as_bytes())
+///         .unwrap();
+///     assert_eq!(parsed.headers.get_first_value("Subject").unwrap(), Some("This is a test email".to_string()));
+///     assert_eq!(parsed.subparts.len(), 2);
+///     assert_eq!(parsed.subparts[0].get_body().unwrap(), "This is the plaintext version, in utf-8. Proof by Euro: \u{20AC}");
+///     assert_eq!(parsed.subparts[1].headers[1].get_value().unwrap(), "base64");
+///     assert_eq!(parsed.subparts[1].ctype.mimetype, "text/html");
+///     assert!(parsed.subparts[1].get_body().unwrap().starts_with("<html>"));
+/// ```
 pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
     let (headers, ix_body) = try!(parse_headers(raw_data));
     let ctype = match try!(headers.get_first_value("Content-Type")) {
