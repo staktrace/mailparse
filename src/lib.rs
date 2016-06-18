@@ -417,8 +417,7 @@ impl<'a> ParsedMail<'a> {
             "quoted-printable" => try!(quoted_printable::decode(self.body, quoted_printable::ParseMode::Robust)),
             _ => Vec::<u8>::from(self.body),
         };
-        let charset_conv = try!(encoding::label::encoding_from_whatwg_label(&self.ctype.charset)
-            .ok_or(MailParseError::Generic("Unknown charset found", 0)));
+        let charset_conv = encoding::label::encoding_from_whatwg_label(&self.ctype.charset).unwrap_or(encoding::all::ASCII);
         let str_body = try!(charset_conv.decode(&decoded, encoding::DecoderTrap::Replace).map_err(|_| {
             MailParseError::Generic("Unable to convert transfer-decoded bytes from specified charset", 0)
         }));
@@ -686,6 +685,9 @@ mod tests {
         assert_eq!(mail.subparts[1].ctype.boundary, None);
 
         let mail = parse_mail(b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG 8gd\r\n29ybGQ=").unwrap();
+        assert_eq!(mail.get_body().unwrap(), "hello world");
+
+        let mail = parse_mail(b"Content-Type: text/plain; charset=x-unknown\r\n\r\nhello world").unwrap();
         assert_eq!(mail.get_body().unwrap(), "hello world");
     }
 }
