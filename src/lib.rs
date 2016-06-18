@@ -16,7 +16,7 @@ pub enum MailParseError {
     QuotedPrintableDecodeError(quoted_printable::QuotedPrintableError),
     Base64DecodeError(base64::Base64Error),
     EncodingError(std::borrow::Cow<'static, str>),
-    Generic(&'static str, usize),
+    Generic(&'static str),
 }
 
 impl fmt::Display for MailParseError {
@@ -27,9 +27,7 @@ impl fmt::Display for MailParseError {
             }
             MailParseError::Base64DecodeError(ref err) => write!(f, "Base64 decode error: {}", err),
             MailParseError::EncodingError(ref err) => write!(f, "Encoding error: {}", err),
-            MailParseError::Generic(ref description, ref position) => {
-                write!(f, "{} (offset {})", description, position)
-            }
+            MailParseError::Generic(ref description) => write!(f, "{}", description),
         }
     }
 }
@@ -220,7 +218,7 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
     let mut it = raw_data.iter();
     let mut ix = 0;
     let mut c = match it.next() {
-        None => return Err(MailParseError::Generic("Empty string provided", 0)),
+        None => return Err(MailParseError::Generic("Empty string provided")),
         Some(v) => *v,
     };
 
@@ -235,8 +233,7 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
                 if c == b' ' {
                     return Err(MailParseError::Generic("Header cannot start with a space; it is \
                                                         likely an overhanging line from a \
-                                                        previous header",
-                                                       ix));
+                                                        previous header"));
                 };
                 state = HeaderParseState::Key;
                 continue;
@@ -246,7 +243,7 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
                     ix_key_end = Some(ix);
                     state = HeaderParseState::PreValue;
                 } else if c == b'\n' {
-                    return Err(MailParseError::Generic("Unexpected newline in header key", ix));
+                    return Err(MailParseError::Generic("Unexpected newline in header key"));
                 }
             }
             HeaderParseState::PreValue => {
@@ -289,7 +286,7 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
         }
 
         None => {
-            Err(MailParseError::Generic("Unable to determine end of the header key component", ix))
+            Err(MailParseError::Generic("Unable to determine end of the header key component"))
         }
     }
 }
@@ -324,14 +321,7 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
     let mut headers: Vec<MailHeader> = Vec::new();
     let mut ix = 0;
     loop {
-        let (header, ix_next) = try!(parse_header(&raw_data[ix..]).map_err(|e| {
-            match e {
-                MailParseError::Generic(ref description, ref position) => {
-                    MailParseError::Generic(description, position + ix)
-                }
-                err => err,
-            }
-        }));
+        let (header, ix_next) = try!(parse_header(&raw_data[ix..]));
         headers.push(header);
         ix = ix + ix_next;
         if ix >= raw_data.len() {
@@ -344,7 +334,7 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
                 ix = ix + 2;
                 break;
             } else {
-                return Err(MailParseError::Generic("Headers were followed by an unexpected lone CR character!", 0));
+                return Err(MailParseError::Generic("Headers were followed by an unexpected lone CR character!"));
             }
         }
     }
@@ -411,9 +401,7 @@ impl<'a> ParsedMail<'a> {
             _ => Vec::<u8>::from(self.body),
         };
         let charset_conv = encoding::label::encoding_from_whatwg_label(&self.ctype.charset).unwrap_or(encoding::all::ASCII);
-        let str_body = try!(charset_conv.decode(&decoded, encoding::DecoderTrap::Replace).map_err(|_| {
-            MailParseError::Generic("Unable to convert transfer-decoded bytes from specified charset", 0)
-        }));
+        let str_body = try!(charset_conv.decode(&decoded, encoding::DecoderTrap::Replace));
         Ok(str_body)
     }
 }
@@ -445,7 +433,7 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
                         break;
                     }
                 } else {
-                    return Err(MailParseError::Generic("Unable to terminating boundary of multipart message", 0));
+                    return Err(MailParseError::Generic("Unable to terminating boundary of multipart message"));
                 }
             }
         }
@@ -621,8 +609,8 @@ mod tests {
         assert_eq!(parsed.get_first_value("Key").unwrap(), Some("value".to_string()));
         assert_eq!(parsed.get_first_value("With").unwrap(), Some("CRLF".to_string()));
 
-        assert_match!(parse_headers(b"Bad\nKey").unwrap_err(), MailParseError::Generic(_, 3));
-        assert_match!(parse_headers(b"K:V\nBad\nKey").unwrap_err(), MailParseError::Generic(_, 7));
+        assert_match!(parse_headers(b"Bad\nKey").unwrap_err(), MailParseError::Generic(_));
+        assert_match!(parse_headers(b"K:V\nBad\nKey").unwrap_err(), MailParseError::Generic(_));
     }
 
     #[test]
