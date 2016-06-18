@@ -151,9 +151,10 @@ impl<'a> MailHeader<'a> {
         let decoded = match transfer_coding {
             "B" => try_none!(base64::u8de(input.as_bytes()).ok()),
             "Q" => {
-                let d = quoted_printable::decode_str(&input.replace("_", " "), quoted_printable::ParseMode::Robust);
+                let d = quoted_printable::decode_str(&input.replace("_", " "),
+                                                     quoted_printable::ParseMode::Robust);
                 try_none!(d.ok())
-            },
+            }
             _ => return None,
         };
         let charset_conv = try_none!(encoding::label::encoding_from_whatwg_label(charset));
@@ -334,9 +335,7 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
                 ix))
         }
 
-        None => {
-            Err(MailParseError::Generic("Unable to determine end of the header key component"))
-        }
+        None => Err(MailParseError::Generic("Unable to determine end of the header key component")),
     }
 }
 
@@ -435,11 +434,12 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
             ix = ix + 1;
             break;
         } else if raw_data[ix] == b'\r' {
-            if ix + 1 < raw_data.len() && raw_data[ix+1] == b'\n' {
+            if ix + 1 < raw_data.len() && raw_data[ix + 1] == b'\n' {
                 ix = ix + 2;
                 break;
             } else {
-                return Err(MailParseError::Generic("Headers were followed by an unexpected lone CR character!"));
+                return Err(MailParseError::Generic("Headers were followed by an unexpected lone \
+                                                    CR character!"));
             }
         }
     }
@@ -470,7 +470,9 @@ pub struct ParsedContentType {
 /// # Examples
 /// ```
 ///     use mailparse::{parse_header, parse_content_type};
-///     let (parsed, _) = parse_header(b"Content-Type: text/html; charset=foo; boundary=\"quotes_are_removed\"").unwrap();
+///     let (parsed, _) = parse_header(
+///             b"Content-Type: text/html; charset=foo; boundary=\"quotes_are_removed\"")
+///         .unwrap();
 ///     let ctype = parse_content_type(&parsed.get_value().unwrap()).unwrap();
 ///     assert_eq!(ctype.mimetype, "text/html");
 ///     assert_eq!(ctype.charset, "foo");
@@ -485,10 +487,10 @@ pub struct ParsedContentType {
 ///     assert_eq!(ctype.boundary, None);
 /// ```
 pub fn parse_content_type(header: &str) -> Result<ParsedContentType, MailParseError> {
-    let mut parsed_type = ParsedContentType{
+    let mut parsed_type = ParsedContentType {
         mimetype: "text/plain".to_string(),
         charset: "us-ascii".to_string(),
-        boundary: None
+        boundary: None,
     };
     let mut tokens = header.split(';');
     // There must be at least one token produced by split, even if it's empty.
@@ -496,7 +498,7 @@ pub fn parse_content_type(header: &str) -> Result<ParsedContentType, MailParseEr
     while let Some(param) = tokens.next() {
         if let Some(ix_eq) = param.find('=') {
             let attr = param[0..ix_eq].trim().to_lowercase();
-            let mut value = param[ix_eq+1..].trim();
+            let mut value = param[ix_eq + 1..].trim();
             if value.starts_with('"') && value.ends_with('"') {
                 value = &value[1..value.len() - 1];
             }
@@ -549,18 +551,22 @@ impl<'a> ParsedMail<'a> {
             .map(|s| s.to_lowercase());
         let decoded = match transfer_coding.unwrap_or(String::new()).as_ref() {
             "base64" => {
-                let cleaned = self.body.iter().filter_map(
-                    |&c| match c {
+                let cleaned = self.body
+                    .iter()
+                    .filter_map(|&c| match c {
                         b' ' | b'\t' | b'\r' | b'\n' => None,
                         v => Some(v),
-                    }
-                ).collect::<Vec<u8>>();
+                    })
+                    .collect::<Vec<u8>>();
                 try!(base64::u8de(&cleaned))
             }
-            "quoted-printable" => try!(quoted_printable::decode(self.body, quoted_printable::ParseMode::Robust)),
+            "quoted-printable" => {
+                try!(quoted_printable::decode(self.body, quoted_printable::ParseMode::Robust))
+            }
             _ => Vec::<u8>::from(self.body),
         };
-        let charset_conv = encoding::label::encoding_from_whatwg_label(&self.ctype.charset).unwrap_or(encoding::all::ASCII);
+        let charset_conv = encoding::label::encoding_from_whatwg_label(&self.ctype.charset)
+            .unwrap_or(encoding::all::ASCII);
         let str_body = try!(charset_conv.decode(&decoded, encoding::DecoderTrap::Replace));
         Ok(str_body)
     }
@@ -592,9 +598,11 @@ impl<'a> ParsedMail<'a> {
 ///             "--foobar--\n",
 ///             "After the final boundary stuff gets ignored.\n").as_bytes())
 ///         .unwrap();
-///     assert_eq!(parsed.headers.get_first_value("Subject").unwrap(), Some("This is a test email".to_string()));
+///     assert_eq!(parsed.headers.get_first_value("Subject").unwrap(),
+///         Some("This is a test email".to_string()));
 ///     assert_eq!(parsed.subparts.len(), 2);
-///     assert_eq!(parsed.subparts[0].get_body().unwrap(), "This is the plaintext version, in utf-8. Proof by Euro: \u{20AC}");
+///     assert_eq!(parsed.subparts[0].get_body().unwrap(),
+///         "This is the plaintext version, in utf-8. Proof by Euro: \u{20AC}");
 ///     assert_eq!(parsed.subparts[1].headers[1].get_value().unwrap(), "base64");
 ///     assert_eq!(parsed.subparts[1].ctype.mimetype, "text/html");
 ///     assert!(parsed.subparts[1].get_body().unwrap().starts_with("<html>"));
@@ -603,30 +611,39 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
     let (headers, ix_body) = try!(parse_headers(raw_data));
     let ctype = match try!(headers.get_first_value("Content-Type")) {
         Some(s) => try!(parse_content_type(&s)),
-        None => ParsedContentType {
-                    mimetype: "text/plain".to_string(),
-                    charset: "us-ascii".to_string(),
-                    boundary: None,
-                },
+        None => {
+            ParsedContentType {
+                mimetype: "text/plain".to_string(),
+                charset: "us-ascii".to_string(),
+                boundary: None,
+            }
+        }
     };
-    let mut result = ParsedMail{ headers: headers, ctype: ctype, body: &raw_data[ix_body..], subparts: Vec::<ParsedMail>::new() };
+    let mut result = ParsedMail {
+        headers: headers,
+        ctype: ctype,
+        body: &raw_data[ix_body..],
+        subparts: Vec::<ParsedMail>::new(),
+    };
     if result.ctype.mimetype.starts_with("multipart/") && result.ctype.boundary.is_some() {
         let boundary = String::from("--") + result.ctype.boundary.as_ref().unwrap();
         if let Some(ix_body_end) = find_from_u8(raw_data, ix_body, boundary.as_bytes()) {
             result.body = &raw_data[ix_body..ix_body_end];
             let mut ix_boundary_end = ix_body_end + boundary.len();
-            while let Some(ix_part_start) = find_from_u8(raw_data, ix_boundary_end, b"\n").map(|v| v + 1) {
-                if let Some(ix_part_end) = find_from_u8(raw_data, ix_part_start, boundary.as_bytes()) {
+            while let Some(ix_part_start) = find_from_u8(raw_data, ix_boundary_end, b"\n")
+                .map(|v| v + 1) {
+                if let Some(ix_part_end) = find_from_u8(raw_data,
+                                                        ix_part_start,
+                                                        boundary.as_bytes()) {
                     result.subparts.push(try!(parse_mail(&raw_data[ix_part_start..ix_part_end])));
                     ix_boundary_end = ix_part_end + boundary.len();
-                    if ix_boundary_end + 2 <= raw_data.len()
-                        && raw_data[ix_boundary_end] == b'-'
-                        && raw_data[ix_boundary_end + 1] == b'-'
-                    {
+                    if ix_boundary_end + 2 <= raw_data.len() && raw_data[ix_boundary_end] == b'-' &&
+                       raw_data[ix_boundary_end + 1] == b'-' {
                         break;
                     }
                 } else {
-                    return Err(MailParseError::Generic("Unable to terminating boundary of multipart message"));
+                    return Err(MailParseError::Generic("Unable to terminating boundary of \
+                                                        multipart message"));
                 }
             }
         }
@@ -764,22 +781,26 @@ mod tests {
         assert_eq!(parsed[1].key, b"Two");
         assert_eq!(parsed[1].value, b"Second");
 
-        let (parsed, _) = parse_headers(concat!(
-                "Return-Path: <kats@foobar.staktrace.com>\n",
-                "X-Original-To: kats@baz.staktrace.com\n",
-                "Delivered-To: kats@baz.staktrace.com\n",
-                "Received: from foobar.staktrace.com (localhost [127.0.0.1])\n",
-                "    by foobar.staktrace.com (Postfix) with ESMTP id 139F711C1C34\n",
-                "    for <kats@baz.staktrace.com>; Fri, 27 May 2016 02:34:26 -0400 (EDT)\n",
-                "Date: Fri, 27 May 2016 02:34:25 -0400\n",
-                "To: kats@baz.staktrace.com\n",
-                "From: kats@foobar.staktrace.com\n",
-                "Subject: test Fri, 27 May 2016 02:34:25 -0400\n",
-                "X-Mailer: swaks v20130209.0 jetmore.org/john/code/swaks/\n",
-                "Message-Id: <20160527063426.139F711C1C34@foobar.staktrace.com>\n",
-                "\n",
-                "This is a test mailing\n").as_bytes())
-            .unwrap();
+        let (parsed, _) =
+            parse_headers(concat!("Return-Path: <kats@foobar.staktrace.com>\n",
+                                  "X-Original-To: kats@baz.staktrace.com\n",
+                                  "Delivered-To: kats@baz.staktrace.com\n",
+                                  "Received: from foobar.staktrace.com (localhost [127.0.0.1])\n",
+                                  "    by foobar.staktrace.com (Postfix) with ESMTP id \
+                                   139F711C1C34\n",
+                                  "    for <kats@baz.staktrace.com>; Fri, 27 May 2016 02:34:26 \
+                                   -0400 (EDT)\n",
+                                  "Date: Fri, 27 May 2016 02:34:25 -0400\n",
+                                  "To: kats@baz.staktrace.com\n",
+                                  "From: kats@foobar.staktrace.com\n",
+                                  "Subject: test Fri, 27 May 2016 02:34:25 -0400\n",
+                                  "X-Mailer: swaks v20130209.0 jetmore.org/john/code/swaks/\n",
+                                  "Message-Id: \
+                                   <20160527063426.139F711C1C34@foobar.staktrace.com>\n",
+                                  "\n",
+                                  "This is a test mailing\n")
+                    .as_bytes())
+                .unwrap();
         assert_eq!(parsed.len(), 10);
         assert_eq!(parsed[0].key, b"Return-Path");
         assert_eq!(parsed[9].key, b"Message-Id");
@@ -800,11 +821,12 @@ mod tests {
         assert_eq!(parsed.get_all_values("NoKey").unwrap(),
                    Vec::<String>::new());
 
-        let (parsed, _) =
-            parse_headers(b"Key: value\r\nWith: CRLF\r\n\r\nBody").unwrap();
+        let (parsed, _) = parse_headers(b"Key: value\r\nWith: CRLF\r\n\r\nBody").unwrap();
         assert_eq!(parsed.len(), 2);
-        assert_eq!(parsed.get_first_value("Key").unwrap(), Some("value".to_string()));
-        assert_eq!(parsed.get_first_value("With").unwrap(), Some("CRLF".to_string()));
+        assert_eq!(parsed.get_first_value("Key").unwrap(),
+                   Some("value".to_string()));
+        assert_eq!(parsed.get_first_value("With").unwrap(),
+                   Some("CRLF".to_string()));
 
         assert_match!(parse_headers(b"Bad\nKey").unwrap_err(), MailParseError::Generic(_));
         assert_match!(parse_headers(b"K:V\nBad\nKey").unwrap_err(), MailParseError::Generic(_));
@@ -849,7 +871,8 @@ mod tests {
                 "--myboundary\r\n",
                 "Content-Type: text/html;chARset=utf-8\r\n\r\n",
                 "This is the <b>HTML</b> version with fake --MYBOUNDARY.\r\n",
-                "--myboundary--").as_bytes())
+                "--myboundary--")
+                .as_bytes())
             .unwrap();
         assert_eq!(mail.headers.len(), 1);
         assert_eq!(mail.headers[0].get_key().unwrap(), "Content-Type");
@@ -865,10 +888,12 @@ mod tests {
         assert_eq!(mail.subparts[1].ctype.charset, "utf-8");
         assert_eq!(mail.subparts[1].ctype.boundary, None);
 
-        let mail = parse_mail(b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG 8gd\r\n29ybGQ=").unwrap();
+        let mail = parse_mail(b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG 8gd\r\n29ybGQ=")
+            .unwrap();
         assert_eq!(mail.get_body().unwrap(), "hello world");
 
-        let mail = parse_mail(b"Content-Type: text/plain; charset=x-unknown\r\n\r\nhello world").unwrap();
+        let mail = parse_mail(b"Content-Type: text/plain; charset=x-unknown\r\n\r\nhello world")
+            .unwrap();
         assert_eq!(mail.get_body().unwrap(), "hello world");
     }
 }
