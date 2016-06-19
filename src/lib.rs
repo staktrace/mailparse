@@ -90,9 +90,32 @@ pub struct MailHeader<'a> {
     value: &'a [u8],
 }
 
-fn is_boundary(line: &str, ix: Option<usize>) -> bool {
-    ix.map_or_else(|| true,
-                   |v| v >= line.len() || line.chars().nth(v).unwrap().is_whitespace())
+fn is_out_of_bounds(line: &str, ix: Option<usize>) -> bool {
+    match ix {
+        None => true,
+        Some(v) => v >= line.len(),
+    }
+}
+
+fn is_boundary(line: &str, ix: Option<usize>, ix_next: Option<usize>) -> bool {
+    if is_out_of_bounds(line, ix) {
+        return true;
+    }
+    let c = line.chars().nth(ix.unwrap()).unwrap();
+    if c.is_whitespace() {
+        return true;
+    }
+    if c != '"' {
+        return false;
+    }
+    if is_out_of_bounds(line, ix_next) {
+        return true;
+    }
+    let c = line.chars().nth(ix_next.unwrap()).unwrap();
+    if c.is_whitespace() {
+        return true;
+    }
+    false
 }
 
 fn find_from(line: &str, ix_start: usize, key: &str) -> Option<usize> {
@@ -196,7 +219,7 @@ impl<'a> MailHeader<'a> {
                 match find_from(line, ix_search, "=?") {
                     Some(v) => {
                         let ix_begin = v + 2;
-                        if !is_boundary(line, ix_begin.checked_sub(3)) {
+                        if !is_boundary(line, ix_begin.checked_sub(3), ix_begin.checked_sub(4)) {
                             result.push_str(&line[ix_search..ix_begin]);
                             ix_search = ix_begin;
                             continue;
@@ -206,7 +229,7 @@ impl<'a> MailHeader<'a> {
                         loop {
                             match find_from(line, ix_end_search, "?=") {
                                 Some(ix_end) => {
-                                    if !is_boundary(line, ix_end.checked_add(2)) {
+                                    if !is_boundary(line, ix_end.checked_add(2), ix_end.checked_add(3)) {
                                         ix_end_search = ix_end + 2;
                                         continue;
                                     }
@@ -753,6 +776,9 @@ mod tests {
 
         let (parsed, _) = parse_header(b"NotSeparateWord2: =?utf-8?Q?hello?=world").unwrap();
         assert_eq!(parsed.get_value().unwrap(), "=?utf-8?Q?hello?=world");
+
+        let (parsed, _) = parse_header(b"Key: \"=?utf-8?Q?value?=\"").unwrap();
+        assert_eq!(parsed.get_value().unwrap(), "\"value\"");
     }
 
     #[test]
