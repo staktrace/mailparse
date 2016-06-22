@@ -11,7 +11,6 @@
 
     <link rel="stylesheet" type="text/css" href="../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../main.css">
-    
 
     
     
@@ -941,6 +940,75 @@
 <span id="897">897</span>
 <span id="898">898</span>
 <span id="899">899</span>
+<span id="900">900</span>
+<span id="901">901</span>
+<span id="902">902</span>
+<span id="903">903</span>
+<span id="904">904</span>
+<span id="905">905</span>
+<span id="906">906</span>
+<span id="907">907</span>
+<span id="908">908</span>
+<span id="909">909</span>
+<span id="910">910</span>
+<span id="911">911</span>
+<span id="912">912</span>
+<span id="913">913</span>
+<span id="914">914</span>
+<span id="915">915</span>
+<span id="916">916</span>
+<span id="917">917</span>
+<span id="918">918</span>
+<span id="919">919</span>
+<span id="920">920</span>
+<span id="921">921</span>
+<span id="922">922</span>
+<span id="923">923</span>
+<span id="924">924</span>
+<span id="925">925</span>
+<span id="926">926</span>
+<span id="927">927</span>
+<span id="928">928</span>
+<span id="929">929</span>
+<span id="930">930</span>
+<span id="931">931</span>
+<span id="932">932</span>
+<span id="933">933</span>
+<span id="934">934</span>
+<span id="935">935</span>
+<span id="936">936</span>
+<span id="937">937</span>
+<span id="938">938</span>
+<span id="939">939</span>
+<span id="940">940</span>
+<span id="941">941</span>
+<span id="942">942</span>
+<span id="943">943</span>
+<span id="944">944</span>
+<span id="945">945</span>
+<span id="946">946</span>
+<span id="947">947</span>
+<span id="948">948</span>
+<span id="949">949</span>
+<span id="950">950</span>
+<span id="951">951</span>
+<span id="952">952</span>
+<span id="953">953</span>
+<span id="954">954</span>
+<span id="955">955</span>
+<span id="956">956</span>
+<span id="957">957</span>
+<span id="958">958</span>
+<span id="959">959</span>
+<span id="960">960</span>
+<span id="961">961</span>
+<span id="962">962</span>
+<span id="963">963</span>
+<span id="964">964</span>
+<span id="965">965</span>
+<span id="966">966</span>
+<span id="967">967</span>
+<span id="968">968</span>
 </pre><pre class='rust '>
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>base64</span>;
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>encoding</span>;
@@ -1035,8 +1103,16 @@
 }
 
 <span class='kw'>fn</span> <span class='ident'>is_boundary</span>(<span class='ident'>line</span>: <span class='kw-2'>&amp;</span><span class='ident'>str</span>, <span class='ident'>ix</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>usize</span><span class='op'>&gt;</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
-    <span class='ident'>ix</span>.<span class='ident'>map_or_else</span>(<span class='op'>||</span> <span class='boolval'>true</span>,
-                   <span class='op'>|</span><span class='ident'>v</span><span class='op'>|</span> <span class='ident'>v</span> <span class='op'>&gt;=</span> <span class='ident'>line</span>.<span class='ident'>len</span>() <span class='op'>||</span> <span class='ident'>line</span>.<span class='ident'>chars</span>().<span class='ident'>nth</span>(<span class='ident'>v</span>).<span class='ident'>unwrap</span>().<span class='ident'>is_whitespace</span>())
+    <span class='kw'>match</span> <span class='ident'>ix</span> {
+        <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='boolval'>true</span>,
+        <span class='prelude-val'>Some</span>(<span class='ident'>v</span>) <span class='op'>=&gt;</span> {
+            <span class='kw'>if</span> <span class='ident'>v</span> <span class='op'>&gt;=</span> <span class='ident'>line</span>.<span class='ident'>len</span>() {
+                <span class='kw'>return</span> <span class='boolval'>true</span>;
+            }
+            <span class='kw'>let</span> <span class='ident'>c</span> <span class='op'>=</span> <span class='ident'>line</span>.<span class='ident'>chars</span>().<span class='ident'>nth</span>(<span class='ident'>v</span>).<span class='ident'>unwrap</span>();
+            <span class='kw'>return</span> <span class='ident'>c</span>.<span class='ident'>is_whitespace</span>() <span class='op'>||</span> <span class='ident'>c</span> <span class='op'>==</span> <span class='string'>&#39;&quot;&#39;</span> <span class='op'>||</span> <span class='ident'>c</span> <span class='op'>==</span> <span class='string'>&#39;(&#39;</span> <span class='op'>||</span> <span class='ident'>c</span> <span class='op'>==</span> <span class='string'>&#39;)&#39;</span> <span class='op'>||</span> <span class='ident'>c</span> <span class='op'>==</span> <span class='string'>&#39;&lt;&#39;</span> <span class='op'>||</span> <span class='ident'>c</span> <span class='op'>==</span> <span class='string'>&#39;&gt;&#39;</span>;
+        }
+    }
 }
 
 <span class='kw'>fn</span> <span class='ident'>find_from</span>(<span class='ident'>line</span>: <span class='kw-2'>&amp;</span><span class='ident'>str</span>, <span class='ident'>ix_start</span>: <span class='ident'>usize</span>, <span class='ident'>key</span>: <span class='kw-2'>&amp;</span><span class='ident'>str</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>usize</span><span class='op'>&gt;</span> {
@@ -1093,10 +1169,18 @@
         <span class='kw'>let</span> <span class='ident'>input</span> <span class='op'>=</span> <span class='kw-2'>&amp;</span><span class='ident'>encoded</span>[<span class='ident'>ix_delim2</span> <span class='op'>+</span> <span class='number'>1</span>..];
 
         <span class='kw'>let</span> <span class='ident'>decoded</span> <span class='op'>=</span> <span class='kw'>match</span> <span class='ident'>transfer_coding</span> {
-            <span class='string'>&quot;B&quot;</span> <span class='op'>=&gt;</span> <span class='macro'>try_none</span><span class='macro'>!</span>(<span class='ident'>base64</span>::<span class='ident'>u8de</span>(<span class='ident'>input</span>.<span class='ident'>as_bytes</span>()).<span class='ident'>ok</span>()),
-            <span class='string'>&quot;Q&quot;</span> <span class='op'>=&gt;</span> {
-                <span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>quoted_printable</span>::<span class='ident'>decode_str</span>(<span class='kw-2'>&amp;</span><span class='ident'>input</span>.<span class='ident'>replace</span>(<span class='string'>&quot;_&quot;</span>, <span class='string'>&quot; &quot;</span>),
+            <span class='string'>&quot;B&quot;</span> <span class='op'>|</span> <span class='string'>&quot;b&quot;</span> <span class='op'>=&gt;</span> <span class='macro'>try_none</span><span class='macro'>!</span>(<span class='ident'>base64</span>::<span class='ident'>u8de</span>(<span class='ident'>input</span>.<span class='ident'>as_bytes</span>()).<span class='ident'>ok</span>()),
+            <span class='string'>&quot;Q&quot;</span> <span class='op'>|</span> <span class='string'>&quot;q&quot;</span> <span class='op'>=&gt;</span> {
+                <span class='comment'>// The quoted_printable module does a trim_right on the input, so if</span>
+                <span class='comment'>// that affects the output we should save and restore the trailing</span>
+                <span class='comment'>// whitespace</span>
+                <span class='kw'>let</span> <span class='ident'>to_decode</span> <span class='op'>=</span> <span class='ident'>input</span>.<span class='ident'>replace</span>(<span class='string'>&quot;_&quot;</span>, <span class='string'>&quot; &quot;</span>);
+                <span class='kw'>let</span> <span class='ident'>trimmed</span> <span class='op'>=</span> <span class='ident'>to_decode</span>.<span class='ident'>trim_right</span>();
+                <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>quoted_printable</span>::<span class='ident'>decode_str</span>(<span class='kw-2'>&amp;</span><span class='ident'>trimmed</span>,
                                                      <span class='ident'>quoted_printable</span>::<span class='ident'>ParseMode</span>::<span class='ident'>Robust</span>);
+                <span class='kw'>if</span> <span class='ident'>d</span>.<span class='ident'>is_ok</span>() <span class='op'>&amp;&amp;</span> <span class='ident'>to_decode</span>.<span class='ident'>len</span>() <span class='op'>!=</span> <span class='ident'>trimmed</span>.<span class='ident'>len</span>() {
+                    <span class='ident'>d</span>.<span class='ident'>as_mut</span>().<span class='ident'>unwrap</span>().<span class='ident'>extend_from_slice</span>(<span class='ident'>to_decode</span>[<span class='ident'>trimmed</span>.<span class='ident'>len</span>()..].<span class='ident'>as_bytes</span>());
+                }
                 <span class='macro'>try_none</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>ok</span>())
             }
             _ <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>None</span>,
@@ -1303,6 +1387,11 @@
     <span class='doccomment'>/// ```</span>
     <span class='kw'>fn</span> <span class='ident'>get_first_value</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>key</span>: <span class='kw-2'>&amp;</span><span class='ident'>str</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>String</span><span class='op'>&gt;</span>, <span class='ident'>MailParseError</span><span class='op'>&gt;</span>;
 
+    <span class='doccomment'>/// Same as get_first_value, but does a case-insensitive search for the header.</span>
+    <span class='doccomment'>/// According to the spec the mail headers are supposed to be case-sensitive,</span>
+    <span class='doccomment'>/// but in real-world scenarios that&#39;s not always the case.</span>
+    <span class='kw'>fn</span> <span class='ident'>get_first_value_ci</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>key</span>: <span class='kw-2'>&amp;</span><span class='ident'>str</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>String</span><span class='op'>&gt;</span>, <span class='ident'>MailParseError</span><span class='op'>&gt;</span>;
+
     <span class='doccomment'>/// Look through the list of headers and return the values of all headers</span>
     <span class='doccomment'>/// matching the provided key. Returns an empty vector if no matching headers</span>
     <span class='doccomment'>/// were found. The order of the returned values is the same as the order</span>
@@ -1319,6 +1408,11 @@
     <span class='doccomment'>///         vec![&quot;Value1&quot;.to_string(), &quot;Value2&quot;.to_string()]);</span>
     <span class='doccomment'>/// ```</span>
     <span class='kw'>fn</span> <span class='ident'>get_all_values</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>key</span>: <span class='kw-2'>&amp;</span><span class='ident'>str</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>String</span><span class='op'>&gt;</span>, <span class='ident'>MailParseError</span><span class='op'>&gt;</span>;
+
+    <span class='doccomment'>/// Same as get_all_values, but does a case-insensitive search for the header.</span>
+    <span class='doccomment'>/// According to the spec the mail headers are supposed to be case-sensitive,</span>
+    <span class='doccomment'>/// but in real-world scenarios that&#39;s not always the case.</span>
+    <span class='kw'>fn</span> <span class='ident'>get_all_values_ci</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>key</span>: <span class='kw-2'>&amp;</span><span class='ident'>str</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>String</span><span class='op'>&gt;</span>, <span class='ident'>MailParseError</span><span class='op'>&gt;</span>;
 }
 
 <span class='kw'>impl</span><span class='op'>&lt;</span><span class='lifetime'>&#39;a</span><span class='op'>&gt;</span> <span class='ident'>MailHeaderMap</span> <span class='kw'>for</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>MailHeader</span><span class='op'>&lt;</span><span class='lifetime'>&#39;a</span><span class='op'>&gt;&gt;</span> {
@@ -1331,10 +1425,31 @@
         <span class='prelude-val'>Ok</span>(<span class='prelude-val'>None</span>)
     }
 
+    <span class='kw'>fn</span> <span class='ident'>get_first_value_ci</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>key</span>: <span class='kw-2'>&amp;</span><span class='ident'>str</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>String</span><span class='op'>&gt;</span>, <span class='ident'>MailParseError</span><span class='op'>&gt;</span> {
+        <span class='kw'>let</span> <span class='ident'>lower_key</span> <span class='op'>=</span> <span class='ident'>key</span>.<span class='ident'>to_lowercase</span>();
+        <span class='kw'>for</span> <span class='ident'>x</span> <span class='kw'>in</span> <span class='self'>self</span> {
+            <span class='kw'>if</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>x</span>.<span class='ident'>get_key</span>()).<span class='ident'>to_lowercase</span>() <span class='op'>==</span> <span class='ident'>lower_key</span> {
+                <span class='kw'>return</span> <span class='ident'>x</span>.<span class='ident'>get_value</span>().<span class='ident'>map</span>(<span class='op'>|</span><span class='ident'>v</span><span class='op'>|</span> <span class='prelude-val'>Some</span>(<span class='ident'>v</span>));
+            }
+        }
+        <span class='prelude-val'>Ok</span>(<span class='prelude-val'>None</span>)
+    }
+
     <span class='kw'>fn</span> <span class='ident'>get_all_values</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>key</span>: <span class='kw-2'>&amp;</span><span class='ident'>str</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>String</span><span class='op'>&gt;</span>, <span class='ident'>MailParseError</span><span class='op'>&gt;</span> {
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>values</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>String</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
         <span class='kw'>for</span> <span class='ident'>x</span> <span class='kw'>in</span> <span class='self'>self</span> {
             <span class='kw'>if</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>x</span>.<span class='ident'>get_key</span>()) <span class='op'>==</span> <span class='ident'>key</span> {
+                <span class='ident'>values</span>.<span class='ident'>push</span>(<span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>x</span>.<span class='ident'>get_value</span>()));
+            }
+        }
+        <span class='prelude-val'>Ok</span>(<span class='ident'>values</span>)
+    }
+
+    <span class='kw'>fn</span> <span class='ident'>get_all_values_ci</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>key</span>: <span class='kw-2'>&amp;</span><span class='ident'>str</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>String</span><span class='op'>&gt;</span>, <span class='ident'>MailParseError</span><span class='op'>&gt;</span> {
+        <span class='kw'>let</span> <span class='ident'>lower_key</span> <span class='op'>=</span> <span class='ident'>key</span>.<span class='ident'>to_lowercase</span>();
+        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>values</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>String</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
+        <span class='kw'>for</span> <span class='ident'>x</span> <span class='kw'>in</span> <span class='self'>self</span> {
+            <span class='kw'>if</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>x</span>.<span class='ident'>get_key</span>()).<span class='ident'>to_lowercase</span>() <span class='op'>==</span> <span class='ident'>lower_key</span> {
                 <span class='ident'>values</span>.<span class='ident'>push</span>(<span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>x</span>.<span class='ident'>get_value</span>()));
             }
         }
@@ -1491,7 +1606,7 @@
     <span class='doccomment'>///     assert_eq!(p.get_body().unwrap(), &quot;This is the body&quot;);</span>
     <span class='doccomment'>/// ```</span>
     <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>get_body</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>String</span>, <span class='ident'>MailParseError</span><span class='op'>&gt;</span> {
-        <span class='kw'>let</span> <span class='ident'>transfer_coding</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>headers</span>.<span class='ident'>get_first_value</span>(<span class='string'>&quot;Content-Transfer-Encoding&quot;</span>))
+        <span class='kw'>let</span> <span class='ident'>transfer_coding</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>headers</span>.<span class='ident'>get_first_value_ci</span>(<span class='string'>&quot;Content-Transfer-Encoding&quot;</span>))
             .<span class='ident'>map</span>(<span class='op'>|</span><span class='ident'>s</span><span class='op'>|</span> <span class='ident'>s</span>.<span class='ident'>to_lowercase</span>());
         <span class='kw'>let</span> <span class='ident'>decoded</span> <span class='op'>=</span> <span class='kw'>match</span> <span class='ident'>transfer_coding</span>.<span class='ident'>unwrap_or</span>(<span class='ident'>String</span>::<span class='ident'>new</span>()).<span class='ident'>as_ref</span>() {
             <span class='string'>&quot;base64&quot;</span> <span class='op'>=&gt;</span> {
@@ -1553,7 +1668,7 @@
 <span class='doccomment'>/// ```</span>
 <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>parse_mail</span>(<span class='ident'>raw_data</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>u8</span>]) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>ParsedMail</span>, <span class='ident'>MailParseError</span><span class='op'>&gt;</span> {
     <span class='kw'>let</span> (<span class='ident'>headers</span>, <span class='ident'>ix_body</span>) <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>parse_headers</span>(<span class='ident'>raw_data</span>));
-    <span class='kw'>let</span> <span class='ident'>ctype</span> <span class='op'>=</span> <span class='kw'>match</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>headers</span>.<span class='ident'>get_first_value</span>(<span class='string'>&quot;Content-Type&quot;</span>)) {
+    <span class='kw'>let</span> <span class='ident'>ctype</span> <span class='op'>=</span> <span class='kw'>match</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>headers</span>.<span class='ident'>get_first_value_ci</span>(<span class='string'>&quot;Content-Type&quot;</span>)) {
         <span class='prelude-val'>Some</span>(<span class='ident'>s</span>) <span class='op'>=&gt;</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>parse_content_type</span>(<span class='kw-2'>&amp;</span><span class='ident'>s</span>)),
         <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> {
             <span class='ident'>ParsedContentType</span> {
@@ -1697,6 +1812,23 @@
 
         <span class='kw'>let</span> (<span class='ident'>parsed</span>, _) <span class='op'>=</span> <span class='ident'>parse_header</span>(<span class='string'>b&quot;NotSeparateWord2: =?utf-8?Q?hello?=world&quot;</span>).<span class='ident'>unwrap</span>();
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_value</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;=?utf-8?Q?hello?=world&quot;</span>);
+
+        <span class='kw'>let</span> (<span class='ident'>parsed</span>, _) <span class='op'>=</span> <span class='ident'>parse_header</span>(<span class='string'>b&quot;Key: \&quot;=?utf-8?Q?value?=\&quot;&quot;</span>).<span class='ident'>unwrap</span>();
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_value</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;\&quot;value\&quot;&quot;</span>);
+
+        <span class='kw'>let</span> (<span class='ident'>parsed</span>, _) <span class='op'>=</span> <span class='ident'>parse_header</span>(<span class='string'>b&quot;Subject: =?utf-8?q?=5BOntario_Builder=5D_Understanding_home_shopping_=E2=80=93_a_q?=\n \
+                                        =?utf-8?q?uick_survey?=&quot;</span>)
+            .<span class='ident'>unwrap</span>();
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_key</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;Subject&quot;</span>);
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_value</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;[Ontario Builder] Understanding home shopping \u{2013} a q uick survey&quot;</span>);
+
+        <span class='kw'>let</span> (<span class='ident'>parsed</span>, _) <span class='op'>=</span> <span class='ident'>parse_header</span>(<span class='string'>b&quot;Content-Type: image/jpeg; name=\&quot;=?UTF-8?B?MDY2MTM5ODEuanBn?=\&quot;&quot;</span>).<span class='ident'>unwrap</span>();
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_key</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;Content-Type&quot;</span>);
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_value</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;image/jpeg; name=\&quot;06613981.jpg\&quot;&quot;</span>);
+
+        <span class='kw'>let</span> (<span class='ident'>parsed</span>, _) <span class='op'>=</span> <span class='ident'>parse_header</span>(<span class='string'>b&quot;From: =?UTF-8?Q?\&quot;Motorola_Owners=E2=80=99_Forums\&quot;_?=&lt;forums@motorola.com&gt;&quot;</span>).<span class='ident'>unwrap</span>();
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_key</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;From&quot;</span>);
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_value</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;\&quot;Motorola Owners\u{2019} Forums\&quot; &lt;forums@motorola.com&gt;&quot;</span>);
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
@@ -1838,6 +1970,11 @@
 
         <span class='kw'>let</span> <span class='ident'>mail</span> <span class='op'>=</span> <span class='ident'>parse_mail</span>(<span class='string'>b&quot;Content-Type: text/plain; charset=x-unknown\r\n\r\nhello world&quot;</span>)
             .<span class='ident'>unwrap</span>();
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>mail</span>.<span class='ident'>get_body</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;hello world&quot;</span>);
+
+        <span class='kw'>let</span> <span class='ident'>mail</span> <span class='op'>=</span> <span class='ident'>parse_mail</span>(<span class='string'>b&quot;ConTENT-tyPE: text/html\r\n\r\nhello world&quot;</span>)
+            .<span class='ident'>unwrap</span>();
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>mail</span>.<span class='ident'>ctype</span>.<span class='ident'>mimetype</span>, <span class='string'>&quot;text/html&quot;</span>);
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>mail</span>.<span class='ident'>get_body</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;hello world&quot;</span>);
     }
 }
