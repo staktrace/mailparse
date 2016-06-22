@@ -159,8 +159,16 @@ impl<'a> MailHeader<'a> {
         let decoded = match transfer_coding {
             "B" | "b" => try_none!(base64::u8de(input.as_bytes()).ok()),
             "Q" | "q" => {
-                let d = quoted_printable::decode_str(&input.replace("_", " "),
+                // The quoted_printable module does a trim_right on the input, so if
+                // that affects the output we should save and restore the trailing
+                // whitespace
+                let to_decode = input.replace("_", " ");
+                let trimmed = to_decode.trim_right();
+                let mut d = quoted_printable::decode_str(&trimmed,
                                                      quoted_printable::ParseMode::Robust);
+                if d.is_ok() && to_decode.len() != trimmed.len() {
+                    d.as_mut().unwrap().extend_from_slice(to_decode[trimmed.len()..].as_bytes());
+                }
                 try_none!(d.ok())
             }
             _ => return None,
@@ -774,6 +782,10 @@ mod tests {
         let (parsed, _) = parse_header(b"Content-Type: image/jpeg; name=\"=?UTF-8?B?MDY2MTM5ODEuanBn?=\"").unwrap();
         assert_eq!(parsed.get_key().unwrap(), "Content-Type");
         assert_eq!(parsed.get_value().unwrap(), "image/jpeg; name=\"06613981.jpg\"");
+
+        let (parsed, _) = parse_header(b"From: =?UTF-8?Q?\"Motorola_Owners=E2=80=99_Forums\"_?=<forums@motorola.com>").unwrap();
+        assert_eq!(parsed.get_key().unwrap(), "From");
+        assert_eq!(parsed.get_value().unwrap(), "\"Motorola Owners\u{2019} Forums\" <forums@motorola.com>");
     }
 
     #[test]
