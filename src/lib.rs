@@ -172,8 +172,8 @@ impl<'a> MailHeader<'a> {
         let input = &encoded[ix_delim2 + 1..];
 
         let decoded = match transfer_coding {
-            "B" => try_none!(base64::u8de(input.as_bytes()).ok()),
-            "Q" => {
+            "B" | "b" => try_none!(base64::u8de(input.as_bytes()).ok()),
+            "Q" | "q" => {
                 let d = quoted_printable::decode_str(&input.replace("_", " "),
                                                      quoted_printable::ParseMode::Robust);
                 try_none!(d.ok())
@@ -779,6 +779,12 @@ mod tests {
 
         let (parsed, _) = parse_header(b"Key: \"=?utf-8?Q?value?=\"").unwrap();
         assert_eq!(parsed.get_value().unwrap(), "\"value\"");
+
+        let (parsed, _) = parse_header(b"Subject: =?utf-8?q?=5BOntario_Builder=5D_Understanding_home_shopping_=E2=80=93_a_q?=\n \
+                                        =?utf-8?q?uick_survey?=")
+            .unwrap();
+        assert_eq!(parsed.get_key().unwrap(), "Subject");
+        assert_eq!(parsed.get_value().unwrap(), "[Ontario Builder] Understanding home shopping \u{2013} a q uick survey");
     }
 
     #[test]
