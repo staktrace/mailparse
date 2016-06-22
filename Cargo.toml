@@ -7,7 +7,7 @@ documentation = "https://staktrace.github.io/mailparse/target/doc/mailparse/"
 homepage = "https://github.com/staktrace/mailparse/blob/master/README.md"
 repository = "https://github.com/staktrace/mailparse"
 readme = "README.md"
-keywords = ["parser", "email", "mail", "rfc822", "mime", "maildir"]
+keywords = ["parser", "email", "rfc822", "mime", "maildir"]
 license-file = "LICENSE"
 
 [dependencies]
