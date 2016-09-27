@@ -1,19 +1,3 @@
-#[derive(PartialEq, Debug)]
-pub struct DateTime {
-    /// The year, e.g. 2016
-    pub year: u32,
-    /// The month (0 is January and 11 is December).
-    pub month: i8,
-    /// The date (one-indexed, so 31 would indicate the last date in January).
-    pub date: i8,
-    /// The hour (zero-indexed, valid values are 0 to 23 inclusive)
-    pub hour: i8,
-    /// The minute (zero-indexed, valid values are 0 to 59 inclusive)
-    pub minute: i8,
-    /// The second (zero-indexed, valid values are 0 to 59 inclusive)
-    pub second: i8,
-}
-
 enum DateParseState {
     Date,
     Month,
@@ -24,7 +8,7 @@ enum DateParseState {
     Timezone,
 }
 
-fn days_in_month(month: i8, year: u32) -> i8 {
+fn days_in_month(month: i64, year: i64) -> i64 {
     match month {
         0 | 2 | 4 | 6 | 7 | 9 | 11 => 31,
         3 | 5 | 8 | 10 => 30,
@@ -43,8 +27,47 @@ fn days_in_month(month: i8, year: u32) -> i8 {
     }
 }
 
-pub fn dateparse(date: &str) -> Result<DateTime, &'static str> {
-    let mut result = DateTime { year: 0, month: 0, date: 1, hour: 0, minute: 0, second: 0 };
+fn seconds_to_date(year: i64, month: i64, day: i64) -> i64 {
+    let mut result : i64 = 0;
+    for y in 1970..2001 {
+        if y == year {
+            break;
+        }
+        result += 86400 * 365;
+        if (y % 4) == 0 {
+            result += 86400;
+        }
+    }
+    let mut y = 2001;
+    while y < year {
+        if year - y >= 400 {
+            result += (86400 * 365 * 400) + (86400 * 97);
+            y += 400;
+            continue;
+        }
+        if year - y >= 100 {
+            result += (86400 * 365 * 100) + (86400 * 24);
+            y += 100;
+            continue;
+        }
+        if year - y >= 4 {
+            result += (86400 * 365 * 4) + (86400);
+            y += 4;
+            continue;
+        }
+        result += 86400 * 365;
+        y += 1;
+    }
+    for m in 0..month {
+        result += 86400 * days_in_month(m, year)
+    }
+    result + 86400 * (day - 1)
+}
+
+pub fn dateparse(date: &str) -> Result<i64, &'static str> {
+    let mut result = 0;
+    let mut month = 0;
+    let mut day_of_month = 0;
     let mut state = DateParseState::Date;
     for tok in date.split(|c| c == ' ' || c == ':') {
         if tok.is_empty() {
@@ -52,9 +75,9 @@ pub fn dateparse(date: &str) -> Result<DateTime, &'static str> {
         }
         match state {
             DateParseState::Date => {
-                match tok.parse::<i8>() {
+                match tok.parse::<u8>() {
                     Ok(v) => {
-                        result.date = v;
+                        day_of_month = v;
                         state = DateParseState::Month;
                     },
                     Err(_) => (),
@@ -62,7 +85,7 @@ pub fn dateparse(date: &str) -> Result<DateTime, &'static str> {
                 continue;
             },
             DateParseState::Month => {
-                result.month = match tok.to_uppercase().as_str() {
+                month = match tok.to_uppercase().as_str() {
                     "JAN" | "JANUARY" => 0,
                     "FEB" | "FEBRUARY" => 1,
                     "MAR" | "MARCH" => 2,
@@ -81,36 +104,41 @@ pub fn dateparse(date: &str) -> Result<DateTime, &'static str> {
                 continue;
             },
             DateParseState::Year => {
-                result.year = match tok.parse::<u32>() {
+                let year = match tok.parse::<u32>() {
                     Ok(v) if v < 70 => 2000 + v,
                     Ok(v) if v < 100 => 1900 + v,
+                    Ok(v) if v < 1970 => return Err("Disallowed year"),
                     Ok(v) => v,
                     Err(_) => return Err("Invalid year"),
                 };
+                result = seconds_to_date(year as i64, month as i64, day_of_month as i64);
                 state = DateParseState::Hour;
                 continue;
             },
             DateParseState::Hour => {
-                result.hour = match tok.parse::<i8>() {
+                let hour = match tok.parse::<u8>() {
                     Ok(v) => v,
                     Err(_) => return Err("Invalid hour"),
                 };
+                result += 3600 * (hour as i64);
                 state = DateParseState::Minute;
                 continue;
             },
             DateParseState::Minute => {
-                result.minute = match tok.parse::<i8>() {
+                let minute = match tok.parse::<u8>() {
                     Ok(v) => v,
                     Err(_) => return Err("Invalid minute"),
                 };
+                result += 60 * (minute as i64);
                 state = DateParseState::Second;
                 continue;
             },
             DateParseState::Second => {
-                result.second = match tok.parse::<i8>() {
+                let second = match tok.parse::<u8>() {
                     Ok(v) => v,
                     Err(_) => return Err("Invalid second"),
                 };
+                result += second as i64;
                 state = DateParseState::Timezone;
                 continue;
             },
@@ -120,49 +148,13 @@ pub fn dateparse(date: &str) -> Result<DateTime, &'static str> {
                     Ok(v) => (v, 1),
                     Err(_) => return Err("Invalid timezone"),
                 };
-                let tz_hours = (tz / 100) as i8;
-                let tz_mins = (tz % 100) as i8;
+                let tz_hours = tz / 100;
+                let tz_mins = tz % 100;
+                let tz_delta = (tz_hours * 3600) + (tz_mins * 60);
                 if tz_sign < 0 {
-                    result.hour += tz_hours;
-                    result.minute += tz_mins;
+                    result += tz_delta as i64;
                 } else {
-                    result.hour -= tz_hours;
-                    result.minute -= tz_mins;
-                }
-                while result.minute < 0 {
-                    result.hour -= 1;
-                    result.minute += 60;
-                }
-                while result.minute >= 60 {
-                    result.hour += 1;
-                    result.minute -= 60;
-                }
-                while result.hour < 0 {
-                    result.date -= 1;
-                    result.hour += 24;
-                }
-                while result.hour >= 24 {
-                    result.date += 1;
-                    result.hour -= 24;
-                }
-                let num_days = days_in_month(result.month % 12, result.year);
-                if result.date < 0 || result.date > num_days + 1 {
-                    return Err("Invalid date after normalization");
-                }
-                if result.date < 1 {
-                    result.month -= 1;
-                    result.date = days_in_month(result.month % 12, result.year);
-                } else if result.date > num_days {
-                    result.month += 1;
-                    result.date = 1;
-                }
-                while result.month < 0 {
-                    result.year -= 1;
-                    result.month += 12;
-                }
-                while result.month >= 12 {
-                    result.year += 1;
-                    result.month -= 12;
+                    result -= tz_delta as i64;
                 }
                 break;
             },
@@ -177,7 +169,10 @@ mod tests {
 
     #[test]
     fn parse_dates() {
-        assert_eq!(dateparse("Sun, 25 Sep 2016 18:36:33 -0400").unwrap(),
-                   DateTime{ year: 2016, month: 8, date: 25, hour: 22, minute: 36, second: 33 });
+        assert_eq!(dateparse("Sun, 25 Sep 2016 18:36:33 -0400").unwrap(), 1474842993);
+        assert_eq!(dateparse("Fri, 01 Jan 2100 11:12:13 +0000").unwrap(), 4102485133);
+        assert_eq!(dateparse("Fri, 31 Dec 2100 00:00:00 +0000").unwrap(), 4133894400);
+        assert_eq!(dateparse("Fri, 31 Dec 2399 00:00:00 +0000").unwrap(), 13569379200);
+        assert_eq!(dateparse("Fri, 31 Dec 2400 00:00:00 +0000").unwrap(), 13601001600);
     }
 }
