@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../main.css">
+    
 
     
     
@@ -43,82 +44,85 @@
 
     <section id='main' class="content mod">
 <h1 class='fqn'><span class='in-band'>Crate <a class='mod' href=''>mailparse</a></span><span class='out-of-band'><span id='render-detail'>
-            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
-                [<span class='inner'>&#x2212;</span>]
-            </a>
-        </span><a id='src-0' class='srclink' href='../src/mailparse/src/lib.rs.html#1-968' title='goto source code'>[src]</a></span></h1>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-0' class='srclink' href='../src/mailparse/src/lib.rs.html#1-977' title='goto source code'>[src]</a></span></h1>
 <h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
 <table>
-                    <tr class=' module-item'>
-                        <td><a class='struct' href='struct.MailHeader.html'
-                               title='mailparse::MailHeader'>MailHeader</a></td>
-                        <td class='docblock short'>
-                             <p>A struct that represents a single header in the message.
+                       <tr class=' module-item'>
+                           <td><a class='struct' href='struct.MailHeader.html'
+                                  title='mailparse::MailHeader'>MailHeader</a></td>
+                           <td class='docblock short'>
+                                <p>A struct that represents a single header in the message.
 It holds slices into the raw byte array passed to parse_mail, and so the
 lifetime of this struct must be contained within the lifetime of the raw
 input. There are additional accessor functions on this struct to extract
 the data as Rust strings.</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='struct' href='struct.ParsedContentType.html'
-                               title='mailparse::ParsedContentType'>ParsedContentType</a></td>
-                        <td class='docblock short'>
-                             <p>A struct to hold a more structured representation of the Content-Type header.
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='struct' href='struct.ParsedContentType.html'
+                                  title='mailparse::ParsedContentType'>ParsedContentType</a></td>
+                           <td class='docblock short'>
+                                <p>A struct to hold a more structured representation of the Content-Type header.
 This is provided mostly as a convenience since this metadata is usually
 needed to interpret the message body properly.</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='struct' href='struct.ParsedMail.html'
-                               title='mailparse::ParsedMail'>ParsedMail</a></td>
-                        <td class='docblock short'>
-                             <p>Struct that holds the structured representation of the message. Note that
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='struct' href='struct.ParsedMail.html'
+                                  title='mailparse::ParsedMail'>ParsedMail</a></td>
+                           <td class='docblock short'>
+                                <p>Struct that holds the structured representation of the message. Note that
 since MIME allows for nested multipart messages, a tree-like structure is
 necessary to represent it properly. This struct accomplishes that by holding
 a vector of other ParsedMail structures for the subparts.</p>
-                        </td>
-                    </tr>
-                </table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+                           </td>
+                       </tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
 <table>
-                    <tr class=' module-item'>
-                        <td><a class='enum' href='enum.MailParseError.html'
-                               title='mailparse::MailParseError'>MailParseError</a></td>
-                        <td class='docblock short'>
-                             <p>An error type that represents the different kinds of errors that may be
+                       <tr class=' module-item'>
+                           <td><a class='enum' href='enum.MailParseError.html'
+                                  title='mailparse::MailParseError'>MailParseError</a></td>
+                           <td class='docblock short'>
+                                <p>An error type that represents the different kinds of errors that may be
 encountered during message parsing.</p>
-                        </td>
-                    </tr>
-                </table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+                           </td>
+                       </tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
 <table>
-                    <tr class=' module-item'>
-                        <td><a class='trait' href='trait.MailHeaderMap.html'
-                               title='mailparse::MailHeaderMap'>MailHeaderMap</a></td>
-                        <td class='docblock short'>
-                             <p>A trait that is implemented by the Vec<MailHeader> returned by the parse_headers
+                       <tr class=' module-item'>
+                           <td><a class='trait' href='trait.MailHeaderMap.html'
+                                  title='mailparse::MailHeaderMap'>MailHeaderMap</a></td>
+                           <td class='docblock short'>
+                                <p>A trait that is implemented by the Vec<MailHeader> returned by the parse_headers
 function. It provides a map-like interface to look up header values by their
 name.</p>
-                        </td>
-                    </tr>
-                </table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+                           </td>
+                       </tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
 <table>
-                    <tr class=' module-item'>
-                        <td><a class='fn' href='fn.parse_content_type.html'
-                               title='mailparse::parse_content_type'>parse_content_type</a></td>
-                        <td class='docblock short'>
-                             <p>Helper method to parse a header value as a Content-Type header. The charset
+                       <tr class=' module-item'>
+                           <td><a class='fn' href='fn.dateparse.html'
+                                  title='mailparse::dateparse'>dateparse</a></td>
+                           <td class='docblock short'>
+                                <p>Convert a date field from an email header into a UNIX epoch timestamp.
+This function handles the most common formatting of date fields found in
+email headers. It may fail to parse some of the more creative formattings.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='fn' href='fn.parse_content_type.html'
+                                  title='mailparse::parse_content_type'>parse_content_type</a></td>
+                           <td class='docblock short'>
+                                <p>Helper method to parse a header value as a Content-Type header. The charset
 defaults to &quot;us-ascii&quot; if no charset parameter is provided in the header
 value.</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='fn' href='fn.parse_header.html'
-                               title='mailparse::parse_header'>parse_header</a></td>
-                        <td class='docblock short'>
-                             <p>Parse a single header from the raw data given.
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='fn' href='fn.parse_header.html'
+                                  title='mailparse::parse_header'>parse_header</a></td>
+                           <td class='docblock short'>
+                                <p>Parse a single header from the raw data given.
 This function takes raw byte data, and starts parsing it, expecting there
 to be a MIME header key-value pair right at the beginning. It parses that
 header and returns it, along with the index at which the next header is
@@ -126,14 +130,13 @@ expected to start. If you just want to parse a single header, you can ignore
 the second component of the tuple, which is the index of the next header.
 Error values are returned if the data could not be successfully interpreted
 as a MIME key-value pair.</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='fn' href='fn.parse_headers.html'
-                               title='mailparse::parse_headers'>parse_headers</a></td>
-                        <td class='docblock short'>
-                             <p>Parses all the headers from the raw data given.
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='fn' href='fn.parse_headers.html'
+                                  title='mailparse::parse_headers'>parse_headers</a></td>
+                           <td class='docblock short'>
+                                <p>Parses all the headers from the raw data given.
 This function takes raw byte data, and starts parsing it, expecting there
 to be zero or more MIME header key-value pair right at the beginning,
 followed by two consecutive newlines (i.e. a blank line). It parses those
@@ -144,20 +147,18 @@ returns the index at which the message body is expected to start. If you
 just care about the headers, you can ignore the second component of the
 returned tuple.
 Error values are returned if there was some sort of parsing error.</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='fn' href='fn.parse_mail.html'
-                               title='mailparse::parse_mail'>parse_mail</a></td>
-                        <td class='docblock short'>
-                             <p>The main mail-parsing entry point.
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='fn' href='fn.parse_mail.html'
+                                  title='mailparse::parse_mail'>parse_mail</a></td>
+                           <td class='docblock short'>
+                                <p>The main mail-parsing entry point.
 This function takes the raw data making up the message body and returns a
 structured version of it, which allows easily accessing the header and body
 information as needed.</p>
-                        </td>
-                    </tr>
-                </table></section>
+                           </td>
+                       </tr></table></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>

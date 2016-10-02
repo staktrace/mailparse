@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../main.css">
+    
 
     
     
@@ -43,10 +44,10 @@
 
     <section id='main' class="content fn">
 <h1 class='fqn'><span class='in-band'>Function <a href='index.html'>mailparse</a>::<wbr><a class='fn' href=''>parse_mail</a></span><span class='out-of-band'><span id='render-detail'>
-            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
-                [<span class='inner'>&#x2212;</span>]
-            </a>
-        </span><a id='src-302' class='srclink' href='../src/mailparse/src/lib.rs.html#657-699' title='goto source code'>[src]</a></span></h1>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-358' class='srclink' href='../src/mailparse/src/lib.rs.html#662-704' title='goto source code'>[src]</a></span></h1>
 <pre class='rust fn'>pub fn parse_mail(raw_data: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='struct' href='../mailparse/struct.ParsedMail.html' title='mailparse::ParsedMail'>ParsedMail</a>, <a class='enum' href='../mailparse/enum.MailParseError.html' title='mailparse::MailParseError'>MailParseError</a>&gt;</pre><div class='docblock'><p>The main mail-parsing entry point.
 This function takes the raw data making up the message body and returns a
 structured version of it, which allows easily accessing the header and body
@@ -58,6 +59,7 @@ information as needed.</p>
     <span class='kw'>let</span> <span class='ident'>parsed</span> <span class='op'>=</span> <span class='ident'>parse_mail</span>(<span class='macro'>concat</span><span class='macro'>!</span>(
             <span class='string'>&quot;Subject: This is a test email\n&quot;</span>,
             <span class='string'>&quot;Content-Type: multipart/alternative; boundary=foobar\n&quot;</span>,
+            <span class='string'>&quot;Date: Sun, 02 Oct 2016 07:06:22 -0700 (PDT)\n&quot;</span>,
             <span class='string'>&quot;\n&quot;</span>,
             <span class='string'>&quot;--foobar\n&quot;</span>,
             <span class='string'>&quot;Content-Type: text/plain; charset=utf-8\n&quot;</span>,
@@ -80,7 +82,8 @@ information as needed.</p>
         <span class='string'>&quot;This is the plaintext version, in utf-8. Proof by Euro: \u{20AC}&quot;</span>);
     <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>subparts</span>[<span class='number'>1</span>].<span class='ident'>headers</span>[<span class='number'>1</span>].<span class='ident'>get_value</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;base64&quot;</span>);
     <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>subparts</span>[<span class='number'>1</span>].<span class='ident'>ctype</span>.<span class='ident'>mimetype</span>, <span class='string'>&quot;text/html&quot;</span>);
-    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>subparts</span>[<span class='number'>1</span>].<span class='ident'>get_body</span>().<span class='ident'>unwrap</span>().<span class='ident'>starts_with</span>(<span class='string'>&quot;&lt;html&gt;&quot;</span>));</pre>
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>subparts</span>[<span class='number'>1</span>].<span class='ident'>get_body</span>().<span class='ident'>unwrap</span>().<span class='ident'>starts_with</span>(<span class='string'>&quot;&lt;html&gt;&quot;</span>));
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dateparse</span>(<span class='ident'>parsed</span>.<span class='ident'>headers</span>.<span class='ident'>get_first_value</span>(<span class='string'>&quot;Date&quot;</span>).<span class='ident'>unwrap</span>().<span class='ident'>unwrap</span>().<span class='ident'>as_str</span>()).<span class='ident'>unwrap</span>(), <span class='number'>1475417182</span>);</pre>
 </div></section>
     <section id='search' class="content hidden"></section>
 

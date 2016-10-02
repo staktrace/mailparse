@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../main.css">
+    
 
     
     
@@ -1009,6 +1010,15 @@
 <span id="966">966</span>
 <span id="967">967</span>
 <span id="968">968</span>
+<span id="969">969</span>
+<span id="970">970</span>
+<span id="971">971</span>
+<span id="972">972</span>
+<span id="973">973</span>
+<span id="974">974</span>
+<span id="975">975</span>
+<span id="976">976</span>
+<span id="977">977</span>
 </pre><pre class='rust '>
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>base64</span>;
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>encoding</span>;
@@ -1022,6 +1032,9 @@
 
 <span class='attribute'>#[<span class='ident'>macro_use</span>]</span>
 <span class='kw'>mod</span> <span class='ident'>macros</span>;
+<span class='kw'>mod</span> <span class='ident'>dateparse</span>;
+
+<span class='kw'>pub</span> <span class='kw'>use</span> <span class='ident'>dateparse</span>::<span class='ident'>dateparse</span>;
 
 <span class='doccomment'>/// An error type that represents the different kinds of errors that may be</span>
 <span class='doccomment'>/// encountered during message parsing.</span>
@@ -1177,7 +1190,7 @@
                 <span class='kw'>let</span> <span class='ident'>to_decode</span> <span class='op'>=</span> <span class='ident'>input</span>.<span class='ident'>replace</span>(<span class='string'>&quot;_&quot;</span>, <span class='string'>&quot; &quot;</span>);
                 <span class='kw'>let</span> <span class='ident'>trimmed</span> <span class='op'>=</span> <span class='ident'>to_decode</span>.<span class='ident'>trim_right</span>();
                 <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>quoted_printable</span>::<span class='ident'>decode_str</span>(<span class='kw-2'>&amp;</span><span class='ident'>trimmed</span>,
-                                                     <span class='ident'>quoted_printable</span>::<span class='ident'>ParseMode</span>::<span class='ident'>Robust</span>);
+                                                         <span class='ident'>quoted_printable</span>::<span class='ident'>ParseMode</span>::<span class='ident'>Robust</span>);
                 <span class='kw'>if</span> <span class='ident'>d</span>.<span class='ident'>is_ok</span>() <span class='op'>&amp;&amp;</span> <span class='ident'>to_decode</span>.<span class='ident'>len</span>() <span class='op'>!=</span> <span class='ident'>trimmed</span>.<span class='ident'>len</span>() {
                     <span class='ident'>d</span>.<span class='ident'>as_mut</span>().<span class='ident'>unwrap</span>().<span class='ident'>extend_from_slice</span>(<span class='ident'>to_decode</span>[<span class='ident'>trimmed</span>.<span class='ident'>len</span>()..].<span class='ident'>as_bytes</span>());
                 }
@@ -1642,6 +1655,7 @@
 <span class='doccomment'>///     let parsed = parse_mail(concat!(</span>
 <span class='doccomment'>///             &quot;Subject: This is a test email\n&quot;,</span>
 <span class='doccomment'>///             &quot;Content-Type: multipart/alternative; boundary=foobar\n&quot;,</span>
+<span class='doccomment'>///             &quot;Date: Sun, 02 Oct 2016 07:06:22 -0700 (PDT)\n&quot;,</span>
 <span class='doccomment'>///             &quot;\n&quot;,</span>
 <span class='doccomment'>///             &quot;--foobar\n&quot;,</span>
 <span class='doccomment'>///             &quot;Content-Type: text/plain; charset=utf-8\n&quot;,</span>
@@ -1665,6 +1679,7 @@
 <span class='doccomment'>///     assert_eq!(parsed.subparts[1].headers[1].get_value().unwrap(), &quot;base64&quot;);</span>
 <span class='doccomment'>///     assert_eq!(parsed.subparts[1].ctype.mimetype, &quot;text/html&quot;);</span>
 <span class='doccomment'>///     assert!(parsed.subparts[1].get_body().unwrap().starts_with(&quot;&lt;html&gt;&quot;));</span>
+<span class='doccomment'>///     assert_eq!(dateparse(parsed.headers.get_first_value(&quot;Date&quot;).unwrap().unwrap().as_str()).unwrap(), 1475417182);</span>
 <span class='doccomment'>/// ```</span>
 <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>parse_mail</span>(<span class='ident'>raw_data</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>u8</span>]) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>ParsedMail</span>, <span class='ident'>MailParseError</span><span class='op'>&gt;</span> {
     <span class='kw'>let</span> (<span class='ident'>headers</span>, <span class='ident'>ix_body</span>) <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>parse_headers</span>(<span class='ident'>raw_data</span>));
@@ -1820,15 +1835,20 @@
                                         =?utf-8?q?uick_survey?=&quot;</span>)
             .<span class='ident'>unwrap</span>();
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_key</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;Subject&quot;</span>);
-        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_value</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;[Ontario Builder] Understanding home shopping \u{2013} a q uick survey&quot;</span>);
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_value</span>().<span class='ident'>unwrap</span>(),
+                   <span class='string'>&quot;[Ontario Builder] Understanding home shopping \u{2013} a q uick survey&quot;</span>);
 
-        <span class='kw'>let</span> (<span class='ident'>parsed</span>, _) <span class='op'>=</span> <span class='ident'>parse_header</span>(<span class='string'>b&quot;Content-Type: image/jpeg; name=\&quot;=?UTF-8?B?MDY2MTM5ODEuanBn?=\&quot;&quot;</span>).<span class='ident'>unwrap</span>();
+        <span class='kw'>let</span> (<span class='ident'>parsed</span>, _) <span class='op'>=</span>
+            <span class='ident'>parse_header</span>(<span class='string'>b&quot;Content-Type: image/jpeg; name=\&quot;=?UTF-8?B?MDY2MTM5ODEuanBn?=\&quot;&quot;</span>)
+                .<span class='ident'>unwrap</span>();
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_key</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;Content-Type&quot;</span>);
-        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_value</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;image/jpeg; name=\&quot;06613981.jpg\&quot;&quot;</span>);
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_value</span>().<span class='ident'>unwrap</span>(),
+                   <span class='string'>&quot;image/jpeg; name=\&quot;06613981.jpg\&quot;&quot;</span>);
 
         <span class='kw'>let</span> (<span class='ident'>parsed</span>, _) <span class='op'>=</span> <span class='ident'>parse_header</span>(<span class='string'>b&quot;From: =?UTF-8?Q?\&quot;Motorola_Owners=E2=80=99_Forums\&quot;_?=&lt;forums@motorola.com&gt;&quot;</span>).<span class='ident'>unwrap</span>();
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_key</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;From&quot;</span>);
-        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_value</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;\&quot;Motorola Owners\u{2019} Forums\&quot; &lt;forums@motorola.com&gt;&quot;</span>);
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_value</span>().<span class='ident'>unwrap</span>(),
+                   <span class='string'>&quot;\&quot;Motorola Owners\u{2019} Forums\&quot; &lt;forums@motorola.com&gt;&quot;</span>);
     }
 
     <span class='attribute'>#[<span class='ident'>test</span>]</span>
@@ -1972,8 +1992,7 @@
             .<span class='ident'>unwrap</span>();
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>mail</span>.<span class='ident'>get_body</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;hello world&quot;</span>);
 
-        <span class='kw'>let</span> <span class='ident'>mail</span> <span class='op'>=</span> <span class='ident'>parse_mail</span>(<span class='string'>b&quot;ConTENT-tyPE: text/html\r\n\r\nhello world&quot;</span>)
-            .<span class='ident'>unwrap</span>();
+        <span class='kw'>let</span> <span class='ident'>mail</span> <span class='op'>=</span> <span class='ident'>parse_mail</span>(<span class='string'>b&quot;ConTENT-tyPE: text/html\r\n\r\nhello world&quot;</span>).<span class='ident'>unwrap</span>();
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>mail</span>.<span class='ident'>ctype</span>.<span class='ident'>mimetype</span>, <span class='string'>&quot;text/html&quot;</span>);
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>mail</span>.<span class='ident'>get_body</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;hello world&quot;</span>);
     }

@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["dateparse","Convert a date field from an email header into a UNIX epoch timestamp. This function handles the most common formatting of date fields found in email headers. It may fail to parse some of the more creative formattings."]]});
