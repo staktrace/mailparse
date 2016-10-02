@@ -146,7 +146,22 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                 let (tz, tz_sign) = match tok.parse::<i32>() {
                     Ok(v) if v < 0 => (-v, -1),
                     Ok(v) => (v, 1),
-                    Err(_) => return Err("Invalid timezone"),
+                    Err(_) => {
+                        match tok.to_uppercase().as_str() {
+                            // This list taken from IETF RFC 822
+                            "UTC" | "UT" | "GMT" | "Z" => (0, 1),
+                            "EDT" => (400, -1),
+                            "EST" | "CDT" => (500, -1),
+                            "CST" | "MDT" => (600, -1),
+                            "MST" | "PDT" => (700, -1),
+                            "PST" => (800, -1),
+                            "A" => (100, -1),
+                            "M" => (1200, -1),
+                            "N" => (100, 1),
+                            "Y" => (1200, 1),
+                            _ => return Err("Invalid timezone"),
+                        }
+                    }
                 };
                 let tz_hours = tz / 100;
                 let tz_mins = tz % 100;
@@ -175,5 +190,6 @@ mod tests {
         assert_eq!(dateparse("Fri, 31 Dec 2399 00:00:00 +0000").unwrap(), 13569379200);
         assert_eq!(dateparse("Fri, 31 Dec 2400 00:00:00 +0000").unwrap(), 13601001600);
         assert_eq!(dateparse("17 Sep 2016 16:05:38 -1000").unwrap(), 1474164338);
+        assert_eq!(dateparse("Fri, 30 Nov 2012 20:57:23 GMT").unwrap(), 1354309043);
     }
 }
