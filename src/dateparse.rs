@@ -64,6 +64,15 @@ fn seconds_to_date(year: i64, month: i64, day: i64) -> i64 {
     result + 86400 * (day - 1)
 }
 
+/// Convert a date field from an email header into a UNIX epoch timestamp.
+/// This function handles the most common formatting of date fields found in
+/// email headers. It may fail to parse some of the more creative formattings.
+///
+/// # Examples
+/// ```
+///     use mailparse::dateparse;
+///     assert_eq!(dateparse("Sun, 02 Oct 2016 07:06:22 -0700 (PDT)").unwrap(), 1475417182);
+/// ```
 pub fn dateparse(date: &str) -> Result<i64, &'static str> {
     let mut result = 0;
     let mut month = 0;
