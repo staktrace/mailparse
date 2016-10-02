@@ -143,7 +143,7 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                 continue;
             },
             DateParseState::Timezone => {
-                let (tz, tz_sign) = match tok.parse::<i16>() {
+                let (tz, tz_sign) = match tok.parse::<i32>() {
                     Ok(v) if v < 0 => (-v, -1),
                     Ok(v) => (v, 1),
                     Err(_) => return Err("Invalid timezone"),
@@ -174,5 +174,6 @@ mod tests {
         assert_eq!(dateparse("Fri, 31 Dec 2100 00:00:00 +0000").unwrap(), 4133894400);
         assert_eq!(dateparse("Fri, 31 Dec 2399 00:00:00 +0000").unwrap(), 13569379200);
         assert_eq!(dateparse("Fri, 31 Dec 2400 00:00:00 +0000").unwrap(), 13601001600);
+        assert_eq!(dateparse("17 Sep 2016 16:05:38 -1000").unwrap(), 1474164338);
     }
 }
