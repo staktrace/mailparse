@@ -28,6 +28,7 @@ Example usage
     let parsed = parse_mail(concat!(
             "Subject: This is a test email\n",
             "Content-Type: multipart/alternative; boundary=foobar\n",
+            "Date: Sun, 02 Oct 2016 07:06:22 -0700 (PDT)\n",
             "\n",
             "--foobar\n",
             "Content-Type: text/plain; charset=utf-8\n",
@@ -49,6 +50,7 @@ Example usage
     assert_eq!(parsed.subparts[1].headers[1].get_value().unwrap(), "base64");
     assert_eq!(parsed.subparts[1].ctype.mimetype, "text/html");
     assert!(parsed.subparts[1].get_body().unwrap().starts_with("<html>"));
+    assert_eq!(dateparse(parsed.headers.get_first_value("Date").unwrap().unwrap().as_str()).unwrap(), 1475417182);
 ```
 
 Documentation
