@@ -168,7 +168,7 @@ impl<'a> MailHeader<'a> {
                 let to_decode = input.replace("_", " ");
                 let trimmed = to_decode.trim_right();
                 let mut d = quoted_printable::decode_str(&trimmed,
-                                                     quoted_printable::ParseMode::Robust);
+                                                         quoted_printable::ParseMode::Robust);
                 if d.is_ok() && to_decode.len() != trimmed.len() {
                     d.as_mut().unwrap().extend_from_slice(to_decode[trimmed.len()..].as_bytes());
                 }
@@ -813,15 +813,20 @@ mod tests {
                                         =?utf-8?q?uick_survey?=")
             .unwrap();
         assert_eq!(parsed.get_key().unwrap(), "Subject");
-        assert_eq!(parsed.get_value().unwrap(), "[Ontario Builder] Understanding home shopping \u{2013} a q uick survey");
+        assert_eq!(parsed.get_value().unwrap(),
+                   "[Ontario Builder] Understanding home shopping \u{2013} a q uick survey");
 
-        let (parsed, _) = parse_header(b"Content-Type: image/jpeg; name=\"=?UTF-8?B?MDY2MTM5ODEuanBn?=\"").unwrap();
+        let (parsed, _) =
+            parse_header(b"Content-Type: image/jpeg; name=\"=?UTF-8?B?MDY2MTM5ODEuanBn?=\"")
+                .unwrap();
         assert_eq!(parsed.get_key().unwrap(), "Content-Type");
-        assert_eq!(parsed.get_value().unwrap(), "image/jpeg; name=\"06613981.jpg\"");
+        assert_eq!(parsed.get_value().unwrap(),
+                   "image/jpeg; name=\"06613981.jpg\"");
 
         let (parsed, _) = parse_header(b"From: =?UTF-8?Q?\"Motorola_Owners=E2=80=99_Forums\"_?=<forums@motorola.com>").unwrap();
         assert_eq!(parsed.get_key().unwrap(), "From");
-        assert_eq!(parsed.get_value().unwrap(), "\"Motorola Owners\u{2019} Forums\" <forums@motorola.com>");
+        assert_eq!(parsed.get_value().unwrap(),
+                   "\"Motorola Owners\u{2019} Forums\" <forums@motorola.com>");
     }
 
     #[test]
@@ -965,8 +970,7 @@ mod tests {
             .unwrap();
         assert_eq!(mail.get_body().unwrap(), "hello world");
 
-        let mail = parse_mail(b"ConTENT-tyPE: text/html\r\n\r\nhello world")
-            .unwrap();
+        let mail = parse_mail(b"ConTENT-tyPE: text/html\r\n\r\nhello world").unwrap();
         assert_eq!(mail.ctype.mimetype, "text/html");
         assert_eq!(mail.get_body().unwrap(), "hello world");
     }

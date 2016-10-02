@@ -22,13 +22,13 @@ fn days_in_month(month: i64, year: i64) -> i64 {
             } else {
                 28
             }
-        },
+        }
         _ => 0,
     }
 }
 
 fn seconds_to_date(year: i64, month: i64, day: i64) -> i64 {
-    let mut result : i64 = 0;
+    let mut result: i64 = 0;
     for y in 1970..2001 {
         if y == year {
             break;
@@ -88,11 +88,11 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                     Ok(v) => {
                         day_of_month = v;
                         state = DateParseState::Month;
-                    },
+                    }
                     Err(_) => (),
                 };
                 continue;
-            },
+            }
             DateParseState::Month => {
                 month = match tok.to_uppercase().as_str() {
                     "JAN" | "JANUARY" => 0,
@@ -111,7 +111,7 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                 };
                 state = DateParseState::Year;
                 continue;
-            },
+            }
             DateParseState::Year => {
                 let year = match tok.parse::<u32>() {
                     Ok(v) if v < 70 => 2000 + v,
@@ -123,7 +123,7 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                 result = seconds_to_date(year as i64, month as i64, day_of_month as i64);
                 state = DateParseState::Hour;
                 continue;
-            },
+            }
             DateParseState::Hour => {
                 let hour = match tok.parse::<u8>() {
                     Ok(v) => v,
@@ -132,7 +132,7 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                 result += 3600 * (hour as i64);
                 state = DateParseState::Minute;
                 continue;
-            },
+            }
             DateParseState::Minute => {
                 let minute = match tok.parse::<u8>() {
                     Ok(v) => v,
@@ -141,7 +141,7 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                 result += 60 * (minute as i64);
                 state = DateParseState::Second;
                 continue;
-            },
+            }
             DateParseState::Second => {
                 let second = match tok.parse::<u8>() {
                     Ok(v) => v,
@@ -150,7 +150,7 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                 result += second as i64;
                 state = DateParseState::Timezone;
                 continue;
-            },
+            }
             DateParseState::Timezone => {
                 let (tz, tz_sign) = match tok.parse::<i32>() {
                     Ok(v) if v < 0 => (-v, -1),
@@ -181,7 +181,7 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                     result -= tz_delta as i64;
                 }
                 break;
-            },
+            }
         }
     }
     Ok(result)
@@ -193,12 +193,18 @@ mod tests {
 
     #[test]
     fn parse_dates() {
-        assert_eq!(dateparse("Sun, 25 Sep 2016 18:36:33 -0400").unwrap(), 1474842993);
-        assert_eq!(dateparse("Fri, 01 Jan 2100 11:12:13 +0000").unwrap(), 4102485133);
-        assert_eq!(dateparse("Fri, 31 Dec 2100 00:00:00 +0000").unwrap(), 4133894400);
-        assert_eq!(dateparse("Fri, 31 Dec 2399 00:00:00 +0000").unwrap(), 13569379200);
-        assert_eq!(dateparse("Fri, 31 Dec 2400 00:00:00 +0000").unwrap(), 13601001600);
+        assert_eq!(dateparse("Sun, 25 Sep 2016 18:36:33 -0400").unwrap(),
+                   1474842993);
+        assert_eq!(dateparse("Fri, 01 Jan 2100 11:12:13 +0000").unwrap(),
+                   4102485133);
+        assert_eq!(dateparse("Fri, 31 Dec 2100 00:00:00 +0000").unwrap(),
+                   4133894400);
+        assert_eq!(dateparse("Fri, 31 Dec 2399 00:00:00 +0000").unwrap(),
+                   13569379200);
+        assert_eq!(dateparse("Fri, 31 Dec 2400 00:00:00 +0000").unwrap(),
+                   13601001600);
         assert_eq!(dateparse("17 Sep 2016 16:05:38 -1000").unwrap(), 1474164338);
-        assert_eq!(dateparse("Fri, 30 Nov 2012 20:57:23 GMT").unwrap(), 1354309043);
+        assert_eq!(dateparse("Fri, 30 Nov 2012 20:57:23 GMT").unwrap(),
+                   1354309043);
     }
 }
