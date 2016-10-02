@@ -10,6 +10,9 @@ use encoding::Encoding;
 
 #[macro_use]
 mod macros;
+mod dateparse;
+
+pub use dateparse::dateparse;
 
 /// An error type that represents the different kinds of errors that may be
 /// encountered during message parsing.
