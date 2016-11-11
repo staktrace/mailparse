@@ -144,7 +144,7 @@ fn test_find_from_u8() {
 }
 
 impl<'a> MailHeader<'a> {
-    /// Get the name of the header. Note that header names are case-sensitive.
+    /// Get the name of the header. Note that header names are case-insensitive.
     pub fn get_key(&self) -> Result<String, MailParseError> {
         Ok(try!(encoding::all::ISO_8859_1.decode(self.key, encoding::DecoderTrap::Strict))
             .trim()
@@ -364,7 +364,7 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
 pub trait MailHeaderMap {
     /// Look through the list of headers and return the value of the first one
     /// that matches the provided key. It returns Ok(None) if the no matching
-    /// header was found.
+    /// header was found. Header names are matched case-insensitively.
     ///
     /// # Examples
     /// ```
@@ -378,15 +378,14 @@ pub trait MailHeaderMap {
     /// ```
     fn get_first_value(&self, key: &str) -> Result<Option<String>, MailParseError>;
 
-    /// Same as get_first_value, but does a case-insensitive search for the header.
-    /// According to the spec the mail headers are supposed to be case-sensitive,
-    /// but in real-world scenarios that's not always the case.
+    /// Same as get_first_value.
     fn get_first_value_ci(&self, key: &str) -> Result<Option<String>, MailParseError>;
 
     /// Look through the list of headers and return the values of all headers
     /// matching the provided key. Returns an empty vector if no matching headers
     /// were found. The order of the returned values is the same as the order
-    /// of the matching headers in the message.
+    /// of the matching headers in the message. Header names are matched
+    /// case-insensitively.
     ///
     /// # Examples
     /// ```
@@ -400,20 +399,13 @@ pub trait MailHeaderMap {
     /// ```
     fn get_all_values(&self, key: &str) -> Result<Vec<String>, MailParseError>;
 
-    /// Same as get_all_values, but does a case-insensitive search for the header.
-    /// According to the spec the mail headers are supposed to be case-sensitive,
-    /// but in real-world scenarios that's not always the case.
+    /// Same as get_all_values.
     fn get_all_values_ci(&self, key: &str) -> Result<Vec<String>, MailParseError>;
 }
 
 impl<'a> MailHeaderMap for Vec<MailHeader<'a>> {
     fn get_first_value(&self, key: &str) -> Result<Option<String>, MailParseError> {
-        for x in self {
-            if try!(x.get_key()) == key {
-                return x.get_value().map(|v| Some(v));
-            }
-        }
-        Ok(None)
+        self.get_first_value_ci(key)
     }
 
     fn get_first_value_ci(&self, key: &str) -> Result<Option<String>, MailParseError> {
@@ -427,13 +419,7 @@ impl<'a> MailHeaderMap for Vec<MailHeader<'a>> {
     }
 
     fn get_all_values(&self, key: &str) -> Result<Vec<String>, MailParseError> {
-        let mut values: Vec<String> = Vec::new();
-        for x in self {
-            if try!(x.get_key()) == key {
-                values.push(try!(x.get_value()));
-            }
-        }
-        Ok(values)
+        self.get_all_values_ci(key)
     }
 
     fn get_all_values_ci(&self, key: &str) -> Result<Vec<String>, MailParseError> {
