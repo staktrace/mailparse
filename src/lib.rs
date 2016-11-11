@@ -378,9 +378,6 @@ pub trait MailHeaderMap {
     /// ```
     fn get_first_value(&self, key: &str) -> Result<Option<String>, MailParseError>;
 
-    /// Same as get_first_value.
-    fn get_first_value_ci(&self, key: &str) -> Result<Option<String>, MailParseError>;
-
     /// Look through the list of headers and return the values of all headers
     /// matching the provided key. Returns an empty vector if no matching headers
     /// were found. The order of the returned values is the same as the order
@@ -398,17 +395,10 @@ pub trait MailHeaderMap {
     ///         vec!["Value1".to_string(), "Value2".to_string()]);
     /// ```
     fn get_all_values(&self, key: &str) -> Result<Vec<String>, MailParseError>;
-
-    /// Same as get_all_values.
-    fn get_all_values_ci(&self, key: &str) -> Result<Vec<String>, MailParseError>;
 }
 
 impl<'a> MailHeaderMap for Vec<MailHeader<'a>> {
     fn get_first_value(&self, key: &str) -> Result<Option<String>, MailParseError> {
-        self.get_first_value_ci(key)
-    }
-
-    fn get_first_value_ci(&self, key: &str) -> Result<Option<String>, MailParseError> {
         let lower_key = key.to_lowercase();
         for x in self {
             if try!(x.get_key()).to_lowercase() == lower_key {
@@ -419,10 +409,6 @@ impl<'a> MailHeaderMap for Vec<MailHeader<'a>> {
     }
 
     fn get_all_values(&self, key: &str) -> Result<Vec<String>, MailParseError> {
-        self.get_all_values_ci(key)
-    }
-
-    fn get_all_values_ci(&self, key: &str) -> Result<Vec<String>, MailParseError> {
         let lower_key = key.to_lowercase();
         let mut values: Vec<String> = Vec::new();
         for x in self {
@@ -583,7 +569,7 @@ impl<'a> ParsedMail<'a> {
     ///     assert_eq!(p.get_body().unwrap(), "This is the body");
     /// ```
     pub fn get_body(&self) -> Result<String, MailParseError> {
-        let transfer_coding = try!(self.headers.get_first_value_ci("Content-Transfer-Encoding"))
+        let transfer_coding = try!(self.headers.get_first_value("Content-Transfer-Encoding"))
             .map(|s| s.to_lowercase());
         let decoded = match transfer_coding.unwrap_or(String::new()).as_ref() {
             "base64" => {
@@ -647,7 +633,7 @@ impl<'a> ParsedMail<'a> {
 /// ```
 pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
     let (headers, ix_body) = try!(parse_headers(raw_data));
-    let ctype = match try!(headers.get_first_value_ci("Content-Type")) {
+    let ctype = match try!(headers.get_first_value("Content-Type")) {
         Some(s) => try!(parse_content_type(&s)),
         None => {
             ParsedContentType {
