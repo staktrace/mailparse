@@ -2,6 +2,7 @@ extern crate base64;
 extern crate encoding;
 extern crate quoted_printable;
 
+use std::ascii::AsciiExt;
 use std::error;
 use std::fmt;
 use std::ops::Deref;
@@ -399,9 +400,8 @@ pub trait MailHeaderMap {
 
 impl<'a> MailHeaderMap for Vec<MailHeader<'a>> {
     fn get_first_value(&self, key: &str) -> Result<Option<String>, MailParseError> {
-        let lower_key = key.to_lowercase();
         for x in self {
-            if try!(x.get_key()).to_lowercase() == lower_key {
+            if try!(x.get_key()).eq_ignore_ascii_case(key) {
                 return x.get_value().map(|v| Some(v));
             }
         }
@@ -409,10 +409,9 @@ impl<'a> MailHeaderMap for Vec<MailHeader<'a>> {
     }
 
     fn get_all_values(&self, key: &str) -> Result<Vec<String>, MailParseError> {
-        let lower_key = key.to_lowercase();
         let mut values: Vec<String> = Vec::new();
         for x in self {
-            if try!(x.get_key()).to_lowercase() == lower_key {
+            if try!(x.get_key()).eq_ignore_ascii_case(key) {
                 values.push(try!(x.get_value()));
             }
         }
