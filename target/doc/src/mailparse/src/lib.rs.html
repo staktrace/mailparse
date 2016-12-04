@@ -991,11 +991,42 @@
 <span id="947">947</span>
 <span id="948">948</span>
 <span id="949">949</span>
+<span id="950">950</span>
+<span id="951">951</span>
+<span id="952">952</span>
+<span id="953">953</span>
+<span id="954">954</span>
+<span id="955">955</span>
+<span id="956">956</span>
+<span id="957">957</span>
+<span id="958">958</span>
+<span id="959">959</span>
+<span id="960">960</span>
+<span id="961">961</span>
+<span id="962">962</span>
+<span id="963">963</span>
+<span id="964">964</span>
+<span id="965">965</span>
+<span id="966">966</span>
+<span id="967">967</span>
+<span id="968">968</span>
+<span id="969">969</span>
+<span id="970">970</span>
+<span id="971">971</span>
+<span id="972">972</span>
+<span id="973">973</span>
+<span id="974">974</span>
+<span id="975">975</span>
+<span id="976">976</span>
+<span id="977">977</span>
+<span id="978">978</span>
+<span id="979">979</span>
 </pre><pre class='rust '>
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>base64</span>;
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>encoding</span>;
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>quoted_printable</span>;
 
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>ascii</span>::<span class='ident'>AsciiExt</span>;
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>error</span>;
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>fmt</span>;
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>ops</span>::<span class='ident'>Deref</span>;
@@ -1249,6 +1280,7 @@
     }
 }
 
+<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>Debug</span>)]</span>
 <span class='kw'>enum</span> <span class='ident'>HeaderParseState</span> {
     <span class='ident'>Initial</span>,
     <span class='ident'>Key</span>,
@@ -1393,9 +1425,8 @@
 
 <span class='kw'>impl</span><span class='op'>&lt;</span><span class='lifetime'>&#39;a</span><span class='op'>&gt;</span> <span class='ident'>MailHeaderMap</span> <span class='kw'>for</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>MailHeader</span><span class='op'>&lt;</span><span class='lifetime'>&#39;a</span><span class='op'>&gt;&gt;</span> {
     <span class='kw'>fn</span> <span class='ident'>get_first_value</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>key</span>: <span class='kw-2'>&amp;</span><span class='ident'>str</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>String</span><span class='op'>&gt;</span>, <span class='ident'>MailParseError</span><span class='op'>&gt;</span> {
-        <span class='kw'>let</span> <span class='ident'>lower_key</span> <span class='op'>=</span> <span class='ident'>key</span>.<span class='ident'>to_lowercase</span>();
         <span class='kw'>for</span> <span class='ident'>x</span> <span class='kw'>in</span> <span class='self'>self</span> {
-            <span class='kw'>if</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>x</span>.<span class='ident'>get_key</span>()).<span class='ident'>to_lowercase</span>() <span class='op'>==</span> <span class='ident'>lower_key</span> {
+            <span class='kw'>if</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>x</span>.<span class='ident'>get_key</span>()).<span class='ident'>eq_ignore_ascii_case</span>(<span class='ident'>key</span>) {
                 <span class='kw'>return</span> <span class='ident'>x</span>.<span class='ident'>get_value</span>().<span class='ident'>map</span>(<span class='op'>|</span><span class='ident'>v</span><span class='op'>|</span> <span class='prelude-val'>Some</span>(<span class='ident'>v</span>));
             }
         }
@@ -1403,10 +1434,9 @@
     }
 
     <span class='kw'>fn</span> <span class='ident'>get_all_values</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>key</span>: <span class='kw-2'>&amp;</span><span class='ident'>str</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>String</span><span class='op'>&gt;</span>, <span class='ident'>MailParseError</span><span class='op'>&gt;</span> {
-        <span class='kw'>let</span> <span class='ident'>lower_key</span> <span class='op'>=</span> <span class='ident'>key</span>.<span class='ident'>to_lowercase</span>();
         <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>values</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>String</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
         <span class='kw'>for</span> <span class='ident'>x</span> <span class='kw'>in</span> <span class='self'>self</span> {
-            <span class='kw'>if</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>x</span>.<span class='ident'>get_key</span>()).<span class='ident'>to_lowercase</span>() <span class='op'>==</span> <span class='ident'>lower_key</span> {
+            <span class='kw'>if</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>x</span>.<span class='ident'>get_key</span>()).<span class='ident'>eq_ignore_ascii_case</span>(<span class='ident'>key</span>) {
                 <span class='ident'>values</span>.<span class='ident'>push</span>(<span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>x</span>.<span class='ident'>get_value</span>()));
             }
         }
@@ -1441,12 +1471,7 @@
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>headers</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>MailHeader</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>ix</span> <span class='op'>=</span> <span class='number'>0</span>;
     <span class='kw'>loop</span> {
-        <span class='kw'>let</span> (<span class='ident'>header</span>, <span class='ident'>ix_next</span>) <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>parse_header</span>(<span class='kw-2'>&amp;</span><span class='ident'>raw_data</span>[<span class='ident'>ix</span>..]));
-        <span class='ident'>headers</span>.<span class='ident'>push</span>(<span class='ident'>header</span>);
-        <span class='ident'>ix</span> <span class='op'>=</span> <span class='ident'>ix</span> <span class='op'>+</span> <span class='ident'>ix_next</span>;
-        <span class='kw'>if</span> <span class='ident'>ix</span> <span class='op'>&gt;=</span> <span class='ident'>raw_data</span>.<span class='ident'>len</span>() {
-            <span class='kw'>break</span>;
-        } <span class='kw'>else</span> <span class='kw'>if</span> <span class='ident'>raw_data</span>[<span class='ident'>ix</span>] <span class='op'>==</span> <span class='string'>b&#39;\n&#39;</span> {
+        <span class='kw'>if</span> <span class='ident'>raw_data</span>[<span class='ident'>ix</span>] <span class='op'>==</span> <span class='string'>b&#39;\n&#39;</span> {
             <span class='ident'>ix</span> <span class='op'>=</span> <span class='ident'>ix</span> <span class='op'>+</span> <span class='number'>1</span>;
             <span class='kw'>break</span>;
         } <span class='kw'>else</span> <span class='kw'>if</span> <span class='ident'>raw_data</span>[<span class='ident'>ix</span>] <span class='op'>==</span> <span class='string'>b&#39;\r&#39;</span> {
@@ -1457,6 +1482,12 @@
                 <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>MailParseError</span>::<span class='ident'>Generic</span>(<span class='string'>&quot;Headers were followed by an unexpected lone \
                                                     CR character!&quot;</span>));
             }
+        }
+        <span class='kw'>let</span> (<span class='ident'>header</span>, <span class='ident'>ix_next</span>) <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>parse_header</span>(<span class='kw-2'>&amp;</span><span class='ident'>raw_data</span>[<span class='ident'>ix</span>..]));
+        <span class='ident'>headers</span>.<span class='ident'>push</span>(<span class='ident'>header</span>);
+        <span class='ident'>ix</span> <span class='op'>=</span> <span class='ident'>ix</span> <span class='op'>+</span> <span class='ident'>ix_next</span>;
+        <span class='kw'>if</span> <span class='ident'>ix</span> <span class='op'>&gt;=</span> <span class='ident'>raw_data</span>.<span class='ident'>len</span>() {
+            <span class='kw'>break</span>;
         }
     }
     <span class='prelude-val'>Ok</span>((<span class='ident'>headers</span>, <span class='ident'>ix</span>))
@@ -1643,7 +1674,9 @@
         <span class='ident'>body</span>: <span class='kw-2'>&amp;</span><span class='ident'>raw_data</span>[<span class='ident'>ix_body</span>..],
         <span class='ident'>subparts</span>: <span class='ident'>Vec</span>::<span class='op'>&lt;</span><span class='ident'>ParsedMail</span><span class='op'>&gt;</span>::<span class='ident'>new</span>(),
     };
-    <span class='kw'>if</span> <span class='ident'>result</span>.<span class='ident'>ctype</span>.<span class='ident'>mimetype</span>.<span class='ident'>starts_with</span>(<span class='string'>&quot;multipart/&quot;</span>) <span class='op'>&amp;&amp;</span> <span class='ident'>result</span>.<span class='ident'>ctype</span>.<span class='ident'>boundary</span>.<span class='ident'>is_some</span>() {
+    <span class='kw'>if</span> <span class='ident'>result</span>.<span class='ident'>ctype</span>.<span class='ident'>mimetype</span>.<span class='ident'>starts_with</span>(<span class='string'>&quot;multipart/&quot;</span>)
+            <span class='op'>&amp;&amp;</span> <span class='ident'>result</span>.<span class='ident'>ctype</span>.<span class='ident'>boundary</span>.<span class='ident'>is_some</span>()
+            <span class='op'>&amp;&amp;</span> <span class='ident'>raw_data</span>.<span class='ident'>len</span>() <span class='op'>&gt;</span> <span class='ident'>ix_body</span> {
         <span class='kw'>let</span> <span class='ident'>boundary</span> <span class='op'>=</span> <span class='ident'>String</span>::<span class='ident'>from</span>(<span class='string'>&quot;--&quot;</span>) <span class='op'>+</span> <span class='ident'>result</span>.<span class='ident'>ctype</span>.<span class='ident'>boundary</span>.<span class='ident'>as_ref</span>().<span class='ident'>unwrap</span>();
         <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(<span class='ident'>ix_body_end</span>) <span class='op'>=</span> <span class='ident'>find_from_u8</span>(<span class='ident'>raw_data</span>, <span class='ident'>ix_body</span>, <span class='ident'>boundary</span>.<span class='ident'>as_bytes</span>()) {
             <span class='ident'>result</span>.<span class='ident'>body</span> <span class='op'>=</span> <span class='kw-2'>&amp;</span><span class='ident'>raw_data</span>[<span class='ident'>ix_body</span>..<span class='ident'>ix_body_end</span>];
@@ -1939,6 +1972,33 @@
         <span class='kw'>let</span> <span class='ident'>mail</span> <span class='op'>=</span> <span class='ident'>parse_mail</span>(<span class='string'>b&quot;ConTENT-tyPE: text/html\r\n\r\nhello world&quot;</span>).<span class='ident'>unwrap</span>();
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>mail</span>.<span class='ident'>ctype</span>.<span class='ident'>mimetype</span>, <span class='string'>&quot;text/html&quot;</span>);
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>mail</span>.<span class='ident'>get_body</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;hello world&quot;</span>);
+    }
+
+    <span class='attribute'>#[<span class='ident'>test</span>]</span>
+    <span class='kw'>fn</span> <span class='ident'>test_missing_body</span>() {
+        <span class='kw'>let</span> <span class='ident'>parsed</span> <span class='op'>=</span> <span class='ident'>parse_mail</span>(
+                <span class='string'>&quot;Content-Type: multipart/related; boundary=\&quot;----=_\&quot;\n&quot;</span>
+                .<span class='ident'>as_bytes</span>())
+            .<span class='ident'>unwrap</span>();
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>headers</span>[<span class='number'>0</span>].<span class='ident'>get_key</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;Content-Type&quot;</span>);
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_body</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;&quot;</span>);
+    }
+
+    <span class='attribute'>#[<span class='ident'>test</span>]</span>
+    <span class='kw'>fn</span> <span class='ident'>test_no_headers_in_subpart</span>() {
+        <span class='kw'>let</span> <span class='ident'>mail</span> <span class='op'>=</span> <span class='ident'>parse_mail</span>(<span class='macro'>concat</span><span class='macro'>!</span>(
+                <span class='string'>&quot;Content-Type: multipart/report; report-type=delivery-status;\n&quot;</span>,
+                <span class='string'>&quot;\tboundary=\&quot;1404630116.22555.postech.q0.x.x.x\&quot;\n&quot;</span>,
+                <span class='string'>&quot;\n&quot;</span>,
+                <span class='string'>&quot;--1404630116.22555.postech.q0.x.x.x\n&quot;</span>,
+                <span class='string'>&quot;\n&quot;</span>,
+                <span class='string'>&quot;--1404630116.22555.postech.q0.x.x.x--\n&quot;</span>)
+                .<span class='ident'>as_bytes</span>())
+            .<span class='ident'>unwrap</span>();
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>mail</span>.<span class='ident'>ctype</span>.<span class='ident'>mimetype</span>, <span class='string'>&quot;multipart/report&quot;</span>);
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>mail</span>.<span class='ident'>subparts</span>[<span class='number'>0</span>].<span class='ident'>headers</span>.<span class='ident'>len</span>(), <span class='number'>0</span>);
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>mail</span>.<span class='ident'>subparts</span>[<span class='number'>0</span>].<span class='ident'>ctype</span>.<span class='ident'>mimetype</span>, <span class='string'>&quot;text/plain&quot;</span>);
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>mail</span>.<span class='ident'>subparts</span>[<span class='number'>0</span>].<span class='ident'>get_body</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;&quot;</span>);
     }
 }
 </pre>
