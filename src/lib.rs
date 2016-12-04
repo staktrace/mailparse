@@ -256,6 +256,7 @@ impl<'a> MailHeader<'a> {
     }
 }
 
+#[derive(Debug)]
 enum HeaderParseState {
     Initial,
     Key,
@@ -446,12 +447,7 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
     let mut headers: Vec<MailHeader> = Vec::new();
     let mut ix = 0;
     loop {
-        let (header, ix_next) = try!(parse_header(&raw_data[ix..]));
-        headers.push(header);
-        ix = ix + ix_next;
-        if ix >= raw_data.len() {
-            break;
-        } else if raw_data[ix] == b'\n' {
+        if raw_data[ix] == b'\n' {
             ix = ix + 1;
             break;
         } else if raw_data[ix] == b'\r' {
@@ -462,6 +458,12 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
                 return Err(MailParseError::Generic("Headers were followed by an unexpected lone \
                                                     CR character!"));
             }
+        }
+        let (header, ix_next) = try!(parse_header(&raw_data[ix..]));
+        headers.push(header);
+        ix = ix + ix_next;
+        if ix >= raw_data.len() {
+            break;
         }
     }
     Ok((headers, ix))
@@ -956,5 +958,22 @@ mod tests {
             .unwrap();
         assert_eq!(parsed.headers[0].get_key().unwrap(), "Content-Type");
         assert_eq!(parsed.get_body().unwrap(), "");
+    }
+
+    #[test]
+    fn test_no_headers_in_subpart() {
+        let mail = parse_mail(concat!(
+                "Content-Type: multipart/report; report-type=delivery-status;\n",
+                "\tboundary=\"1404630116.22555.postech.q0.x.x.x\"\n",
+                "\n",
+                "--1404630116.22555.postech.q0.x.x.x\n",
+                "\n",
+                "--1404630116.22555.postech.q0.x.x.x--\n")
+                .as_bytes())
+            .unwrap();
+        assert_eq!(mail.ctype.mimetype, "multipart/report");
+        assert_eq!(mail.subparts[0].headers.len(), 0);
+        assert_eq!(mail.subparts[0].ctype.mimetype, "text/plain");
+        assert_eq!(mail.subparts[0].get_body().unwrap(), "");
     }
 }
