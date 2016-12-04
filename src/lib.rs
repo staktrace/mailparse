@@ -948,12 +948,14 @@ mod tests {
         assert_eq!(mail.ctype.mimetype, "text/html");
         assert_eq!(mail.get_body().unwrap(), "hello world");
     }
+
     #[test]
-    fn test_content_type() {
+    fn test_missing_body() {
         let parsed = parse_mail(
                 "Content-Type: multipart/related; boundary=\"----=_\"\n"
                 .as_bytes())
             .unwrap();
         assert_eq!(parsed.headers[0].get_key().unwrap(), "Content-Type");
+        assert_eq!(parsed.get_body().unwrap(), "");
     }
 }
