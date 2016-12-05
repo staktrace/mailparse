@@ -1021,6 +1021,11 @@
 <span id="977">977</span>
 <span id="978">978</span>
 <span id="979">979</span>
+<span id="980">980</span>
+<span id="981">981</span>
+<span id="982">982</span>
+<span id="983">983</span>
+<span id="984">984</span>
 </pre><pre class='rust '>
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>base64</span>;
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>encoding</span>;
@@ -1471,7 +1476,9 @@
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>headers</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>MailHeader</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>ix</span> <span class='op'>=</span> <span class='number'>0</span>;
     <span class='kw'>loop</span> {
-        <span class='kw'>if</span> <span class='ident'>raw_data</span>[<span class='ident'>ix</span>] <span class='op'>==</span> <span class='string'>b&#39;\n&#39;</span> {
+        <span class='kw'>if</span> <span class='ident'>ix</span> <span class='op'>&gt;=</span> <span class='ident'>raw_data</span>.<span class='ident'>len</span>() {
+            <span class='kw'>break</span>;
+        } <span class='kw'>else</span> <span class='kw'>if</span> <span class='ident'>raw_data</span>[<span class='ident'>ix</span>] <span class='op'>==</span> <span class='string'>b&#39;\n&#39;</span> {
             <span class='ident'>ix</span> <span class='op'>=</span> <span class='ident'>ix</span> <span class='op'>+</span> <span class='number'>1</span>;
             <span class='kw'>break</span>;
         } <span class='kw'>else</span> <span class='kw'>if</span> <span class='ident'>raw_data</span>[<span class='ident'>ix</span>] <span class='op'>==</span> <span class='string'>b&#39;\r&#39;</span> {
@@ -1486,9 +1493,6 @@
         <span class='kw'>let</span> (<span class='ident'>header</span>, <span class='ident'>ix_next</span>) <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>parse_header</span>(<span class='kw-2'>&amp;</span><span class='ident'>raw_data</span>[<span class='ident'>ix</span>..]));
         <span class='ident'>headers</span>.<span class='ident'>push</span>(<span class='ident'>header</span>);
         <span class='ident'>ix</span> <span class='op'>=</span> <span class='ident'>ix</span> <span class='op'>+</span> <span class='ident'>ix_next</span>;
-        <span class='kw'>if</span> <span class='ident'>ix</span> <span class='op'>&gt;=</span> <span class='ident'>raw_data</span>.<span class='ident'>len</span>() {
-            <span class='kw'>break</span>;
-        }
     }
     <span class='prelude-val'>Ok</span>((<span class='ident'>headers</span>, <span class='ident'>ix</span>))
 }
@@ -1999,6 +2003,12 @@
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>mail</span>.<span class='ident'>subparts</span>[<span class='number'>0</span>].<span class='ident'>headers</span>.<span class='ident'>len</span>(), <span class='number'>0</span>);
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>mail</span>.<span class='ident'>subparts</span>[<span class='number'>0</span>].<span class='ident'>ctype</span>.<span class='ident'>mimetype</span>, <span class='string'>&quot;text/plain&quot;</span>);
         <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>mail</span>.<span class='ident'>subparts</span>[<span class='number'>0</span>].<span class='ident'>get_body</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;&quot;</span>);
+    }
+
+    <span class='attribute'>#[<span class='ident'>test</span>]</span>
+    <span class='kw'>fn</span> <span class='ident'>test_empty</span>() {
+        <span class='kw'>let</span> <span class='ident'>mail</span> <span class='op'>=</span> <span class='ident'>parse_mail</span>(<span class='string'>&quot;&quot;</span>.<span class='ident'>as_bytes</span>()).<span class='ident'>unwrap</span>();
+        <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>mail</span>.<span class='ident'>get_body</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;&quot;</span>);
     }
 }
 </pre>
