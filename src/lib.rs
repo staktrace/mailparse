@@ -447,7 +447,9 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
     let mut headers: Vec<MailHeader> = Vec::new();
     let mut ix = 0;
     loop {
-        if raw_data[ix] == b'\n' {
+        if ix >= raw_data.len() {
+            break;
+        } else if raw_data[ix] == b'\n' {
             ix = ix + 1;
             break;
         } else if raw_data[ix] == b'\r' {
@@ -462,9 +464,6 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
         let (header, ix_next) = try!(parse_header(&raw_data[ix..]));
         headers.push(header);
         ix = ix + ix_next;
-        if ix >= raw_data.len() {
-            break;
-        }
     }
     Ok((headers, ix))
 }
@@ -975,5 +974,11 @@ mod tests {
         assert_eq!(mail.subparts[0].headers.len(), 0);
         assert_eq!(mail.subparts[0].ctype.mimetype, "text/plain");
         assert_eq!(mail.subparts[0].get_body().unwrap(), "");
+    }
+
+    #[test]
+    fn test_empty() {
+        let mail = parse_mail("".as_bytes()).unwrap();
+        assert_eq!(mail.get_body().unwrap(), "");
     }
 }
