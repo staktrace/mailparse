@@ -483,6 +483,8 @@ pub struct ParsedContentType {
     /// the body will actually contain the boundary string prefixed by two
     /// dashes.
     pub boundary: Option<String>,
+    /// The name of the content, if available
+    pub name: Option<String>,
 }
 
 /// Helper method to parse a header value as a Content-Type header. The charset
@@ -508,11 +510,21 @@ pub struct ParsedContentType {
 ///     assert_eq!(ctype.charset, "us-ascii");
 ///     assert_eq!(ctype.boundary, None);
 /// ```
+/// ```
+///     use mailparse::{parse_header, parse_content_type};
+///     let (parsed, _) = parse_header(br#"Content-Type: application/octet-stream;name="=?utf8?B?6L+O5ai255m95a+M576O?=";charset="utf8""#).unwrap();
+///     let ctype = parse_content_type(&parsed.get_value().unwrap()).unwrap();
+///     assert_eq!(ctype.mimetype, "application/octet-stream");
+///     assert_eq!(ctype.charset, "utf8");
+///     assert_eq!(ctype.boundary, None);
+///     assert_eq!(ctype.name, Some("迎娶白富美".to_string()));
+/// ```
 pub fn parse_content_type(header: &str) -> Result<ParsedContentType, MailParseError> {
     let mut parsed_type = ParsedContentType {
         mimetype: "text/plain".to_string(),
         charset: "us-ascii".to_string(),
         boundary: None,
+        name: None,
     };
     let mut tokens = header.split(';');
     // There must be at least one token produced by split, even if it's empty.
@@ -524,11 +536,14 @@ pub fn parse_content_type(header: &str) -> Result<ParsedContentType, MailParseEr
             if value.starts_with('"') && value.ends_with('"') {
                 value = &value[1..value.len() - 1];
             }
-            if attr == "charset" {
-                parsed_type.charset = String::from(value).to_lowercase();
-            } else if attr == "boundary" {
-                parsed_type.boundary = Some(String::from(value));
+
+            match &attr[..] {
+                "charset" => parsed_type.charset = String::from(value).to_lowercase(),
+                "boundary" => parsed_type.boundary = Some(String::from(value)),
+                "name" => parsed_type.name = Some(String::from(value)),
+                _ => {}
             }
+
         } // else invalid token, ignore. We could throw an error but this
           // actually happens in some cases that we want to otherwise handle.
     }
@@ -640,6 +655,7 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
                 mimetype: "text/plain".to_string(),
                 charset: "us-ascii".to_string(),
                 boundary: None,
+                name: None,
             }
         }
     };
