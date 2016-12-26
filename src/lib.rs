@@ -584,6 +584,28 @@ impl<'a> ParsedMail<'a> {
     ///     assert_eq!(p.get_body().unwrap(), "This is the body");
     /// ```
     pub fn get_body(&self) -> Result<String, MailParseError> {
+        let decoded = self.get_body_raw()?;
+        let charset_conv = encoding::label::encoding_from_whatwg_label(&self.ctype.charset)
+            .unwrap_or(encoding::all::ASCII);
+        let str_body = try!(charset_conv.decode(&decoded, encoding::DecoderTrap::Replace));
+        Ok(str_body)
+    }
+
+    /// Get the body of the message as a Rust Vec<u8>. This function tries to
+    /// unapply the Content-Transfer-Encoding if there is one, but won't do
+    /// any charset decoding.
+    ///
+    /// # Examples
+    /// ```
+    ///     use mailparse::parse_mail;
+    ///     let p = parse_mail(concat!(
+    ///             "Subject: test\n",
+    ///             "\n",
+    ///             "This is the body").as_bytes())
+    ///         .unwrap();
+    ///     assert_eq!(p.get_body_raw().unwrap(), b"This is the body");
+    /// ```
+    pub fn get_body_raw(&self) -> Result<Vec<u8>, MailParseError> {
         let transfer_coding = try!(self.headers.get_first_value("Content-Transfer-Encoding"))
             .map(|s| s.to_lowercase());
         let decoded = match transfer_coding.unwrap_or(String::new()).as_ref() {
@@ -602,10 +624,7 @@ impl<'a> ParsedMail<'a> {
             }
             _ => Vec::<u8>::from(self.body),
         };
-        let charset_conv = encoding::label::encoding_from_whatwg_label(&self.ctype.charset)
-            .unwrap_or(encoding::all::ASCII);
-        let str_body = try!(charset_conv.decode(&decoded, encoding::DecoderTrap::Replace));
-        Ok(str_body)
+        Ok(decoded)
     }
 }
 
@@ -924,6 +943,7 @@ mod tests {
         assert_eq!(mail.ctype.charset, "us-ascii");
         assert_eq!(mail.ctype.boundary, None);
         assert_eq!(mail.body, b"Some body stuffs");
+        assert_eq!(mail.get_body_raw().unwrap(), b"Some body stuffs");
         assert_eq!(mail.get_body().unwrap(), "Some body stuffs");
         assert_eq!(mail.subparts.len(), 0);
 
@@ -954,14 +974,17 @@ mod tests {
 
         let mail = parse_mail(b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG 8gd\r\n29ybGQ=")
             .unwrap();
+        assert_eq!(mail.get_body_raw().unwrap(), b"hello world");
         assert_eq!(mail.get_body().unwrap(), "hello world");
 
         let mail = parse_mail(b"Content-Type: text/plain; charset=x-unknown\r\n\r\nhello world")
             .unwrap();
+        assert_eq!(mail.get_body_raw().unwrap(), b"hello world");
         assert_eq!(mail.get_body().unwrap(), "hello world");
 
         let mail = parse_mail(b"ConTENT-tyPE: text/html\r\n\r\nhello world").unwrap();
         assert_eq!(mail.ctype.mimetype, "text/html");
+        assert_eq!(mail.get_body_raw().unwrap(), b"hello world");
         assert_eq!(mail.get_body().unwrap(), "hello world");
     }
 
@@ -972,6 +995,7 @@ mod tests {
                 .as_bytes())
             .unwrap();
         assert_eq!(parsed.headers[0].get_key().unwrap(), "Content-Type");
+        assert_eq!(parsed.get_body_raw().unwrap(), b"");
         assert_eq!(parsed.get_body().unwrap(), "");
     }
 
@@ -989,12 +1013,14 @@ mod tests {
         assert_eq!(mail.ctype.mimetype, "multipart/report");
         assert_eq!(mail.subparts[0].headers.len(), 0);
         assert_eq!(mail.subparts[0].ctype.mimetype, "text/plain");
+        assert_eq!(mail.subparts[0].get_body_raw().unwrap(), b"");
         assert_eq!(mail.subparts[0].get_body().unwrap(), "");
     }
 
     #[test]
     fn test_empty() {
         let mail = parse_mail("".as_bytes()).unwrap();
+        assert_eq!(mail.get_body_raw().unwrap(), b"");
         assert_eq!(mail.get_body().unwrap(), "");
     }
 }
