@@ -350,9 +350,9 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
     match ix_key_end {
         Some(v) => {
             Ok((MailHeader {
-                key: &raw_data[0..v],
-                value: &raw_data[ix_value_start..ix_value_end],
-            },
+                    key: &raw_data[0..v],
+                    value: &raw_data[ix_value_start..ix_value_end],
+                },
                 ix))
         }
 
@@ -668,18 +668,16 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
         body: &raw_data[ix_body..],
         subparts: Vec::<ParsedMail>::new(),
     };
-    if result.ctype.mimetype.starts_with("multipart/")
-            && result.ctype.boundary.is_some()
-            && raw_data.len() > ix_body {
+    if result.ctype.mimetype.starts_with("multipart/") && result.ctype.boundary.is_some() &&
+       raw_data.len() > ix_body {
         let boundary = String::from("--") + result.ctype.boundary.as_ref().unwrap();
         if let Some(ix_body_end) = find_from_u8(raw_data, ix_body, boundary.as_bytes()) {
             result.body = &raw_data[ix_body..ix_body_end];
             let mut ix_boundary_end = ix_body_end + boundary.len();
-            while let Some(ix_part_start) = find_from_u8(raw_data, ix_boundary_end, b"\n")
-                .map(|v| v + 1) {
-                if let Some(ix_part_end) = find_from_u8(raw_data,
-                                                        ix_part_start,
-                                                        boundary.as_bytes()) {
+            while let Some(ix_part_start) =
+                find_from_u8(raw_data, ix_boundary_end, b"\n").map(|v| v + 1) {
+                if let Some(ix_part_end) =
+                    find_from_u8(raw_data, ix_part_start, boundary.as_bytes()) {
                     result.subparts.push(try!(parse_mail(&raw_data[ix_part_start..ix_part_end])));
                     ix_boundary_end = ix_part_end + boundary.len();
                     if ix_boundary_end + 2 <= raw_data.len() && raw_data[ix_boundary_end] == b'-' &&
@@ -974,8 +972,7 @@ mod tests {
 
     #[test]
     fn test_missing_body() {
-        let parsed = parse_mail(
-                "Content-Type: multipart/related; boundary=\"----=_\"\n"
+        let parsed = parse_mail("Content-Type: multipart/related; boundary=\"----=_\"\n"
                 .as_bytes())
             .unwrap();
         assert_eq!(parsed.headers[0].get_key().unwrap(), "Content-Type");
