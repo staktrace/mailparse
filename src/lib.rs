@@ -684,9 +684,8 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
         body: &raw_data[ix_body..],
         subparts: Vec::<ParsedMail>::new(),
     };
-    if result.ctype.mimetype.starts_with("multipart/")
-            && result.ctype.boundary.is_some()
-            && raw_data.len() > ix_body {
+    if result.ctype.mimetype.starts_with("multipart/") && result.ctype.boundary.is_some() &&
+       raw_data.len() > ix_body {
         let boundary = String::from("--") + result.ctype.boundary.as_ref().unwrap();
         if let Some(ix_body_end) = find_from_u8(raw_data, ix_body, boundary.as_bytes()) {
             result.body = &raw_data[ix_body..ix_body_end];
@@ -990,8 +989,7 @@ mod tests {
 
     #[test]
     fn test_missing_body() {
-        let parsed = parse_mail(
-                "Content-Type: multipart/related; boundary=\"----=_\"\n"
+        let parsed = parse_mail("Content-Type: multipart/related; boundary=\"----=_\"\n"
                 .as_bytes())
             .unwrap();
         assert_eq!(parsed.headers[0].get_key().unwrap(), "Content-Type");
