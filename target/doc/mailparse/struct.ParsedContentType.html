@@ -47,27 +47,39 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a id='src-281' class='srclink' href='../src/mailparse/src/lib.rs.html#475-486' title='goto source code'>[src]</a></span></h1>
+               </span><a id='src-265' class='srclink' href='../src/mailparse/src/lib.rs.html#475-488' title='goto source code'>[src]</a></span></h1>
 <pre class='rust struct'>pub struct ParsedContentType {
     pub mimetype: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>,
     pub charset: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>,
     pub boundary: <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>&gt;,
+    pub name: <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>&gt;,
 }</pre><div class='docblock'><p>A struct to hold a more structured representation of the Content-Type header.
 This is provided mostly as a convenience since this metadata is usually
 needed to interpret the message body properly.</p>
-</div><h2 class='fields'>Fields</h2>
-<table><tr class='stab '>
-                             <td id='structfield.mimetype'><code>mimetype</code></td><td><div class='docblock'><p>The type of the data, for example &quot;text/plain&quot; or &quot;application/pdf&quot;.</p>
-</div></td></tr><tr class='stab '>
-                             <td id='structfield.charset'><code>charset</code></td><td><div class='docblock'><p>The charset used to decode the raw byte data, for example &quot;iso-8859-1&quot;
+</div><h2 class='fields'>Fields</h2><span id='structfield.mimetype' class='structfield'>
+                           <span id='mimetype.v' class='invisible'>
+                           <code>mimetype: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a></code>
+                           </span></span><span class='stab '></span><div class='docblock'><p>The type of the data, for example &quot;text/plain&quot; or &quot;application/pdf&quot;.</p>
+</div><span id='structfield.charset' class='structfield'>
+                           <span id='charset.v' class='invisible'>
+                           <code>charset: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a></code>
+                           </span></span><span class='stab '></span><div class='docblock'><p>The charset used to decode the raw byte data, for example &quot;iso-8859-1&quot;
 or &quot;utf-8&quot;.</p>
-</div></td></tr><tr class='stab '>
-                             <td id='structfield.boundary'><code>boundary</code></td><td><div class='docblock'><p>The boundary used to separate the different parts of a multipart message.
+</div><span id='structfield.boundary' class='structfield'>
+                           <span id='boundary.v' class='invisible'>
+                           <code>boundary: <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>&gt;</code>
+                           </span></span><span class='stab '></span><div class='docblock'><p>The boundary used to separate the different parts of a multipart message.
 This boundary is taken straight from the Content-Type header, and so
 the body will actually contain the boundary string prefixed by two
 dashes.</p>
-</div></td></tr></table><h2 id='implementations'>Trait Implementations</h2><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../mailparse/struct.ParsedContentType.html' title='mailparse::ParsedContentType'>ParsedContentType</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
-</div></section>
+</div><span id='structfield.name' class='structfield'>
+                           <span id='name.v' class='invisible'>
+                           <code>name: <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>&gt;</code>
+                           </span></span><span class='stab '></span><div class='docblock'><p>The name of the content, if available</p>
+</div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../mailparse/struct.ParsedContentType.html' title='mailparse::ParsedContentType'>ParsedContentType</a></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-270' class='srclink' href='../src/mailparse/src/lib.rs.html#474' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.fmt' class='method'><span id='fmt.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></span></h4>
+<div class='docblock'><p>Formats the value using the given formatter.</p>
+</div></div></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>
@@ -90,6 +102,8 @@ dashes.</p>
                     <dd>Move down in search results</dd>
                     <dt>&#9166;</dt>
                     <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
                 </dl>
             </div>
 

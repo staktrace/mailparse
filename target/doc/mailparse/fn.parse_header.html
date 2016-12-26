@@ -47,8 +47,8 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a id='src-228' class='srclink' href='../src/mailparse/src/lib.rs.html#288-361' title='goto source code'>[src]</a></span></h1>
-<pre class='rust fn'>pub fn parse_header(raw_data: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(</a><a class='struct' href='../mailparse/struct.MailHeader.html' title='mailparse::MailHeader'>MailHeader</a>, <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>)</a>, <a class='enum' href='../mailparse/enum.MailParseError.html' title='mailparse::MailParseError'>MailParseError</a>&gt;</pre><div class='docblock'><p>Parse a single header from the raw data given.
+               </span><a id='src-216' class='srclink' href='../src/mailparse/src/lib.rs.html#288-361' title='goto source code'>[src]</a></span></h1>
+<pre class='rust fn'>pub fn parse_header(raw_data: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(</a><a class='struct' href='../mailparse/struct.MailHeader.html' title='mailparse::MailHeader'>MailHeader</a>, <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>)</a>,&nbsp;<a class='enum' href='../mailparse/enum.MailParseError.html' title='mailparse::MailParseError'>MailParseError</a>&gt;</pre><div class='docblock'><p>Parse a single header from the raw data given.
 This function takes raw byte data, and starts parsing it, expecting there
 to be a MIME header key-value pair right at the beginning. It parses that
 header and returns it, along with the index at which the next header is
@@ -66,7 +66,7 @@ as a MIME key-value pair.</p>
             <span class='string'>&quot;Next:Header&quot;</span>).<span class='ident'>as_bytes</span>())
         .<span class='ident'>unwrap</span>();
     <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_key</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;Subject&quot;</span>);
-    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_value</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;Hello, sir, I am multiline&quot;</span>);</pre>
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>get_value</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;Hello, sir, I am multiline&quot;</span>);<a class='test-arrow' target='_blank' href=''>Run</a></pre>
 </div></section>
     <section id='search' class="content hidden"></section>
 
@@ -90,6 +90,8 @@ as a MIME key-value pair.</p>
                     <dd>Move down in search results</dd>
                     <dt>&#9166;</dt>
                     <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
                 </dl>
             </div>
 

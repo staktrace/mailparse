@@ -47,8 +47,8 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a id='src-339' class='srclink' href='../src/mailparse/src/lib.rs.html#634-678' title='goto source code'>[src]</a></span></h1>
-<pre class='rust fn'>pub fn parse_mail(raw_data: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='struct' href='../mailparse/struct.ParsedMail.html' title='mailparse::ParsedMail'>ParsedMail</a>, <a class='enum' href='../mailparse/enum.MailParseError.html' title='mailparse::MailParseError'>MailParseError</a>&gt;</pre><div class='docblock'><p>The main mail-parsing entry point.
+               </span><a id='src-328' class='srclink' href='../src/mailparse/src/lib.rs.html#668-712' title='goto source code'>[src]</a></span></h1>
+<pre class='rust fn'>pub fn parse_mail(raw_data: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='struct' href='../mailparse/struct.ParsedMail.html' title='mailparse::ParsedMail'>ParsedMail</a>,&nbsp;<a class='enum' href='../mailparse/enum.MailParseError.html' title='mailparse::MailParseError'>MailParseError</a>&gt;</pre><div class='docblock'><p>The main mail-parsing entry point.
 This function takes the raw data making up the message body and returns a
 structured version of it, which allows easily accessing the header and body
 information as needed.</p>
@@ -83,7 +83,7 @@ information as needed.</p>
     <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>subparts</span>[<span class='number'>1</span>].<span class='ident'>headers</span>[<span class='number'>1</span>].<span class='ident'>get_value</span>().<span class='ident'>unwrap</span>(), <span class='string'>&quot;base64&quot;</span>);
     <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>subparts</span>[<span class='number'>1</span>].<span class='ident'>ctype</span>.<span class='ident'>mimetype</span>, <span class='string'>&quot;text/html&quot;</span>);
     <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>parsed</span>.<span class='ident'>subparts</span>[<span class='number'>1</span>].<span class='ident'>get_body</span>().<span class='ident'>unwrap</span>().<span class='ident'>starts_with</span>(<span class='string'>&quot;&lt;html&gt;&quot;</span>));
-    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dateparse</span>(<span class='ident'>parsed</span>.<span class='ident'>headers</span>.<span class='ident'>get_first_value</span>(<span class='string'>&quot;Date&quot;</span>).<span class='ident'>unwrap</span>().<span class='ident'>unwrap</span>().<span class='ident'>as_str</span>()).<span class='ident'>unwrap</span>(), <span class='number'>1475417182</span>);</pre>
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dateparse</span>(<span class='ident'>parsed</span>.<span class='ident'>headers</span>.<span class='ident'>get_first_value</span>(<span class='string'>&quot;Date&quot;</span>).<span class='ident'>unwrap</span>().<span class='ident'>unwrap</span>().<span class='ident'>as_str</span>()).<span class='ident'>unwrap</span>(), <span class='number'>1475417182</span>);<a class='test-arrow' target='_blank' href=''>Run</a></pre>
 </div></section>
     <section id='search' class="content hidden"></section>
 
@@ -107,6 +107,8 @@ information as needed.</p>
                     <dd>Move down in search results</dd>
                     <dt>&#9166;</dt>
                     <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
                 </dl>
             </div>
 
