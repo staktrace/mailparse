@@ -1,6 +1,6 @@
 [package]
 name = "mailparse"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Kartikaya Gupta <kats@seldon.staktrace.com>"]
 description = "A simple parser for MIME e-mail messages"
 documentation = "https://staktrace.github.io/mailparse/target/doc/mailparse/"
@@ -8,7 +8,12 @@ homepage = "https://github.com/staktrace/mailparse/blob/master/README.md"
 repository = "https://github.com/staktrace/mailparse"
 readme = "README.md"
 keywords = ["parser", "email", "rfc822", "mime", "maildir"]
-license-file = "LICENSE"
+categories = ["email", "parsing"]
+license = "0BSD"
+exclude = ["target/doc/**"]
+
+[badges]
+travis-ci = { repository = "staktrace/mailparse", branch = "master" }
 
 [dependencies]
 base64 = "0.1.1"
