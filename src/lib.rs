@@ -444,6 +444,9 @@ impl<'a> MailHeaderMap for Vec<MailHeader<'a>> {
 ///     assert_eq!(headers.get_first_value("To").unwrap(), Some("you@yourself.com".to_string()));
 /// ```
 pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailParseError> {
+    if raw_data.len() == 0 {
+        return Err(MailParseError::Generic("Empty string provided"));
+    }
     let mut headers: Vec<MailHeader> = Vec::new();
     let mut ix = 0;
     loop {
@@ -1016,9 +1019,13 @@ mod tests {
     }
 
     #[test]
-    fn test_empty() {
-        let mail = parse_mail("".as_bytes()).unwrap();
-        assert_eq!(mail.get_body_raw().unwrap(), b"");
-        assert_eq!(mail.get_body().unwrap(), "");
+    fn test_empty_mail() {
+        assert_match!(parse_mail(b"").unwrap_err(), MailParseError::Generic(_));
     }
+
+    #[test]
+    fn test_empty_headers() {
+        assert_match!(parse_headers(b"").unwrap_err(), MailParseError::Generic(_));
+    }
+
 }
