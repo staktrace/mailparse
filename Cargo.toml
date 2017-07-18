@@ -10,7 +10,7 @@ readme = "README.md"
 keywords = ["parser", "email", "rfc822", "mime", "maildir"]
 categories = ["email", "parsing"]
 license = "0BSD"
-exclude = ["target/doc/**"]
+exclude = ["target/doc/**", ".gitattributes"]
 
 [badges]
 travis-ci = { repository = "staktrace/mailparse", branch = "master" }
