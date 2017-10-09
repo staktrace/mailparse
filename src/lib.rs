@@ -6,6 +6,7 @@ use std::ascii::AsciiExt;
 use std::error;
 use std::fmt;
 use std::ops::Deref;
+use std::collections::BTreeMap;
 
 use encoding::Encoding;
 
@@ -487,6 +488,16 @@ pub struct ParsedContentType {
     pub name: Option<String>,
 }
 
+impl Default for ParsedContentType {
+    fn default() -> Self {
+        ParsedContentType {
+            mimetype: "text/plain".to_string(),
+            charset: "us-ascii".to_string(),
+            boundary: None,
+            name: None,
+        }
+    }
+}
 /// Helper method to parse a header value as a Content-Type header. The charset
 /// defaults to "us-ascii" if no charset parameter is provided in the header
 /// value.
@@ -497,7 +508,7 @@ pub struct ParsedContentType {
 ///     let (parsed, _) = parse_header(
 ///             b"Content-Type: text/html; charset=foo; boundary=\"quotes_are_removed\"")
 ///         .unwrap();
-///     let ctype = parse_content_type(&parsed.get_value().unwrap()).unwrap();
+///     let ctype = parse_content_type(&parsed.get_value().unwrap());
 ///     assert_eq!(ctype.mimetype, "text/html");
 ///     assert_eq!(ctype.charset, "foo");
 ///     assert_eq!(ctype.boundary, Some("quotes_are_removed".to_string()));
@@ -505,7 +516,7 @@ pub struct ParsedContentType {
 /// ```
 ///     use mailparse::{parse_header, parse_content_type};
 ///     let (parsed, _) = parse_header(b"Content-Type: bogus").unwrap();
-///     let ctype = parse_content_type(&parsed.get_value().unwrap()).unwrap();
+///     let ctype = parse_content_type(&parsed.get_value().unwrap());
 ///     assert_eq!(ctype.mimetype, "bogus");
 ///     assert_eq!(ctype.charset, "us-ascii");
 ///     assert_eq!(ctype.boundary, None);
@@ -513,41 +524,88 @@ pub struct ParsedContentType {
 /// ```
 ///     use mailparse::{parse_header, parse_content_type};
 ///     let (parsed, _) = parse_header(br#"Content-Type: application/octet-stream;name="=?utf8?B?6L+O5ai255m95a+M576O?=";charset="utf8""#).unwrap();
-///     let ctype = parse_content_type(&parsed.get_value().unwrap()).unwrap();
+///     let ctype = parse_content_type(&parsed.get_value().unwrap());
 ///     assert_eq!(ctype.mimetype, "application/octet-stream");
 ///     assert_eq!(ctype.charset, "utf8");
 ///     assert_eq!(ctype.boundary, None);
 ///     assert_eq!(ctype.name, Some("迎娶白富美".to_string()));
 /// ```
-pub fn parse_content_type(header: &str) -> Result<ParsedContentType, MailParseError> {
-    let mut parsed_type = ParsedContentType {
-        mimetype: "text/plain".to_string(),
-        charset: "us-ascii".to_string(),
-        boundary: None,
-        name: None,
-    };
-    let mut tokens = header.split(';');
-    // There must be at least one token produced by split, even if it's empty.
-    parsed_type.mimetype = String::from(tokens.next().unwrap().trim()).to_lowercase();
-    while let Some(param) = tokens.next() {
-        if let Some(ix_eq) = param.find('=') {
-            let attr = param[0..ix_eq].trim().to_lowercase();
-            let mut value = param[ix_eq + 1..].trim();
-            if value.starts_with('"') && value.ends_with('"') {
-                value = &value[1..value.len() - 1];
-            }
+pub fn parse_content_type(header: &str) -> ParsedContentType {
+    let params = parse_param_content(header);
+    let mimetype = params.value.to_lowercase();
+    let charset = params.params.get("charset").cloned().unwrap_or(
+        "us-ascii".to_string(),
+    );
+    let name = params.params.get("name").cloned();
+    let boundary = params.params.get("boundary").cloned();
 
-            match &attr[..] {
-                "charset" => parsed_type.charset = String::from(value).to_lowercase(),
-                "boundary" => parsed_type.boundary = Some(String::from(value)),
-                "name" => parsed_type.name = Some(String::from(value)),
-                _ => {}
-            }
-
-        } // else invalid token, ignore. We could throw an error but this
-          // actually happens in some cases that we want to otherwise handle.
+    ParsedContentType {
+        mimetype: mimetype,
+        charset: charset,
+        name: name,
+        boundary: boundary,
     }
-    Ok(parsed_type)
+}
+
+/// The possible disposition types of the first parameter of Content-Disposition/
+#[derive(Debug, Clone, PartialEq)]
+pub enum DispositionType {
+    /// default value, indicating it can be display inside the Web page, or as the Web page.
+    Inline,
+    /// indicating it should be downloaded.
+    Attachment,
+    /// The first parameter in the HTTP context is always form-data for multipart.
+    FormData,
+    /// Extension disposition type
+    Extension(String),
+}
+
+impl Default for DispositionType {
+    fn default() -> Self {
+        DispositionType::Inline
+    }
+}
+
+/// Convert the string represented disposition type to enum.
+pub fn parse_disposition_type(disposition: &str) -> DispositionType {
+    match &disposition.to_lowercase()[..] {
+        "inline" => DispositionType::Inline,
+        "attachment" => DispositionType::Attachment,
+        "form-data" => DispositionType::FormData,
+        extension => DispositionType::Extension(extension.to_string()),
+    }
+}
+/// A struct to hold a more structured representation of the Content-Disposition header.
+/// This is provided mostly as a convenience since this metadata is usually
+/// needed to interpret the message body properly.
+#[derive(Debug, Default)]
+pub struct ParsedContentDisposition {
+  pub disposition: DispositionType,
+  pub params: BTreeMap<String, String>,
+}
+
+/// Helper method to parse a header value as a Content-Disposition header. The disposition
+/// defaults to "inline" if no disposition parameter is provided in the header
+/// value.
+///
+/// # Examples
+/// ```
+///     use mailparse::{parse_header, parse_content_disposition, DispositionType};
+///     let (parsed, _) = parse_header(
+///             b"Content-Disposition: attachment; filename=\"yummy dummy\"")
+///         .unwrap();
+///     let dis = parse_content_disposition(&parsed.get_value().unwrap());
+///     assert_eq!(dis.disposition, DispositionType::Attachment);
+///     assert_eq!(dis.params.get("name"), None);
+///     assert_eq!(dis.params.get("filename"), Some(&"yummy dummy".to_string()));
+/// ```
+pub fn parse_content_disposition(header: &str) -> ParsedContentDisposition {
+    let params = parse_param_content(header);
+    let disposition = parse_disposition_type(&params.value);
+    ParsedContentDisposition {
+        disposition: disposition,
+        params: params.params
+    }
 }
 
 /// Struct that holds the structured representation of the message. Note that
@@ -626,6 +684,14 @@ impl<'a> ParsedMail<'a> {
         };
         Ok(decoded)
     }
+
+    pub fn get_content_disposition(&self) -> Result<ParsedContentDisposition, MailParseError> {
+        let disposition = self.headers
+            .get_first_value("Content-Disposition")?
+            .map(|s| parse_content_disposition(&s))
+            .unwrap_or_default();
+        Ok(disposition)
+    }        
 }
 
 /// The main mail-parsing entry point.
@@ -667,17 +733,11 @@ impl<'a> ParsedMail<'a> {
 /// ```
 pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
     let (headers, ix_body) = try!(parse_headers(raw_data));
-    let ctype = match try!(headers.get_first_value("Content-Type")) {
-        Some(s) => try!(parse_content_type(&s)),
-        None => {
-            ParsedContentType {
-                mimetype: "text/plain".to_string(),
-                charset: "us-ascii".to_string(),
-                boundary: None,
-                name: None,
-            }
-        }
-    };
+    let ctype = headers
+        .get_first_value("Content-Type")?
+        .map(|s| parse_content_type(&s))
+        .unwrap_or_default();
+
     let mut result = ParsedMail {
         headers: headers,
         ctype: ctype,
@@ -709,6 +769,37 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
         }
     }
     Ok(result)
+}
+
+/// Used to store params for content-type and content-disposition
+struct ParamContent {
+    value: String,
+    params: BTreeMap<String, String>,
+}
+
+/// Parse the key=value like params with a leading value
+/// e.g. `multipart/alternative; boundary=foobar\n`
+fn parse_param_content(content: &str) -> ParamContent {
+    let mut tokens = content.split(';');
+    // There must be at least one token produced by split, even if it's empty.
+    let value = tokens.next().unwrap().trim();
+    let map = tokens
+        .filter_map(|kv| if let Some(idx) = kv.find('=') {
+            let key = kv[0..idx].trim().to_lowercase();
+            let mut value = kv[idx + 1..].trim();
+            if value.starts_with('"') && value.ends_with('"') {
+                value = &value[1..value.len() - 1];
+            }
+            Some((key, value.to_string()))
+        } else {
+            None
+        })
+        .collect();
+
+    ParamContent {
+        value: value.into(),
+        params: map,
+    }
 }
 
 #[cfg(test)]
@@ -916,20 +1007,40 @@ mod tests {
 
     #[test]
     fn test_parse_content_type() {
-        let ctype = parse_content_type("text/html; charset=utf-8").unwrap();
+        let ctype = parse_content_type("text/html; charset=utf-8");
         assert_eq!(ctype.mimetype, "text/html");
         assert_eq!(ctype.charset, "utf-8");
         assert_eq!(ctype.boundary, None);
 
-        let ctype = parse_content_type(" foo/bar; x=y; charset=\"fake\" ; x2=y2").unwrap();
+        let ctype = parse_content_type(" foo/bar; x=y; charset=\"fake\" ; x2=y2");
         assert_eq!(ctype.mimetype, "foo/bar");
         assert_eq!(ctype.charset, "fake");
         assert_eq!(ctype.boundary, None);
 
-        let ctype = parse_content_type(" multipart/bar; boundary=foo ").unwrap();
+        let ctype = parse_content_type(" multipart/bar; boundary=foo ");
         assert_eq!(ctype.mimetype, "multipart/bar");
         assert_eq!(ctype.charset, "us-ascii");
         assert_eq!(ctype.boundary.unwrap(), "foo");
+    }
+
+    #[test]
+    fn test_parse_content_disposition() {
+        let dis = parse_content_disposition("inline");
+        assert_eq!(dis.disposition, DispositionType::Inline);
+        assert_eq!(dis.params.get("name"), None);
+        assert_eq!(dis.params.get("filename"), None);
+
+        let dis = parse_content_disposition(
+            " attachment; x=y; charset=\"fake\" ; x2=y2; name=\"King Joffrey.death\"",
+        );
+        assert_eq!(dis.disposition, DispositionType::Attachment);
+        assert_eq!(dis.params.get("name"), Some(&"King Joffrey.death".to_string()));
+        assert_eq!(dis.params.get("filename"), None);
+
+        let dis = parse_content_disposition(" form-data");
+        assert_eq!(dis.disposition, DispositionType::FormData);
+        assert_eq!(dis.params.get("name"), None);
+        assert_eq!(dis.params.get("filename"), None);
     }
 
     #[test]
