@@ -479,13 +479,8 @@ pub struct ParsedContentType {
     /// The charset used to decode the raw byte data, for example "iso-8859-1"
     /// or "utf-8".
     pub charset: String,
-    /// The boundary used to separate the different parts of a multipart message.
-    /// This boundary is taken straight from the Content-Type header, and so
-    /// the body will actually contain the boundary string prefixed by two
-    /// dashes.
-    pub boundary: Option<String>,
-    /// The name of the content, if available
-    pub name: Option<String>,
+    /// The additional params of Content-Type, like filename and boundary
+    pub params: BTreeMap<String, String>,
 }
 
 impl Default for ParsedContentType {
@@ -493,8 +488,7 @@ impl Default for ParsedContentType {
         ParsedContentType {
             mimetype: "text/plain".to_string(),
             charset: "us-ascii".to_string(),
-            boundary: None,
-            name: None,
+            params: BTreeMap::new(),
         }
     }
 }
@@ -511,7 +505,7 @@ impl Default for ParsedContentType {
 ///     let ctype = parse_content_type(&parsed.get_value().unwrap());
 ///     assert_eq!(ctype.mimetype, "text/html");
 ///     assert_eq!(ctype.charset, "foo");
-///     assert_eq!(ctype.boundary, Some("quotes_are_removed".to_string()));
+///     assert_eq!(ctype.params.get("boundary"), Some(&"quotes_are_removed".to_string()));
 /// ```
 /// ```
 ///     use mailparse::{parse_header, parse_content_type};
@@ -519,7 +513,7 @@ impl Default for ParsedContentType {
 ///     let ctype = parse_content_type(&parsed.get_value().unwrap());
 ///     assert_eq!(ctype.mimetype, "bogus");
 ///     assert_eq!(ctype.charset, "us-ascii");
-///     assert_eq!(ctype.boundary, None);
+///     assert_eq!(ctype.params.get("boundary"), None);
 /// ```
 /// ```
 ///     use mailparse::{parse_header, parse_content_type};
@@ -527,8 +521,8 @@ impl Default for ParsedContentType {
 ///     let ctype = parse_content_type(&parsed.get_value().unwrap());
 ///     assert_eq!(ctype.mimetype, "application/octet-stream");
 ///     assert_eq!(ctype.charset, "utf8");
-///     assert_eq!(ctype.boundary, None);
-///     assert_eq!(ctype.name, Some("迎娶白富美".to_string()));
+///     assert_eq!(ctype.params.get("boundary"), None);
+///     assert_eq!(ctype.params.get("name"), Some(&"迎娶白富美".to_string()));
 /// ```
 pub fn parse_content_type(header: &str) -> ParsedContentType {
     let params = parse_param_content(header);
@@ -536,14 +530,11 @@ pub fn parse_content_type(header: &str) -> ParsedContentType {
     let charset = params.params.get("charset").cloned().unwrap_or(
         "us-ascii".to_string(),
     );
-    let name = params.params.get("name").cloned();
-    let boundary = params.params.get("boundary").cloned();
 
     ParsedContentType {
         mimetype: mimetype,
         charset: charset,
-        name: name,
-        boundary: boundary,
+        params: params.params
     }
 }
 
@@ -744,9 +735,9 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
         body: &raw_data[ix_body..],
         subparts: Vec::<ParsedMail>::new(),
     };
-    if result.ctype.mimetype.starts_with("multipart/") && result.ctype.boundary.is_some() &&
+    if result.ctype.mimetype.starts_with("multipart/") && result.ctype.params.get("boundary").is_some() &&
        raw_data.len() > ix_body {
-        let boundary = String::from("--") + result.ctype.boundary.as_ref().unwrap();
+        let boundary = String::from("--") + result.ctype.params.get("boundary").unwrap();
         if let Some(ix_body_end) = find_from_u8(raw_data, ix_body, boundary.as_bytes()) {
             result.body = &raw_data[ix_body..ix_body_end];
             let mut ix_boundary_end = ix_body_end + boundary.len();
@@ -1010,17 +1001,17 @@ mod tests {
         let ctype = parse_content_type("text/html; charset=utf-8");
         assert_eq!(ctype.mimetype, "text/html");
         assert_eq!(ctype.charset, "utf-8");
-        assert_eq!(ctype.boundary, None);
+        assert_eq!(ctype.params.get("boundary"), None);
 
         let ctype = parse_content_type(" foo/bar; x=y; charset=\"fake\" ; x2=y2");
         assert_eq!(ctype.mimetype, "foo/bar");
         assert_eq!(ctype.charset, "fake");
-        assert_eq!(ctype.boundary, None);
+        assert_eq!(ctype.params.get("boundary"), None);
 
         let ctype = parse_content_type(" multipart/bar; boundary=foo ");
         assert_eq!(ctype.mimetype, "multipart/bar");
         assert_eq!(ctype.charset, "us-ascii");
-        assert_eq!(ctype.boundary.unwrap(), "foo");
+        assert_eq!(ctype.params.get("boundary").unwrap(), "foo");
     }
 
     #[test]
@@ -1051,7 +1042,7 @@ mod tests {
         assert_eq!(mail.headers[0].get_value().unwrap(), "value");
         assert_eq!(mail.ctype.mimetype, "text/plain");
         assert_eq!(mail.ctype.charset, "us-ascii");
-        assert_eq!(mail.ctype.boundary, None);
+        assert_eq!(mail.ctype.params.get("boundary"), None);
         assert_eq!(mail.body, b"Some body stuffs");
         assert_eq!(mail.get_body_raw().unwrap(), b"Some body stuffs");
         assert_eq!(mail.get_body().unwrap(), "Some body stuffs");
@@ -1072,15 +1063,15 @@ mod tests {
         assert_eq!(mail.headers[0].get_key().unwrap(), "Content-Type");
         assert_eq!(mail.ctype.mimetype, "multipart/alternative");
         assert_eq!(mail.ctype.charset, "us-ascii");
-        assert_eq!(mail.ctype.boundary.unwrap(), "myboundary");
+        assert_eq!(mail.ctype.params.get("boundary").unwrap(), "myboundary");
         assert_eq!(mail.subparts.len(), 2);
         assert_eq!(mail.subparts[0].headers.len(), 1);
         assert_eq!(mail.subparts[0].ctype.mimetype, "text/plain");
         assert_eq!(mail.subparts[0].ctype.charset, "us-ascii");
-        assert_eq!(mail.subparts[0].ctype.boundary, None);
+        assert_eq!(mail.subparts[0].ctype.params.get("boundary"), None);
         assert_eq!(mail.subparts[1].ctype.mimetype, "text/html");
         assert_eq!(mail.subparts[1].ctype.charset, "utf-8");
-        assert_eq!(mail.subparts[1].ctype.boundary, None);
+        assert_eq!(mail.subparts[1].ctype.params.get("boundary"), None);
 
         let mail = parse_mail(b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG 8gd\r\n29ybGQ=")
             .unwrap();
