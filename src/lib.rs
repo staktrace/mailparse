@@ -589,7 +589,7 @@ impl Default for DispositionType {
 }
 
 /// Convert the string represented disposition type to enum.
-pub fn parse_disposition_type(disposition: &str) -> DispositionType {
+fn parse_disposition_type(disposition: &str) -> DispositionType {
     match &disposition.to_lowercase()[..] {
         "inline" => DispositionType::Inline,
         "attachment" => DispositionType::Attachment,
