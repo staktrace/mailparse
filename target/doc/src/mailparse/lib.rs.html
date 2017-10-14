@@ -1252,6 +1252,11 @@
 <span id="1207">1207</span>
 <span id="1208">1208</span>
 <span id="1209">1209</span>
+<span id="1210">1210</span>
+<span id="1211">1211</span>
+<span id="1212">1212</span>
+<span id="1213">1213</span>
+<span id="1214">1214</span>
 </pre><pre class="rust ">
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">base64</span>;
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">encoding</span>;
@@ -1974,6 +1979,11 @@
         <span class="prelude-val">Ok</span>(<span class="ident">decoded</span>)
     }
 
+    <span class="doccomment">/// Returns a struct containing a parsed representation of the</span>
+    <span class="doccomment">/// Content-Disposition header. The first header with this name</span>
+    <span class="doccomment">/// is used, if there are multiple. See the `parse_content_disposition`</span>
+    <span class="doccomment">/// method documentation for more details on the semantics of the</span>
+    <span class="doccomment">/// returned object.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_content_disposition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">ParsedContentDisposition</span>, <span class="ident">MailParseError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">disposition</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">headers</span>
             .<span class="ident">get_first_value</span>(<span class="string">&quot;Content-Disposition&quot;</span>)<span class="question-mark">?</span>

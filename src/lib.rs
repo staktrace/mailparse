@@ -719,6 +719,11 @@ impl<'a> ParsedMail<'a> {
         Ok(decoded)
     }
 
+    /// Returns a struct containing a parsed representation of the
+    /// Content-Disposition header. The first header with this name
+    /// is used, if there are multiple. See the `parse_content_disposition`
+    /// method documentation for more details on the semantics of the
+    /// returned object.
     pub fn get_content_disposition(&self) -> Result<ParsedContentDisposition, MailParseError> {
         let disposition = self.headers
             .get_first_value("Content-Disposition")?
