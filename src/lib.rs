@@ -497,7 +497,9 @@ pub struct ParsedContentType {
     /// The charset used to decode the raw byte data, for example "iso-8859-1"
     /// or "utf-8".
     pub charset: String,
-    /// The additional params of Content-Type, like filename and boundary
+    /// The additional params of Content-Type, e.g. filename and boundary. The
+    /// keys in the map will be lowercased, and the values will have any
+    /// enclosing quotes stripped.
     pub params: BTreeMap<String, String>,
 }
 
@@ -510,9 +512,12 @@ impl Default for ParsedContentType {
         }
     }
 }
-/// Helper method to parse a header value as a Content-Type header. The charset
-/// defaults to "us-ascii" if no charset parameter is provided in the header
-/// value.
+
+/// Helper method to parse a header value as a Content-Type header. Note that
+/// the returned object's `params` map will contain a charset key if a charset
+/// was explicitly specified in the header; otherwise the `params` map will not
+/// contain a charset key. Regardless, the `charset` field will contain a
+/// charset - either the one explicitly specified or the default of "us-ascii".
 ///
 /// # Examples
 /// ```
@@ -524,6 +529,7 @@ impl Default for ParsedContentType {
 ///     assert_eq!(ctype.mimetype, "text/html");
 ///     assert_eq!(ctype.charset, "foo");
 ///     assert_eq!(ctype.params.get("boundary"), Some(&"quotes_are_removed".to_string()));
+///     assert_eq!(ctype.params.get("charset"), Some(&"foo".to_string()));
 /// ```
 /// ```
 ///     use mailparse::{parse_header, parse_content_type};
@@ -532,6 +538,7 @@ impl Default for ParsedContentType {
 ///     assert_eq!(ctype.mimetype, "bogus");
 ///     assert_eq!(ctype.charset, "us-ascii");
 ///     assert_eq!(ctype.params.get("boundary"), None);
+///     assert_eq!(ctype.params.get("charset"), None);
 /// ```
 /// ```
 ///     use mailparse::{parse_header, parse_content_type};
@@ -556,16 +563,22 @@ pub fn parse_content_type(header: &str) -> ParsedContentType {
     }
 }
 
-/// The possible disposition types of the first parameter of Content-Disposition/
+/// The possible disposition types in a Content-Disposition header. A more
+/// comprehensive list of IANA-recognized types can be found at
+/// https://www.iana.org/assignments/cont-disp/cont-disp.xhtml. This library
+/// only enumerates the types most commonly found in email messages, and
+/// provides the `Extension` value for holding all other types.
 #[derive(Debug, Clone, PartialEq)]
 pub enum DispositionType {
-    /// default value, indicating it can be display inside the Web page, or as the Web page.
+    /// Default value, indicating the content is to be displayed inline as
+    /// part of the enclosing document.
     Inline,
-    /// indicating it should be downloaded.
+    /// A disposition indicating the content is not meant for inline display,
+    /// but whose content can be accessed for use.
     Attachment,
-    /// The first parameter in the HTTP context is always form-data for multipart.
+    /// A disposition indicating the content contains a form submission.
     FormData,
-    /// Extension disposition type
+    /// Extension type to hold any disposition not explicitly enumerated.
     Extension(String),
 }
 
@@ -584,12 +597,18 @@ pub fn parse_disposition_type(disposition: &str) -> DispositionType {
         extension => DispositionType::Extension(extension.to_string()),
     }
 }
+
 /// A struct to hold a more structured representation of the Content-Disposition header.
 /// This is provided mostly as a convenience since this metadata is usually
 /// needed to interpret the message body properly.
 #[derive(Debug, Default)]
 pub struct ParsedContentDisposition {
+    /// The disposition type of the Content-Disposition header. If this
+    /// is an extension type, the string will be lowercased.
     pub disposition: DispositionType,
+    /// The additional params of Content-Disposition, e.g. filename. The
+    /// keys in the map will be lowercased, and the values will have any
+    /// enclosing quotes stripped.
     pub params: BTreeMap<String, String>,
 }
 
@@ -799,8 +818,15 @@ struct ParamContent {
     params: BTreeMap<String, String>,
 }
 
-/// Parse the key=value like params with a leading value
-/// e.g. `multipart/alternative; boundary=foobar\n`
+/// Parse parameterized header values such as that for Content-Type
+/// e.g. `multipart/alternative; boundary=foobar`
+/// Note: this function is not made public as it may require
+/// significant changes to be fully correct. For instance,
+/// it does not handle quoted parameter values containing the
+/// semicolon (';') character. It also produces a BTreeMap,
+/// which implicitly does not support multiple parameters with
+/// the same key. The format for parameterized header values
+/// doesn't appear to be strongly specified anywhere.
 fn parse_param_content(content: &str) -> ParamContent {
     let mut tokens = content.split(';');
     // There must be at least one token produced by split, even if it's empty.
