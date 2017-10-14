@@ -48,7 +48,7 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../src/mailparse/lib.rs.html#1-1024' title='goto source code'>[src]</a></span></h1>
+               </span><a class='srclink' href='../src/mailparse/lib.rs.html#1-1209' title='goto source code'>[src]</a></span></h1>
 <h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
 <table>
                        <tr class=' module-item'>
@@ -60,6 +60,15 @@ It holds slices into the raw byte array passed to parse_mail, and so the
 lifetime of this struct must be contained within the lifetime of the raw
 input. There are additional accessor functions on this struct to extract
 the data as Rust strings.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.ParsedContentDisposition.html"
+                                  title='struct mailparse::ParsedContentDisposition'>ParsedContentDisposition</a></td>
+                           <td class='docblock-short'>
+                                <p>A struct to hold a more structured representation of the Content-Disposition header.
+This is provided mostly as a convenience since this metadata is usually
+needed to interpret the message body properly.</p>
                            </td>
                        </tr>
                        <tr class=' module-item'>
@@ -82,6 +91,17 @@ a vector of other ParsedMail structures for the subparts.</p>
                            </td>
                        </tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
 <table>
+                       <tr class=' module-item'>
+                           <td><a class="enum" href="enum.DispositionType.html"
+                                  title='enum mailparse::DispositionType'>DispositionType</a></td>
+                           <td class='docblock-short'>
+                                <p>The possible disposition types in a Content-Disposition header. A more
+comprehensive list of IANA-recognized types can be found at
+<a href="https://www.iana.org/assignments/cont-disp/cont-disp.xhtml">https://www.iana.org/assignments/cont-disp/cont-disp.xhtml</a>. This library
+only enumerates the types most commonly found in email messages, and
+provides the <code>Extension</code> value for holding all other types.</p>
+                           </td>
+                       </tr>
                        <tr class=' module-item'>
                            <td><a class="enum" href="enum.MailParseError.html"
                                   title='enum mailparse::MailParseError'>MailParseError</a></td>
@@ -111,12 +131,23 @@ email headers. It may fail to parse some of the more creative formattings.</p>
                            </td>
                        </tr>
                        <tr class=' module-item'>
+                           <td><a class="fn" href="fn.parse_content_disposition.html"
+                                  title='fn mailparse::parse_content_disposition'>parse_content_disposition</a></td>
+                           <td class='docblock-short'>
+                                <p>Helper method to parse a header value as a Content-Disposition header. The disposition
+defaults to &quot;inline&quot; if no disposition parameter is provided in the header
+value.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
                            <td><a class="fn" href="fn.parse_content_type.html"
                                   title='fn mailparse::parse_content_type'>parse_content_type</a></td>
                            <td class='docblock-short'>
-                                <p>Helper method to parse a header value as a Content-Type header. The charset
-defaults to &quot;us-ascii&quot; if no charset parameter is provided in the header
-value.</p>
+                                <p>Helper method to parse a header value as a Content-Type header. Note that
+the returned object&#39;s <code>params</code> map will contain a charset key if a charset
+was explicitly specified in the header; otherwise the <code>params</code> map will not
+contain a charset key. Regardless, the <code>charset</code> field will contain a
+charset - either the one explicitly specified or the default of &quot;us-ascii&quot;.</p>
                            </td>
                        </tr>
                        <tr class=' module-item'>

@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="API documentation for the Rust `ParsedContentType` struct in crate `mailparse`.">
-    <meta name="keywords" content="rust, rustlang, rust-lang, ParsedContentType">
+    <meta name="description" content="API documentation for the Rust `ParsedContentDisposition` struct in crate `mailparse`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, ParsedContentDisposition">
 
-    <title>mailparse::ParsedContentType - Rust</title>
+    <title>mailparse::ParsedContentDisposition - Rust</title>
 
     <link rel="stylesheet" type="text/css" href="../normalize.css">
     <link rel="stylesheet" type="text/css" href="../rustdoc.css">
@@ -29,7 +29,7 @@
 
     <nav class="sidebar">
         
-        <p class='location'>Struct ParsedContentType</p><div class="block items"><ul><li><a href="#fields">Fields</a></li><li><a href="#implementations">Trait Implementations</a></li></ul></div><p class='location'><a href='index.html'>mailparse</a></p><script>window.sidebarCurrent = {name: 'ParsedContentType', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+        <p class='location'>Struct ParsedContentDisposition</p><div class="block items"><ul><li><a href="#fields">Fields</a></li><li><a href="#implementations">Trait Implementations</a></li></ul></div><p class='location'><a href='index.html'>mailparse</a></p><script>window.sidebarCurrent = {name: 'ParsedContentDisposition', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
     </nav>
 
     <nav class="sub">
@@ -44,38 +44,33 @@
     </nav>
 
     <section id='main' class="content">
-<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>mailparse</a>::<wbr><a class="struct" href=''>ParsedContentType</a></span><span class='out-of-band'><span id='render-detail'>
+<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>mailparse</a>::<wbr><a class="struct" href=''>ParsedContentDisposition</a></span><span class='out-of-band'><span id='render-detail'>
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../src/mailparse/lib.rs.html#494-504' title='goto source code'>[src]</a></span></h1>
-<pre class='rust struct'>pub struct ParsedContentType {
-    pub mimetype: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>,
-    pub charset: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>,
+               </span><a class='srclink' href='../src/mailparse/lib.rs.html#605-613' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct ParsedContentDisposition {
+    pub disposition: <a class="enum" href="../mailparse/enum.DispositionType.html" title="enum mailparse::DispositionType">DispositionType</a>,
     pub params: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/btree/map/struct.BTreeMap.html" title="struct alloc::btree::map::BTreeMap">BTreeMap</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;,
-}</pre><div class='docblock'><p>A struct to hold a more structured representation of the Content-Type header.
+}</pre><div class='docblock'><p>A struct to hold a more structured representation of the Content-Disposition header.
 This is provided mostly as a convenience since this metadata is usually
 needed to interpret the message body properly.</p>
-</div><h2 id='fields' class='fields'>Fields</h2><span id='structfield.mimetype' class="structfield">
-                           <span id='mimetype.v' class='invisible'>
-                           <code>mimetype: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a></code>
-                           </span></span><div class='docblock'><p>The type of the data, for example &quot;text/plain&quot; or &quot;application/pdf&quot;.</p>
-</div><span id='structfield.charset' class="structfield">
-                           <span id='charset.v' class='invisible'>
-                           <code>charset: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a></code>
-                           </span></span><div class='docblock'><p>The charset used to decode the raw byte data, for example &quot;iso-8859-1&quot;
-or &quot;utf-8&quot;.</p>
+</div><h2 id='fields' class='fields'>Fields</h2><span id='structfield.disposition' class="structfield">
+                           <span id='disposition.v' class='invisible'>
+                           <code>disposition: <a class="enum" href="../mailparse/enum.DispositionType.html" title="enum mailparse::DispositionType">DispositionType</a></code>
+                           </span></span><div class='docblock'><p>The disposition type of the Content-Disposition header. If this
+is an extension type, the string will be lowercased.</p>
 </div><span id='structfield.params' class="structfield">
                            <span id='params.v' class='invisible'>
                            <code>params: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/btree/map/struct.BTreeMap.html" title="struct alloc::btree::map::BTreeMap">BTreeMap</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;</code>
-                           </span></span><div class='docblock'><p>The additional params of Content-Type, e.g. filename and boundary. The
+                           </span></span><div class='docblock'><p>The additional params of Content-Disposition, e.g. filename. The
 keys in the map will be lowercased, and the values will have any
 enclosing quotes stripped.</p>
-</div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> for <a class="struct" href="../mailparse/struct.ParsedContentType.html" title="struct mailparse::ParsedContentType">ParsedContentType</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/mailparse/lib.rs.html#493' title='goto source code'>[src]</a></span></h3>
+</div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> for <a class="struct" href="../mailparse/struct.ParsedContentDisposition.html" title="struct mailparse::ParsedContentDisposition">ParsedContentDisposition</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/mailparse/lib.rs.html#604' title='goto source code'>[src]</a></span></h3>
 <div class='impl-items'><h4 id='method.fmt' class="method"><span id='fmt.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class="struct" href="https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html" title="struct core::fmt::Formatter">Formatter</a>) -&gt; <a class="type" href="https://doc.rust-lang.org/nightly/core/fmt/type.Result.html" title="type core::fmt::Result">Result</a></code></span></h4>
 <div class='docblock'><p>Formats the value using the given formatter.</p>
-</div></div><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/default/trait.Default.html" title="trait core::default::Default">Default</a> for <a class="struct" href="../mailparse/struct.ParsedContentType.html" title="struct mailparse::ParsedContentType">ParsedContentType</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/mailparse/lib.rs.html#506-514' title='goto source code'>[src]</a></span></h3>
-<div class='impl-items'><h4 id='method.default' class="method"><span id='default.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/default/trait.Default.html#tymethod.default' class='fnname'>default</a>() -&gt; Self</code></span></h4>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/default/trait.Default.html" title="trait core::default::Default">Default</a> for <a class="struct" href="../mailparse/struct.ParsedContentDisposition.html" title="struct mailparse::ParsedContentDisposition">ParsedContentDisposition</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/mailparse/lib.rs.html#604' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.default' class="method"><span id='default.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/default/trait.Default.html#tymethod.default' class='fnname'>default</a>() -&gt; <a class="struct" href="../mailparse/struct.ParsedContentDisposition.html" title="struct mailparse::ParsedContentDisposition">ParsedContentDisposition</a></code></span></h4>
 <div class='docblock'><p>Returns the &quot;default value&quot; for a type. <a href="https://doc.rust-lang.org/nightly/core/default/trait.Default.html#tymethod.default">Read more</a></p>
 </div></div></section>
     <section id='search' class="content hidden"></section>

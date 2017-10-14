@@ -48,11 +48,11 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../src/mailparse/lib.rs.html#558-568' title='goto source code'>[src]</a></span></h1>
+               </span><a class='srclink' href='../src/mailparse/lib.rs.html#644-654' title='goto source code'>[src]</a></span></h1>
 <pre class='rust struct'>pub struct ParsedMail&lt;'a&gt; {
-    pub headers: <a class="struct" href="https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html" title="struct collections::vec::Vec">Vec</a>&lt;<a class="struct" href="../mailparse/struct.MailHeader.html" title="struct mailparse::MailHeader">MailHeader</a>&lt;'a&gt;&gt;,
+    pub headers: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../mailparse/struct.MailHeader.html" title="struct mailparse::MailHeader">MailHeader</a>&lt;'a&gt;&gt;,
     pub ctype: <a class="struct" href="../mailparse/struct.ParsedContentType.html" title="struct mailparse::ParsedContentType">ParsedContentType</a>,
-    pub subparts: <a class="struct" href="https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html" title="struct collections::vec::Vec">Vec</a>&lt;<a class="struct" href="../mailparse/struct.ParsedMail.html" title="struct mailparse::ParsedMail">ParsedMail</a>&lt;'a&gt;&gt;,
+    pub subparts: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../mailparse/struct.ParsedMail.html" title="struct mailparse::ParsedMail">ParsedMail</a>&lt;'a&gt;&gt;,
     // some fields omitted
 }</pre><div class='docblock'><p>Struct that holds the structured representation of the message. Note that
 since MIME allows for nested multipart messages, a tree-like structure is
@@ -60,7 +60,7 @@ necessary to represent it properly. This struct accomplishes that by holding
 a vector of other ParsedMail structures for the subparts.</p>
 </div><h2 id='fields' class='fields'>Fields</h2><span id='structfield.headers' class="structfield">
                            <span id='headers.v' class='invisible'>
-                           <code>headers: <a class="struct" href="https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html" title="struct collections::vec::Vec">Vec</a>&lt;<a class="struct" href="../mailparse/struct.MailHeader.html" title="struct mailparse::MailHeader">MailHeader</a>&lt;'a&gt;&gt;</code>
+                           <code>headers: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../mailparse/struct.MailHeader.html" title="struct mailparse::MailHeader">MailHeader</a>&lt;'a&gt;&gt;</code>
                            </span></span><div class='docblock'><p>The headers for the message (or message subpart).</p>
 </div><span id='structfield.ctype' class="structfield">
                            <span id='ctype.v' class='invisible'>
@@ -68,11 +68,11 @@ a vector of other ParsedMail structures for the subparts.</p>
                            </span></span><div class='docblock'><p>The Content-Type information for the message (or message subpart).</p>
 </div><span id='structfield.subparts' class="structfield">
                            <span id='subparts.v' class='invisible'>
-                           <code>subparts: <a class="struct" href="https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html" title="struct collections::vec::Vec">Vec</a>&lt;<a class="struct" href="../mailparse/struct.ParsedMail.html" title="struct mailparse::ParsedMail">ParsedMail</a>&lt;'a&gt;&gt;</code>
+                           <code>subparts: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../mailparse/struct.ParsedMail.html" title="struct mailparse::ParsedMail">ParsedMail</a>&lt;'a&gt;&gt;</code>
                            </span></span><div class='docblock'><p>The subparts of this message or subpart. This vector is only non-empty
 if ctype.mimetype starts with &quot;multipart/&quot;.</p>
-</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl&lt;'a&gt; <a class="struct" href="../mailparse/struct.ParsedMail.html" title="struct mailparse::ParsedMail">ParsedMail</a>&lt;'a&gt;</code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/mailparse/lib.rs.html#570-629' title='goto source code'>[src]</a></span></h3>
-<div class='impl-items'><h4 id='method.get_body' class="method"><span id='get_body.v' class='invisible'><code>fn <a href='#method.get_body' class='fnname'>get_body</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/collections/string/struct.String.html" title="struct collections::string::String">String</a>, <a class="enum" href="../mailparse/enum.MailParseError.html" title="enum mailparse::MailParseError">MailParseError</a>&gt;</code></span></h4>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl&lt;'a&gt; <a class="struct" href="../mailparse/struct.ParsedMail.html" title="struct mailparse::ParsedMail">ParsedMail</a>&lt;'a&gt;</code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/mailparse/lib.rs.html#656-729' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.get_body' class="method"><span id='get_body.v' class='invisible'><code>fn <a href='#method.get_body' class='fnname'>get_body</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="enum" href="../mailparse/enum.MailParseError.html" title="enum mailparse::MailParseError">MailParseError</a>&gt;</code></span></h4>
 <div class='docblock'><p>Get the body of the message as a Rust string. This function tries to
 unapply the Content-Transfer-Encoding if there is one, and then converts
 the result into a Rust UTF-8 string using the charset in the Content-Type
@@ -87,7 +87,7 @@ the result into a Rust UTF-8 string using the charset in the Content-Type
             <span class="string">&quot;This is the body&quot;</span>).<span class="ident">as_bytes</span>())
         .<span class="ident">unwrap</span>();
     <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">p</span>.<span class="ident">get_body</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;This is the body&quot;</span>);</pre>
-</div><h4 id='method.get_body_raw' class="method"><span id='get_body_raw.v' class='invisible'><code>fn <a href='#method.get_body_raw' class='fnname'>get_body_raw</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html" title="struct collections::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>&gt;, <a class="enum" href="../mailparse/enum.MailParseError.html" title="enum mailparse::MailParseError">MailParseError</a>&gt;</code></span></h4>
+</div><h4 id='method.get_body_raw' class="method"><span id='get_body_raw.v' class='invisible'><code>fn <a href='#method.get_body_raw' class='fnname'>get_body_raw</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>&gt;, <a class="enum" href="../mailparse/enum.MailParseError.html" title="enum mailparse::MailParseError">MailParseError</a>&gt;</code></span></h4>
 <div class='docblock'><p>Get the body of the message as a Rust Vec<u8>. This function tries to
 unapply the Content-Transfer-Encoding if there is one, but won&#39;t do
 any charset decoding.</p>
@@ -101,7 +101,8 @@ any charset decoding.</p>
             <span class="string">&quot;This is the body&quot;</span>).<span class="ident">as_bytes</span>())
         .<span class="ident">unwrap</span>();
     <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">p</span>.<span class="ident">get_body_raw</span>().<span class="ident">unwrap</span>(), <span class="string">b&quot;This is the body&quot;</span>);</pre>
-</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl&lt;'a&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> for <a class="struct" href="../mailparse/struct.ParsedMail.html" title="struct mailparse::ParsedMail">ParsedMail</a>&lt;'a&gt;</code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/mailparse/lib.rs.html#557' title='goto source code'>[src]</a></span></h3>
+</div><h4 id='method.get_content_disposition' class="method"><span id='get_content_disposition.v' class='invisible'><code>fn <a href='#method.get_content_disposition' class='fnname'>get_content_disposition</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../mailparse/struct.ParsedContentDisposition.html" title="struct mailparse::ParsedContentDisposition">ParsedContentDisposition</a>, <a class="enum" href="../mailparse/enum.MailParseError.html" title="enum mailparse::MailParseError">MailParseError</a>&gt;</code></span></h4>
+</div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl&lt;'a&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> for <a class="struct" href="../mailparse/struct.ParsedMail.html" title="struct mailparse::ParsedMail">ParsedMail</a>&lt;'a&gt;</code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/mailparse/lib.rs.html#643' title='goto source code'>[src]</a></span></h3>
 <div class='impl-items'><h4 id='method.fmt' class="method"><span id='fmt.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class="struct" href="https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html" title="struct core::fmt::Formatter">Formatter</a>) -&gt; <a class="type" href="https://doc.rust-lang.org/nightly/core/fmt/type.Result.html" title="type core::fmt::Result">Result</a></code></span></h4>
 <div class='docblock'><p>Formats the value using the given formatter.</p>
 </div></div></section>
