@@ -14,6 +14,7 @@ exclude = ["target/doc/**", ".gitattributes"]
 
 [badges]
 travis-ci = { repository = "staktrace/mailparse", branch = "master" }
+maintenance = { status = "passively-maintained" }
 
 [dependencies]
 base64 = "0.1.1"
