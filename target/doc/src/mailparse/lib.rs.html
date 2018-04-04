@@ -10,8 +10,11 @@
     <title>lib.rs.html -- source</title>
 
     <link rel="stylesheet" type="text/css" href="../../normalize.css">
-    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
-    <link rel="stylesheet" type="text/css" href="../../main.css">
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle">
+    
+    <link rel="stylesheet" type="text/css" href="../../dark.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css" id="themeStyle">
+    <script src="../../storage.js"></script>
     
 
     
@@ -28,10 +31,18 @@
     
 
     <nav class="sidebar">
+        <div class="sidebar-menu">&#9776;</div>
         
         
     </nav>
 
+    <div class="theme-picker">
+        <button id="theme-picker" aria-label="Pick another theme!">
+            <img src="../../brush.svg" width="18" alt="Pick another theme!">
+        </button>
+        <div id="theme-choices"></div>
+    </div>
+    <script src="../../theme.js"></script>
     <nav class="sub">
         <form class="search-form js-only">
             <div class="search-container">
@@ -1256,13 +1267,11 @@
 <span id="1211">1211</span>
 <span id="1212">1212</span>
 <span id="1213">1213</span>
-<span id="1214">1214</span>
 </pre><pre class="rust ">
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">base64</span>;
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">encoding</span>;
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">quoted_printable</span>;
 
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ascii</span>::<span class="ident">AsciiExt</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">error</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ops</span>::<span class="ident">Deref</span>;
@@ -1285,7 +1294,7 @@
     <span class="ident">QuotedPrintableDecodeError</span>(<span class="ident">quoted_printable</span>::<span class="ident">QuotedPrintableError</span>),
     <span class="doccomment">/// Data that was specified as being in the base64 transfer-encoding could</span>
     <span class="doccomment">/// not be successfully decoded as base64 data.</span>
-    <span class="ident">Base64DecodeError</span>(<span class="ident">base64</span>::<span class="ident">Base64Error</span>),
+    <span class="ident">Base64DecodeError</span>(<span class="ident">base64</span>::<span class="ident">DecodeError</span>),
     <span class="doccomment">/// An error occurred when converting the raw byte data to Rust UTF-8 string</span>
     <span class="doccomment">/// format using the charset specified in the message.</span>
     <span class="ident">EncodingError</span>(<span class="ident">std</span>::<span class="ident">borrow</span>::<span class="ident">Cow</span><span class="op">&lt;</span><span class="lifetime">&#39;static</span>, <span class="ident">str</span><span class="op">&gt;</span>),
@@ -1332,8 +1341,8 @@
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">base64</span>::<span class="ident">Base64Error</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MailParseError</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">base64</span>::<span class="ident">Base64Error</span>) <span class="op">-&gt;</span> <span class="ident">MailParseError</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">base64</span>::<span class="ident">DecodeError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MailParseError</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">err</span>: <span class="ident">base64</span>::<span class="ident">DecodeError</span>) <span class="op">-&gt;</span> <span class="ident">MailParseError</span> {
         <span class="ident">MailParseError</span>::<span class="ident">Base64DecodeError</span>(<span class="ident">err</span>)
     }
 }
@@ -1426,7 +1435,7 @@
         <span class="kw">let</span> <span class="ident">input</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">encoded</span>[<span class="ident">ix_delim2</span> <span class="op">+</span> <span class="number">1</span>..];
 
         <span class="kw">let</span> <span class="ident">decoded</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">transfer_coding</span> {
-            <span class="string">&quot;B&quot;</span> <span class="op">|</span> <span class="string">&quot;b&quot;</span> <span class="op">=&gt;</span> <span class="macro">try_none</span><span class="macro">!</span>(<span class="ident">base64</span>::<span class="ident">u8de</span>(<span class="ident">input</span>.<span class="ident">as_bytes</span>()).<span class="ident">ok</span>()),
+            <span class="string">&quot;B&quot;</span> <span class="op">|</span> <span class="string">&quot;b&quot;</span> <span class="op">=&gt;</span> <span class="macro">try_none</span><span class="macro">!</span>(<span class="ident">base64</span>::<span class="ident">decode</span>(<span class="ident">input</span>.<span class="ident">as_bytes</span>()).<span class="ident">ok</span>()),
             <span class="string">&quot;Q&quot;</span> <span class="op">|</span> <span class="string">&quot;q&quot;</span> <span class="op">=&gt;</span> {
                 <span class="comment">// The quoted_printable module does a trim_right on the input, so if</span>
                 <span class="comment">// that affects the output we should save and restore the trailing</span>
@@ -1434,7 +1443,7 @@
                 <span class="kw">let</span> <span class="ident">to_decode</span> <span class="op">=</span> <span class="ident">input</span>.<span class="ident">replace</span>(<span class="string">&quot;_&quot;</span>, <span class="string">&quot; &quot;</span>);
                 <span class="kw">let</span> <span class="ident">trimmed</span> <span class="op">=</span> <span class="ident">to_decode</span>.<span class="ident">trim_right</span>();
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">d</span> <span class="op">=</span>
-                    <span class="ident">quoted_printable</span>::<span class="ident">decode_str</span>(<span class="kw-2">&amp;</span><span class="ident">trimmed</span>, <span class="ident">quoted_printable</span>::<span class="ident">ParseMode</span>::<span class="ident">Robust</span>);
+                    <span class="ident">quoted_printable</span>::<span class="ident">decode</span>(<span class="kw-2">&amp;</span><span class="ident">trimmed</span>, <span class="ident">quoted_printable</span>::<span class="ident">ParseMode</span>::<span class="ident">Robust</span>);
                 <span class="kw">if</span> <span class="ident">d</span>.<span class="ident">is_ok</span>() <span class="op">&amp;&amp;</span> <span class="ident">to_decode</span>.<span class="ident">len</span>() <span class="op">!=</span> <span class="ident">trimmed</span>.<span class="ident">len</span>() {
                     <span class="ident">d</span>.<span class="ident">as_mut</span>().<span class="ident">unwrap</span>().<span class="ident">extend_from_slice</span>(
                         <span class="ident">to_decode</span>[<span class="ident">trimmed</span>.<span class="ident">len</span>()..].<span class="ident">as_bytes</span>(),
@@ -1966,7 +1975,7 @@
                         <span class="ident">v</span> <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">v</span>),
                     })
                     .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;&gt;</span>();
-                <span class="macro">try</span><span class="macro">!</span>(<span class="ident">base64</span>::<span class="ident">u8de</span>(<span class="kw-2">&amp;</span><span class="ident">cleaned</span>))
+                <span class="macro">try</span><span class="macro">!</span>(<span class="ident">base64</span>::<span class="ident">decode</span>(<span class="kw-2">&amp;</span><span class="ident">cleaned</span>))
             }
             <span class="string">&quot;quoted-printable&quot;</span> <span class="op">=&gt;</span> {
                 <span class="macro">try</span><span class="macro">!</span>(<span class="ident">quoted_printable</span>::<span class="ident">decode</span>(
@@ -2486,18 +2495,22 @@
                 <h2>Keyboard Shortcuts</h2>
 
                 <dl>
-                    <dt>?</dt>
+                    <dt><kbd>?</kbd></dt>
                     <dd>Show this help dialog</dd>
-                    <dt>S</dt>
+                    <dt><kbd>S</kbd></dt>
                     <dd>Focus the search field</dd>
-                    <dt>&larrb;</dt>
+                    <dt><kbd>↑</kbd></dt>
                     <dd>Move up in search results</dd>
-                    <dt>&rarrb;</dt>
+                    <dt><kbd>↓</kbd></dt>
                     <dd>Move down in search results</dd>
-                    <dt>&#9166;</dt>
+                    <dt><kbd>↹</kbd></dt>
+                    <dd>Switch tab</dd>
+                    <dt><kbd>&#9166;</kbd></dt>
                     <dd>Go to active search result</dd>
-                    <dt>+</dt>
-                    <dd>Collapse/expand all sections</dd>
+                    <dt><kbd>+</kbd></dt>
+                    <dd>Expand all sections</dd>
+                    <dt><kbd>-</kbd></dt>
+                    <dd>Collapse all sections</dd>
                 </dl>
             </div>
 
