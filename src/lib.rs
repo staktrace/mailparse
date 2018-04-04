@@ -2,7 +2,6 @@ extern crate base64;
 extern crate encoding;
 extern crate quoted_printable;
 
-use std::ascii::AsciiExt;
 use std::error;
 use std::fmt;
 use std::ops::Deref;
@@ -25,7 +24,7 @@ pub enum MailParseError {
     QuotedPrintableDecodeError(quoted_printable::QuotedPrintableError),
     /// Data that was specified as being in the base64 transfer-encoding could
     /// not be successfully decoded as base64 data.
-    Base64DecodeError(base64::Base64Error),
+    Base64DecodeError(base64::DecodeError),
     /// An error occurred when converting the raw byte data to Rust UTF-8 string
     /// format using the charset specified in the message.
     EncodingError(std::borrow::Cow<'static, str>),
@@ -72,8 +71,8 @@ impl From<quoted_printable::QuotedPrintableError> for MailParseError {
     }
 }
 
-impl From<base64::Base64Error> for MailParseError {
-    fn from(err: base64::Base64Error) -> MailParseError {
+impl From<base64::DecodeError> for MailParseError {
+    fn from(err: base64::DecodeError) -> MailParseError {
         MailParseError::Base64DecodeError(err)
     }
 }
@@ -166,7 +165,7 @@ impl<'a> MailHeader<'a> {
         let input = &encoded[ix_delim2 + 1..];
 
         let decoded = match transfer_coding {
-            "B" | "b" => try_none!(base64::u8de(input.as_bytes()).ok()),
+            "B" | "b" => try_none!(base64::decode(input.as_bytes()).ok()),
             "Q" | "q" => {
                 // The quoted_printable module does a trim_right on the input, so if
                 // that affects the output we should save and restore the trailing
@@ -174,7 +173,7 @@ impl<'a> MailHeader<'a> {
                 let to_decode = input.replace("_", " ");
                 let trimmed = to_decode.trim_right();
                 let mut d =
-                    quoted_printable::decode_str(&trimmed, quoted_printable::ParseMode::Robust);
+                    quoted_printable::decode(&trimmed, quoted_printable::ParseMode::Robust);
                 if d.is_ok() && to_decode.len() != trimmed.len() {
                     d.as_mut().unwrap().extend_from_slice(
                         to_decode[trimmed.len()..].as_bytes(),
@@ -706,7 +705,7 @@ impl<'a> ParsedMail<'a> {
                         v => Some(v),
                     })
                     .collect::<Vec<u8>>();
-                try!(base64::u8de(&cleaned))
+                try!(base64::decode(&cleaned))
             }
             "quoted-printable" => {
                 try!(quoted_printable::decode(
