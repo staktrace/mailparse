@@ -241,7 +241,10 @@ impl<'a> MailHeader<'a> {
                                         continue;
                                     }
                                     match self.decode_word(&line[ix_begin..ix_end]) {
-                                        Some(v) => result.push_str(&v),
+                                        Some(v) => {
+                                            result.push_str(&v);
+                                            add_space = false;
+                                        }
                                         None => result.push_str(&line[ix_begin - 2..ix_end + 2]),
                                     };
                                     ix_search = ix_end;
@@ -928,7 +931,7 @@ mod tests {
                                         =?iso-8859-1?Q?_se=F1or!?=",
         ).unwrap();
         assert_eq!(parsed.get_key().unwrap(), "Subject");
-        assert_eq!(parsed.get_value().unwrap(), "\u{a1}Hola,  se\u{f1}or!");
+        assert_eq!(parsed.get_value().unwrap(), "\u{a1}Hola, se\u{f1}or!");
 
         let (parsed, _) = parse_header(b"Euro: =?utf-8?Q?=E2=82=AC?=").unwrap();
         assert_eq!(parsed.get_key().unwrap(), "Euro");
@@ -967,7 +970,7 @@ mod tests {
         assert_eq!(parsed.get_key().unwrap(), "Subject");
         assert_eq!(
             parsed.get_value().unwrap(),
-            "[Ontario Builder] Understanding home shopping \u{2013} a q uick survey"
+            "[Ontario Builder] Understanding home shopping \u{2013} a quick survey"
         );
 
         let (parsed, _) = parse_header(
