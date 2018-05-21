@@ -795,23 +795,17 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
             while let Some(ix_part_start) =
                 find_from_u8(raw_data, ix_boundary_end, b"\n").map(|v| v + 1)
             {
-                if let Some(ix_part_end) =
-                    find_from_u8(raw_data, ix_part_start, boundary.as_bytes())
+                // if there is no terminating boundary, assume the part end is the end of the email
+                let ix_part_end = find_from_u8(raw_data, ix_part_start, boundary.as_bytes()).unwrap_or(raw_data.len());
+
+                result.subparts.push(try!(parse_mail(
+                    &raw_data[ix_part_start..ix_part_end],
+                )));
+                ix_boundary_end = ix_part_end + boundary.len();
+                if ix_boundary_end + 2 > raw_data.len() ||
+                    (raw_data[ix_boundary_end] == b'-' && raw_data[ix_boundary_end + 1] == b'-')
                 {
-                    result.subparts.push(try!(parse_mail(
-                        &raw_data[ix_part_start..ix_part_end],
-                    )));
-                    ix_boundary_end = ix_part_end + boundary.len();
-                    if ix_boundary_end + 2 <= raw_data.len() && raw_data[ix_boundary_end] == b'-' &&
-                        raw_data[ix_boundary_end + 1] == b'-'
-                    {
-                        break;
-                    }
-                } else {
-                    return Err(MailParseError::Generic(
-                        "Unable to terminating boundary of \
-                                                        multipart message",
-                    ));
+                    break;
                 }
             }
         }
@@ -1177,6 +1171,22 @@ mod tests {
         assert_eq!(mail.ctype.mimetype, "text/html");
         assert_eq!(mail.get_body_raw().unwrap(), b"hello world");
         assert_eq!(mail.get_body().unwrap(), "hello world");
+    }
+
+    #[test]
+    fn test_missing_terminating_boundary() {
+                let mail = parse_mail(
+            concat!(
+                "Content-Type: multipart/alternative; boundary=myboundary\r\n\r\n",
+                "--myboundary\r\n",
+                "Content-Type: text/plain\r\n\r\n",
+                "part0\r\n",
+                "--myboundary\r\n",
+                "Content-Type: text/html\r\n\r\n",
+                "part1\r\n").as_bytes(),
+        ).unwrap();
+        assert_eq!(mail.subparts[0].get_body().unwrap(), "part0\r\n");
+        assert_eq!(mail.subparts[1].get_body().unwrap(), "part1\r\n");
     }
 
     #[test]
