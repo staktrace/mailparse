@@ -10,10 +10,11 @@
     <title>lib.rs.html -- source</title>
 
     <link rel="stylesheet" type="text/css" href="../../normalize.css">
-    <link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle">
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css"
+          id="mainThemeStyle">
     
     <link rel="stylesheet" type="text/css" href="../../dark.css">
-    <link rel="stylesheet" type="text/css" href="../../main.css" id="themeStyle">
+    <link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle">
     <script src="../../storage.js"></script>
     
 
@@ -1267,6 +1268,19 @@
 <span id="1211">1211</span>
 <span id="1212">1212</span>
 <span id="1213">1213</span>
+<span id="1214">1214</span>
+<span id="1215">1215</span>
+<span id="1216">1216</span>
+<span id="1217">1217</span>
+<span id="1218">1218</span>
+<span id="1219">1219</span>
+<span id="1220">1220</span>
+<span id="1221">1221</span>
+<span id="1222">1222</span>
+<span id="1223">1223</span>
+<span id="1224">1224</span>
+<span id="1225">1225</span>
+<span id="1226">1226</span>
 </pre><pre class="rust ">
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">base64</span>;
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">encoding</span>;
@@ -1322,7 +1336,7 @@
             <span class="ident">MailParseError</span>::<span class="ident">QuotedPrintableDecodeError</span>(<span class="kw-2">ref</span> <span class="ident">err</span>) <span class="op">=&gt;</span> <span class="ident">err</span>.<span class="ident">description</span>(),
             <span class="ident">MailParseError</span>::<span class="ident">Base64DecodeError</span>(<span class="kw-2">ref</span> <span class="ident">err</span>) <span class="op">=&gt;</span> <span class="ident">err</span>.<span class="ident">description</span>(),
             <span class="ident">MailParseError</span>::<span class="ident">EncodingError</span>(<span class="kw-2">ref</span> <span class="ident">err</span>) <span class="op">=&gt;</span> <span class="ident">err</span>.<span class="ident">deref</span>(),
-            _ <span class="op">=&gt;</span> <span class="string">&quot;An error occurred while attempting to parse the input&quot;</span>,
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="string">&quot;An error occurred while attempting to parse the input&quot;</span>,
         }
     }
 
@@ -1330,7 +1344,7 @@
         <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
             <span class="ident">MailParseError</span>::<span class="ident">QuotedPrintableDecodeError</span>(<span class="kw-2">ref</span> <span class="ident">err</span>) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>),
             <span class="ident">MailParseError</span>::<span class="ident">Base64DecodeError</span>(<span class="kw-2">ref</span> <span class="ident">err</span>) <span class="op">=&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">err</span>),
-            _ <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="prelude-val">None</span>,
         }
     }
 }
@@ -1451,7 +1465,7 @@
                 }
                 <span class="macro">try_none</span><span class="macro">!</span>(<span class="ident">d</span>.<span class="ident">ok</span>())
             }
-            _ <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">None</span>,
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">None</span>,
         };
         <span class="kw">let</span> <span class="ident">charset_conv</span> <span class="op">=</span> <span class="macro">try_none</span><span class="macro">!</span>(<span class="ident">encoding</span>::<span class="ident">label</span>::<span class="ident">encoding_from_whatwg_label</span>(<span class="ident">charset</span>));
         <span class="ident">charset_conv</span>
@@ -1511,7 +1525,10 @@
                                         <span class="kw">continue</span>;
                                     }
                                     <span class="kw">match</span> <span class="self">self</span>.<span class="ident">decode_word</span>(<span class="kw-2">&amp;</span><span class="ident">line</span>[<span class="ident">ix_begin</span>..<span class="ident">ix_end</span>]) {
-                                        <span class="prelude-val">Some</span>(<span class="ident">v</span>) <span class="op">=&gt;</span> <span class="ident">result</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>),
+                                        <span class="prelude-val">Some</span>(<span class="ident">v</span>) <span class="op">=&gt;</span> {
+                                            <span class="ident">result</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">v</span>);
+                                            <span class="ident">add_space</span> <span class="op">=</span> <span class="bool-val">false</span>;
+                                        }
                                         <span class="prelude-val">None</span> <span class="op">=&gt;</span> <span class="ident">result</span>.<span class="ident">push_str</span>(<span class="kw-2">&amp;</span><span class="ident">line</span>[<span class="ident">ix_begin</span> <span class="op">-</span> <span class="number">2</span>..<span class="ident">ix_end</span> <span class="op">+</span> <span class="number">2</span>]),
                                     };
                                     <span class="ident">ix_search</span> <span class="op">=</span> <span class="ident">ix_end</span>;
@@ -1983,7 +2000,7 @@
                     <span class="ident">quoted_printable</span>::<span class="ident">ParseMode</span>::<span class="ident">Robust</span>,
                 ))
             }
-            _ <span class="op">=&gt;</span> <span class="ident">Vec</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>::<span class="ident">from</span>(<span class="self">self</span>.<span class="ident">body</span>),
+            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="ident">Vec</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>::<span class="ident">from</span>(<span class="self">self</span>.<span class="ident">body</span>),
         };
         <span class="prelude-val">Ok</span>(<span class="ident">decoded</span>)
     }
@@ -2062,23 +2079,17 @@
             <span class="kw">while</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">ix_part_start</span>) <span class="op">=</span>
                 <span class="ident">find_from_u8</span>(<span class="ident">raw_data</span>, <span class="ident">ix_boundary_end</span>, <span class="string">b&quot;\n&quot;</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">v</span><span class="op">|</span> <span class="ident">v</span> <span class="op">+</span> <span class="number">1</span>)
             {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">ix_part_end</span>) <span class="op">=</span>
-                    <span class="ident">find_from_u8</span>(<span class="ident">raw_data</span>, <span class="ident">ix_part_start</span>, <span class="ident">boundary</span>.<span class="ident">as_bytes</span>())
+                <span class="comment">// if there is no terminating boundary, assume the part end is the end of the email</span>
+                <span class="kw">let</span> <span class="ident">ix_part_end</span> <span class="op">=</span> <span class="ident">find_from_u8</span>(<span class="ident">raw_data</span>, <span class="ident">ix_part_start</span>, <span class="ident">boundary</span>.<span class="ident">as_bytes</span>()).<span class="ident">unwrap_or</span>(<span class="ident">raw_data</span>.<span class="ident">len</span>());
+
+                <span class="ident">result</span>.<span class="ident">subparts</span>.<span class="ident">push</span>(<span class="macro">try</span><span class="macro">!</span>(<span class="ident">parse_mail</span>(
+                    <span class="kw-2">&amp;</span><span class="ident">raw_data</span>[<span class="ident">ix_part_start</span>..<span class="ident">ix_part_end</span>],
+                )));
+                <span class="ident">ix_boundary_end</span> <span class="op">=</span> <span class="ident">ix_part_end</span> <span class="op">+</span> <span class="ident">boundary</span>.<span class="ident">len</span>();
+                <span class="kw">if</span> <span class="ident">ix_boundary_end</span> <span class="op">+</span> <span class="number">2</span> <span class="op">&gt;</span> <span class="ident">raw_data</span>.<span class="ident">len</span>() <span class="op">||</span>
+                    (<span class="ident">raw_data</span>[<span class="ident">ix_boundary_end</span>] <span class="op">==</span> <span class="string">b&#39;-&#39;</span> <span class="op">&amp;&amp;</span> <span class="ident">raw_data</span>[<span class="ident">ix_boundary_end</span> <span class="op">+</span> <span class="number">1</span>] <span class="op">==</span> <span class="string">b&#39;-&#39;</span>)
                 {
-                    <span class="ident">result</span>.<span class="ident">subparts</span>.<span class="ident">push</span>(<span class="macro">try</span><span class="macro">!</span>(<span class="ident">parse_mail</span>(
-                        <span class="kw-2">&amp;</span><span class="ident">raw_data</span>[<span class="ident">ix_part_start</span>..<span class="ident">ix_part_end</span>],
-                    )));
-                    <span class="ident">ix_boundary_end</span> <span class="op">=</span> <span class="ident">ix_part_end</span> <span class="op">+</span> <span class="ident">boundary</span>.<span class="ident">len</span>();
-                    <span class="kw">if</span> <span class="ident">ix_boundary_end</span> <span class="op">+</span> <span class="number">2</span> <span class="op">&lt;=</span> <span class="ident">raw_data</span>.<span class="ident">len</span>() <span class="op">&amp;&amp;</span> <span class="ident">raw_data</span>[<span class="ident">ix_boundary_end</span>] <span class="op">==</span> <span class="string">b&#39;-&#39;</span> <span class="op">&amp;&amp;</span>
-                        <span class="ident">raw_data</span>[<span class="ident">ix_boundary_end</span> <span class="op">+</span> <span class="number">1</span>] <span class="op">==</span> <span class="string">b&#39;-&#39;</span>
-                    {
-                        <span class="kw">break</span>;
-                    }
-                } <span class="kw">else</span> {
-                    <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">MailParseError</span>::<span class="ident">Generic</span>(
-                        <span class="string">&quot;Unable to terminating boundary of \
-                                                        multipart message&quot;</span>,
-                    ));
+                    <span class="kw">break</span>;
                 }
             }
         }
@@ -2132,52 +2143,52 @@
         ( <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">p</span>:<span class="ident">pat</span> ) <span class="op">=&gt;</span> {
             <span class="kw">match</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span> {
                 <span class="macro-nonterminal">$</span><span class="macro-nonterminal">p</span> <span class="op">=&gt;</span> (),
-                _ <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Expression {} does not match pattern {}&quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, <span class="macro">stringify</span><span class="macro">!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">p</span>)),
+                <span class="kw">_</span> <span class="op">=&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Expression {} does not match pattern {}&quot;</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">x</span>, <span class="macro">stringify</span><span class="macro">!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">p</span>)),
             }
         }
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">parse_basic_header</span>() {
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Key: Value&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Key: Value&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">key</span>, <span class="string">b&quot;Key&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_key</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;Key&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">value</span>, <span class="string">b&quot;Value&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;Value&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Key :  Value &quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Key :  Value &quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">key</span>, <span class="string">b&quot;Key &quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">value</span>, <span class="string">b&quot;Value &quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;Value &quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Key:&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Key:&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">key</span>, <span class="string">b&quot;Key&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">value</span>, <span class="string">b&quot;&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;:\n&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;:\n&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">key</span>, <span class="string">b&quot;&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">value</span>, <span class="string">b&quot;&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Key:Multi-line\n value&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Key:Multi-line\n value&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">key</span>, <span class="string">b&quot;Key&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">value</span>, <span class="string">b&quot;Multi-line\n value&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;Multi-line value&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Key:  Multi\n  line\n value\n&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Key:  Multi\n  line\n value\n&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">key</span>, <span class="string">b&quot;Key&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">value</span>, <span class="string">b&quot;Multi\n  line\n value&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;Multi line value&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Key: One\nKey2: Two&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Key: One\nKey2: Two&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">key</span>, <span class="string">b&quot;Key&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">value</span>, <span class="string">b&quot;One&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Key: One\n\tOverhang&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Key: One\n\tOverhang&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">key</span>, <span class="string">b&quot;Key&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">value</span>, <span class="string">b&quot;One\n\tOverhang&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;One Overhang&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;SPAM: VIAGRA \xAE&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;SPAM: VIAGRA \xAE&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">key</span>, <span class="string">b&quot;SPAM&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">value</span>, <span class="string">b&quot;VIAGRA \xAE&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;VIAGRA \u{ae}&quot;</span>);
@@ -2189,58 +2200,58 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">parse_encoded_headers</span>() {
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Subject: =?iso-8859-1?Q?=A1Hola,_se=F1or!?=&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Subject: =?iso-8859-1?Q?=A1Hola,_se=F1or!?=&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_key</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;Subject&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;\u{a1}Hola, se\u{f1}or!&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(
             <span class="string">b&quot;Subject: =?iso-8859-1?Q?=A1Hola,?=\n \
                                         =?iso-8859-1?Q?_se=F1or!?=&quot;</span>,
         ).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_key</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;Subject&quot;</span>);
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;\u{a1}Hola,  se\u{f1}or!&quot;</span>);
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;\u{a1}Hola, se\u{f1}or!&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Euro: =?utf-8?Q?=E2=82=AC?=&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Euro: =?utf-8?Q?=E2=82=AC?=&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_key</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;Euro&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;\u{20ac}&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;HelloWorld: =?utf-8?B?aGVsbG8gd29ybGQ=?=&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;HelloWorld: =?utf-8?B?aGVsbG8gd29ybGQ=?=&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;hello world&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Empty: =?utf-8?Q??=&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Empty: =?utf-8?Q??=&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Incomplete: =?&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Incomplete: =?&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;=?&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;BadEncoding: =?garbage?Q??=&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;BadEncoding: =?garbage?Q??=&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;=?garbage?Q??=&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Invalid: =?utf-8?Q?=E2=AC?=&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Invalid: =?utf-8?Q?=E2=AC?=&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;\u{fffd}&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;LineBreak: =?utf-8?Q?=E2=82\n =AC?=&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;LineBreak: =?utf-8?Q?=E2=82\n =AC?=&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;=?utf-8?Q?=E2=82 =AC?=&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;NotSeparateWord: hello=?utf-8?Q?world?=&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;NotSeparateWord: hello=?utf-8?Q?world?=&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;hello=?utf-8?Q?world?=&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;NotSeparateWord2: =?utf-8?Q?hello?=world&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;NotSeparateWord2: =?utf-8?Q?hello?=world&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;=?utf-8?Q?hello?=world&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Key: \&quot;=?utf-8?Q?value?=\&quot;&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Key: \&quot;=?utf-8?Q?value?=\&quot;&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;\&quot;value\&quot;&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Subject: =?utf-8?q?=5BOntario_Builder=5D_Understanding_home_shopping_=E2=80=93_a_q?=\n \
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(<span class="string">b&quot;Subject: =?utf-8?q?=5BOntario_Builder=5D_Understanding_home_shopping_=E2=80=93_a_q?=\n \
                                         =?utf-8?q?uick_survey?=&quot;</span>)
             .<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_key</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;Subject&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(
             <span class="ident">parsed</span>.<span class="ident">get_value</span>().<span class="ident">unwrap</span>(),
-            <span class="string">&quot;[Ontario Builder] Understanding home shopping \u{2013} a q uick survey&quot;</span>
+            <span class="string">&quot;[Ontario Builder] Understanding home shopping \u{2013} a quick survey&quot;</span>
         );
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(
             <span class="string">b&quot;Content-Type: image/jpeg; name=\&quot;=?UTF-8?B?MDY2MTM5ODEuanBn?=\&quot;&quot;</span>,
         ).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_key</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;Content-Type&quot;</span>);
@@ -2249,7 +2260,7 @@
             <span class="string">&quot;image/jpeg; name=\&quot;06613981.jpg\&quot;&quot;</span>
         );
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_header</span>(
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_header</span>(
             <span class="string">b&quot;From: =?UTF-8?Q?\&quot;Motorola_Owners=E2=80=99_Forums\&quot;_?=&lt;forums@motorola.com&gt;&quot;</span>,
         ).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">get_key</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;From&quot;</span>);
@@ -2261,14 +2272,14 @@
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">parse_multiple_headers</span>() {
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_headers</span>(<span class="string">b&quot;Key: Value\nTwo: Second&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_headers</span>(<span class="string">b&quot;Key: Value\nTwo: Second&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">len</span>(), <span class="number">2</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>[<span class="number">0</span>].<span class="ident">key</span>, <span class="string">b&quot;Key&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>[<span class="number">0</span>].<span class="ident">value</span>, <span class="string">b&quot;Value&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>[<span class="number">1</span>].<span class="ident">key</span>, <span class="string">b&quot;Two&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>[<span class="number">1</span>].<span class="ident">value</span>, <span class="string">b&quot;Second&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_headers</span>(<span class="string">b&quot;Key: Value\n Overhang\nTwo: Second\nThree: Third&quot;</span>)
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_headers</span>(<span class="string">b&quot;Key: Value\n Overhang\nTwo: Second\nThree: Third&quot;</span>)
             .<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">len</span>(), <span class="number">3</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>[<span class="number">0</span>].<span class="ident">key</span>, <span class="string">b&quot;Key&quot;</span>);
@@ -2278,14 +2289,14 @@
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>[<span class="number">2</span>].<span class="ident">key</span>, <span class="string">b&quot;Three&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>[<span class="number">2</span>].<span class="ident">value</span>, <span class="string">b&quot;Third&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_headers</span>(<span class="string">b&quot;Key: Value\nTwo: Second\n\nBody&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_headers</span>(<span class="string">b&quot;Key: Value\nTwo: Second\n\nBody&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">len</span>(), <span class="number">2</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>[<span class="number">0</span>].<span class="ident">key</span>, <span class="string">b&quot;Key&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>[<span class="number">0</span>].<span class="ident">value</span>, <span class="string">b&quot;Value&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>[<span class="number">1</span>].<span class="ident">key</span>, <span class="string">b&quot;Two&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>[<span class="number">1</span>].<span class="ident">value</span>, <span class="string">b&quot;Second&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_headers</span>(
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_headers</span>(
             <span class="macro">concat</span><span class="macro">!</span>(
                 <span class="string">&quot;Return-Path: &lt;kats@foobar.staktrace.com&gt;\n&quot;</span>,
                 <span class="string">&quot;X-Original-To: kats@baz.staktrace.com\n&quot;</span>,
@@ -2310,7 +2321,7 @@
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>[<span class="number">0</span>].<span class="ident">key</span>, <span class="string">b&quot;Return-Path&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>[<span class="number">9</span>].<span class="ident">key</span>, <span class="string">b&quot;Message-Id&quot;</span>);
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_headers</span>(
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_headers</span>(
             <span class="string">b&quot;Key: Value\nAnotherKey: AnotherValue\nKey: Value2\nKey: Value3\n&quot;</span>,
         ).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">len</span>(), <span class="number">4</span>);
@@ -2336,7 +2347,7 @@
             <span class="ident">Vec</span>::<span class="op">&lt;</span><span class="ident">String</span><span class="op">&gt;</span>::<span class="ident">new</span>()
         );
 
-        <span class="kw">let</span> (<span class="ident">parsed</span>, _) <span class="op">=</span> <span class="ident">parse_headers</span>(<span class="string">b&quot;Key: value\r\nWith: CRLF\r\n\r\nBody&quot;</span>).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> (<span class="ident">parsed</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">parse_headers</span>(<span class="string">b&quot;Key: value\r\nWith: CRLF\r\n\r\nBody&quot;</span>).<span class="ident">unwrap</span>();
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">parsed</span>.<span class="ident">len</span>(), <span class="number">2</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(
             <span class="ident">parsed</span>.<span class="ident">get_first_value</span>(<span class="string">&quot;Key&quot;</span>).<span class="ident">unwrap</span>(),
@@ -2347,8 +2358,8 @@
             <span class="prelude-val">Some</span>(<span class="string">&quot;CRLF&quot;</span>.<span class="ident">to_string</span>())
         );
 
-        <span class="macro">assert_match</span><span class="macro">!</span>(<span class="ident">parse_headers</span>(<span class="string">b&quot;Bad\nKey&quot;</span>).<span class="ident">unwrap_err</span>(), <span class="ident">MailParseError</span>::<span class="ident">Generic</span>(_));
-        <span class="macro">assert_match</span><span class="macro">!</span>(<span class="ident">parse_headers</span>(<span class="string">b&quot;K:V\nBad\nKey&quot;</span>).<span class="ident">unwrap_err</span>(), <span class="ident">MailParseError</span>::<span class="ident">Generic</span>(_));
+        <span class="macro">assert_match</span><span class="macro">!</span>(<span class="ident">parse_headers</span>(<span class="string">b&quot;Bad\nKey&quot;</span>).<span class="ident">unwrap_err</span>(), <span class="ident">MailParseError</span>::<span class="ident">Generic</span>(<span class="kw">_</span>));
+        <span class="macro">assert_match</span><span class="macro">!</span>(<span class="ident">parse_headers</span>(<span class="string">b&quot;K:V\nBad\nKey&quot;</span>).<span class="ident">unwrap_err</span>(), <span class="ident">MailParseError</span>::<span class="ident">Generic</span>(<span class="kw">_</span>));
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>
@@ -2444,6 +2455,22 @@
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">mail</span>.<span class="ident">ctype</span>.<span class="ident">mimetype</span>, <span class="string">&quot;text/html&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">mail</span>.<span class="ident">get_body_raw</span>().<span class="ident">unwrap</span>(), <span class="string">b&quot;hello world&quot;</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">mail</span>.<span class="ident">get_body</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;hello world&quot;</span>);
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_missing_terminating_boundary</span>() {
+        <span class="kw">let</span> <span class="ident">mail</span> <span class="op">=</span> <span class="ident">parse_mail</span>(
+            <span class="macro">concat</span><span class="macro">!</span>(
+                <span class="string">&quot;Content-Type: multipart/alternative; boundary=myboundary\r\n\r\n&quot;</span>,
+                <span class="string">&quot;--myboundary\r\n&quot;</span>,
+                <span class="string">&quot;Content-Type: text/plain\r\n\r\n&quot;</span>,
+                <span class="string">&quot;part0\r\n&quot;</span>,
+                <span class="string">&quot;--myboundary\r\n&quot;</span>,
+                <span class="string">&quot;Content-Type: text/html\r\n\r\n&quot;</span>,
+                <span class="string">&quot;part1\r\n&quot;</span>).<span class="ident">as_bytes</span>(),
+        ).<span class="ident">unwrap</span>();
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">mail</span>.<span class="ident">subparts</span>[<span class="number">0</span>].<span class="ident">get_body</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;part0\r\n&quot;</span>);
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">mail</span>.<span class="ident">subparts</span>[<span class="number">1</span>].<span class="ident">get_body</span>().<span class="ident">unwrap</span>(), <span class="string">&quot;part1\r\n&quot;</span>);
     }
 
     <span class="attribute">#[<span class="ident">test</span>]</span>

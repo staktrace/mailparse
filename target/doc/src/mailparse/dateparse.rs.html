@@ -10,10 +10,11 @@
     <title>dateparse.rs.html -- source</title>
 
     <link rel="stylesheet" type="text/css" href="../../normalize.css">
-    <link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle">
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css"
+          id="mainThemeStyle">
     
     <link rel="stylesheet" type="text/css" href="../../dark.css">
-    <link rel="stylesheet" type="text/css" href="../../main.css" id="themeStyle">
+    <link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle">
     <script src="../../storage.js"></script>
     
 
@@ -290,7 +291,7 @@
                 <span class="number">28</span>
             }
         }
-        _ <span class="op">=&gt;</span> <span class="number">0</span>,
+        <span class="kw">_</span> <span class="op">=&gt;</span> <span class="number">0</span>,
     }
 }
 
@@ -356,7 +357,7 @@
                         <span class="ident">day_of_month</span> <span class="op">=</span> <span class="ident">v</span>;
                         <span class="ident">state</span> <span class="op">=</span> <span class="ident">DateParseState</span>::<span class="ident">Month</span>;
                     }
-                    <span class="prelude-val">Err</span>(_) <span class="op">=&gt;</span> (),
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> (),
                 };
                 <span class="kw">continue</span>;
             }
@@ -374,7 +375,7 @@
                     <span class="string">&quot;OCT&quot;</span> <span class="op">|</span> <span class="string">&quot;OCTOBER&quot;</span> <span class="op">=&gt;</span> <span class="number">9</span>,
                     <span class="string">&quot;NOV&quot;</span> <span class="op">|</span> <span class="string">&quot;NOVEMBER&quot;</span> <span class="op">=&gt;</span> <span class="number">10</span>,
                     <span class="string">&quot;DEC&quot;</span> <span class="op">|</span> <span class="string">&quot;DECEMBER&quot;</span> <span class="op">=&gt;</span> <span class="number">11</span>,
-                    _ <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Unrecognized month&quot;</span>),
+                    <span class="kw">_</span> <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Unrecognized month&quot;</span>),
                 };
                 <span class="ident">state</span> <span class="op">=</span> <span class="ident">DateParseState</span>::<span class="ident">Year</span>;
                 <span class="kw">continue</span>;
@@ -385,7 +386,7 @@
                     <span class="prelude-val">Ok</span>(<span class="ident">v</span>) <span class="kw">if</span> <span class="ident">v</span> <span class="op">&lt;</span> <span class="number">100</span> <span class="op">=&gt;</span> <span class="number">1900</span> <span class="op">+</span> <span class="ident">v</span>,
                     <span class="prelude-val">Ok</span>(<span class="ident">v</span>) <span class="kw">if</span> <span class="ident">v</span> <span class="op">&lt;</span> <span class="number">1970</span> <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Disallowed year&quot;</span>),
                     <span class="prelude-val">Ok</span>(<span class="ident">v</span>) <span class="op">=&gt;</span> <span class="ident">v</span>,
-                    <span class="prelude-val">Err</span>(_) <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Invalid year&quot;</span>),
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Invalid year&quot;</span>),
                 };
                 <span class="ident">result</span> <span class="op">=</span> <span class="ident">seconds_to_date</span>(<span class="ident">year</span> <span class="kw">as</span> <span class="ident">i64</span>, <span class="ident">month</span> <span class="kw">as</span> <span class="ident">i64</span>, <span class="ident">day_of_month</span> <span class="kw">as</span> <span class="ident">i64</span>);
                 <span class="ident">state</span> <span class="op">=</span> <span class="ident">DateParseState</span>::<span class="ident">Hour</span>;
@@ -394,7 +395,7 @@
             <span class="ident">DateParseState</span>::<span class="ident">Hour</span> <span class="op">=&gt;</span> {
                 <span class="kw">let</span> <span class="ident">hour</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">tok</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>() {
                     <span class="prelude-val">Ok</span>(<span class="ident">v</span>) <span class="op">=&gt;</span> <span class="ident">v</span>,
-                    <span class="prelude-val">Err</span>(_) <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Invalid hour&quot;</span>),
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Invalid hour&quot;</span>),
                 };
                 <span class="ident">result</span> <span class="op">+=</span> <span class="number">3600</span> <span class="op">*</span> (<span class="ident">hour</span> <span class="kw">as</span> <span class="ident">i64</span>);
                 <span class="ident">state</span> <span class="op">=</span> <span class="ident">DateParseState</span>::<span class="ident">Minute</span>;
@@ -403,7 +404,7 @@
             <span class="ident">DateParseState</span>::<span class="ident">Minute</span> <span class="op">=&gt;</span> {
                 <span class="kw">let</span> <span class="ident">minute</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">tok</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>() {
                     <span class="prelude-val">Ok</span>(<span class="ident">v</span>) <span class="op">=&gt;</span> <span class="ident">v</span>,
-                    <span class="prelude-val">Err</span>(_) <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Invalid minute&quot;</span>),
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Invalid minute&quot;</span>),
                 };
                 <span class="ident">result</span> <span class="op">+=</span> <span class="number">60</span> <span class="op">*</span> (<span class="ident">minute</span> <span class="kw">as</span> <span class="ident">i64</span>);
                 <span class="ident">state</span> <span class="op">=</span> <span class="ident">DateParseState</span>::<span class="ident">Second</span>;
@@ -412,7 +413,7 @@
             <span class="ident">DateParseState</span>::<span class="ident">Second</span> <span class="op">=&gt;</span> {
                 <span class="kw">let</span> <span class="ident">second</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">tok</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>() {
                     <span class="prelude-val">Ok</span>(<span class="ident">v</span>) <span class="op">=&gt;</span> <span class="ident">v</span>,
-                    <span class="prelude-val">Err</span>(_) <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Invalid second&quot;</span>),
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Invalid second&quot;</span>),
                 };
                 <span class="ident">result</span> <span class="op">+=</span> <span class="ident">second</span> <span class="kw">as</span> <span class="ident">i64</span>;
                 <span class="ident">state</span> <span class="op">=</span> <span class="ident">DateParseState</span>::<span class="ident">Timezone</span>;
@@ -422,7 +423,7 @@
                 <span class="kw">let</span> (<span class="ident">tz</span>, <span class="ident">tz_sign</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">tok</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>() {
                     <span class="prelude-val">Ok</span>(<span class="ident">v</span>) <span class="kw">if</span> <span class="ident">v</span> <span class="op">&lt;</span> <span class="number">0</span> <span class="op">=&gt;</span> (<span class="op">-</span><span class="ident">v</span>, <span class="op">-</span><span class="number">1</span>),
                     <span class="prelude-val">Ok</span>(<span class="ident">v</span>) <span class="op">=&gt;</span> (<span class="ident">v</span>, <span class="number">1</span>),
-                    <span class="prelude-val">Err</span>(_) <span class="op">=&gt;</span> {
+                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=&gt;</span> {
                         <span class="kw">match</span> <span class="ident">tok</span>.<span class="ident">to_uppercase</span>().<span class="ident">as_str</span>() {
                             <span class="comment">// This list taken from IETF RFC 822</span>
                             <span class="string">&quot;UTC&quot;</span> <span class="op">|</span> <span class="string">&quot;UT&quot;</span> <span class="op">|</span> <span class="string">&quot;GMT&quot;</span> <span class="op">|</span> <span class="string">&quot;Z&quot;</span> <span class="op">=&gt;</span> (<span class="number">0</span>, <span class="number">1</span>),
@@ -435,7 +436,7 @@
                             <span class="string">&quot;M&quot;</span> <span class="op">=&gt;</span> (<span class="number">1200</span>, <span class="op">-</span><span class="number">1</span>),
                             <span class="string">&quot;N&quot;</span> <span class="op">=&gt;</span> (<span class="number">100</span>, <span class="number">1</span>),
                             <span class="string">&quot;Y&quot;</span> <span class="op">=&gt;</span> (<span class="number">1200</span>, <span class="number">1</span>),
-                            _ <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Invalid timezone&quot;</span>),
+                            <span class="kw">_</span> <span class="op">=&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Invalid timezone&quot;</span>),
                         }
                     }
                 };
