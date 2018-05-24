@@ -1175,7 +1175,7 @@ mod tests {
 
     #[test]
     fn test_missing_terminating_boundary() {
-                let mail = parse_mail(
+        let mail = parse_mail(
             concat!(
                 "Content-Type: multipart/alternative; boundary=myboundary\r\n\r\n",
                 "--myboundary\r\n",
