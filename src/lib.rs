@@ -549,9 +549,11 @@ impl Default for ParsedContentType {
 pub fn parse_content_type(header: &str) -> ParsedContentType {
     let params = parse_param_content(header);
     let mimetype = params.value.to_lowercase();
-    let charset = params.params.get("charset").cloned().unwrap_or(
-        "us-ascii".to_string(),
-    );
+    let charset = params
+        .params
+        .get("charset")
+        .cloned()
+        .unwrap_or_else(|| "us-ascii".to_string());
 
     ParsedContentType {
         mimetype,
@@ -694,7 +696,7 @@ impl<'a> ParsedMail<'a> {
     pub fn get_body_raw(&self) -> Result<Vec<u8>, MailParseError> {
         let transfer_coding = try!(self.headers.get_first_value("Content-Transfer-Encoding"))
             .map(|s| s.to_lowercase());
-        let decoded = match transfer_coding.unwrap_or(String::new()).as_ref() {
+        let decoded = match transfer_coding.unwrap_or_default().as_ref() {
             "base64" => {
                 let cleaned = self.body
                     .iter()
@@ -791,7 +793,8 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
                 find_from_u8(raw_data, ix_boundary_end, b"\n").map(|v| v + 1)
             {
                 // if there is no terminating boundary, assume the part end is the end of the email
-                let ix_part_end = find_from_u8(raw_data, ix_part_start, boundary.as_bytes()).unwrap_or(raw_data.len());
+                let ix_part_end = find_from_u8(raw_data, ix_part_start, boundary.as_bytes())
+                    .unwrap_or_else(|| raw_data.len());
 
                 result.subparts.push(try!(parse_mail(
                     &raw_data[ix_part_start..ix_part_end],
