@@ -95,16 +95,11 @@ pub struct MailHeader<'a> {
 }
 
 fn is_boundary(line: &str, ix: Option<usize>) -> bool {
-    match ix {
-        None => true,
-        Some(v) => {
-            if v >= line.len() {
-                return true;
-            }
-            let c = line.chars().nth(v).unwrap();
-            return c.is_whitespace() || c == '"' || c == '(' || c == ')' || c == '<' || c == '>';
-        }
-    }
+    ix.map(|v| {
+        line.chars().nth(v).map_or(true, |c| {
+            c.is_whitespace() || c == '"' || c == '(' || c == ')' || c == '<' || c == '>'
+        })
+    }).unwrap_or(true)
 }
 
 fn find_from(line: &str, ix_start: usize, key: &str) -> Option<usize> {
@@ -1222,5 +1217,13 @@ mod tests {
         let mail = parse_mail("".as_bytes()).unwrap();
         assert_eq!(mail.get_body_raw().unwrap(), b"");
         assert_eq!(mail.get_body().unwrap(), "");
+    }
+
+    #[test]
+    fn test_is_boundary_multibyte() {
+        // Bug #26, Incorrect unwrap() guard in is_boundary()
+        // 6x'REPLACEMENT CHARACTER', but 18 bytes of data:
+        let test = "\u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD}";
+        assert!(is_boundary(test, Some(8)));
     }
 }
