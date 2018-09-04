@@ -205,12 +205,7 @@ impl<'a> MailHeader<'a> {
         ));
         let mut lines = chars.lines();
         let mut add_space = false;
-        loop {
-            let line = match lines.next() {
-                Some(v) => v.trim_left(),
-                None => break,
-            };
-
+        while let Some(line) = lines.next().map(str::trim_left) {
             if add_space {
                 result.push(' ');
             }
