@@ -250,7 +250,7 @@ impl<'a> MailHeader<'a> {
                             };
                             break;
                         }
-                        ix_search = ix_search + 2;
+                        ix_search += 2;
                         continue;
                     }
                     None => {
@@ -351,7 +351,7 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
                 }
             }
         }
-        ix = ix + 1;
+        ix += 1;
         c = match it.next() {
             None => break,
             Some(v) => *v,
@@ -464,11 +464,11 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
         if ix >= raw_data.len() {
             break;
         } else if raw_data[ix] == b'\n' {
-            ix = ix + 1;
+            ix += 1;
             break;
         } else if raw_data[ix] == b'\r' {
             if ix + 1 < raw_data.len() && raw_data[ix + 1] == b'\n' {
-                ix = ix + 2;
+                ix += 2;
                 break;
             } else {
                 return Err(MailParseError::Generic(
@@ -479,7 +479,7 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
         }
         let (header, ix_next) = try!(parse_header(&raw_data[ix..]));
         headers.push(header);
-        ix = ix + ix_next;
+        ix += ix_next;
     }
     Ok((headers, ix))
 }
