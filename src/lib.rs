@@ -417,7 +417,7 @@ impl<'a> MailHeaderMap for Vec<MailHeader<'a>> {
     fn get_first_value(&self, key: &str) -> Result<Option<String>, MailParseError> {
         for x in self {
             if try!(x.get_key()).eq_ignore_ascii_case(key) {
-                return x.get_value().map(|v| Some(v));
+                return x.get_value().map(Some);
             }
         }
         Ok(None)
