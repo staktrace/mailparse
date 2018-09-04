@@ -152,7 +152,7 @@ impl<'a> MailHeader<'a> {
     }
 
     fn decode_word(&self, encoded: &str) -> Option<String> {
-        let ix_delim1 = try_none!(encoded.find("?"));
+        let ix_delim1 = try_none!(encoded.find('?'));
         let ix_delim2 = try_none!(find_from(encoded, ix_delim1 + 1, "?"));
 
         let charset = &encoded[0..ix_delim1];
