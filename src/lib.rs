@@ -785,7 +785,7 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
     if result.ctype.mimetype.starts_with("multipart/") &&
         result.ctype.params.get("boundary").is_some() && raw_data.len() > ix_body
     {
-        let boundary = String::from("--") + result.ctype.params.get("boundary").unwrap();
+        let boundary = String::from("--") + &result.ctype.params["boundary"];
         if let Some(ix_body_end) = find_from_u8(raw_data, ix_body, boundary.as_bytes()) {
             result.body = &raw_data[ix_body..ix_body_end];
             let mut ix_boundary_end = ix_body_end + boundary.len();
