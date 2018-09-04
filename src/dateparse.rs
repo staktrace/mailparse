@@ -117,7 +117,7 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                     Ok(v) => v,
                     Err(_) => return Err("Invalid year"),
                 };
-                result = seconds_to_date(year as i64, month as i64, day_of_month as i64);
+                result = seconds_to_date(i64::from(year), i64::from(month), i64::from(day_of_month));
                 state = DateParseState::Hour;
                 continue;
             }
@@ -126,7 +126,7 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                     Ok(v) => v,
                     Err(_) => return Err("Invalid hour"),
                 };
-                result += 3600 * (hour as i64);
+                result += 3600 * i64::from(hour);
                 state = DateParseState::Minute;
                 continue;
             }
@@ -135,7 +135,7 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                     Ok(v) => v,
                     Err(_) => return Err("Invalid minute"),
                 };
-                result += 60 * (minute as i64);
+                result += 60 * i64::from(minute);
                 state = DateParseState::Second;
                 continue;
             }
@@ -144,7 +144,7 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                     Ok(v) => v,
                     Err(_) => return Err("Invalid second"),
                 };
-                result += second as i64;
+                result += i64::from(second);
                 state = DateParseState::Timezone;
                 continue;
             }
@@ -173,9 +173,9 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                 let tz_mins = tz % 100;
                 let tz_delta = (tz_hours * 3600) + (tz_mins * 60);
                 if tz_sign < 0 {
-                    result += tz_delta as i64;
+                    result += i64::from(tz_delta);
                 } else {
-                    result -= tz_delta as i64;
+                    result -= i64::from(tz_delta);
                 }
                 break;
             }
