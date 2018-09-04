@@ -84,12 +84,9 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
         }
         match state {
             DateParseState::Date => {
-                match tok.parse::<u8>() {
-                    Ok(v) => {
-                        day_of_month = v;
-                        state = DateParseState::Month;
-                    }
-                    Err(_) => (),
+                if let Ok(v) = tok.parse::<u8>() {
+                    day_of_month = v;
+                    state = DateParseState::Month;
                 };
                 continue;
             }
