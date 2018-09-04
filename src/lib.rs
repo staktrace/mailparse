@@ -554,8 +554,8 @@ pub fn parse_content_type(header: &str) -> ParsedContentType {
     );
 
     ParsedContentType {
-        mimetype: mimetype,
-        charset: charset,
+        mimetype,
+        charset,
         params: params.params,
     }
 }
@@ -628,7 +628,7 @@ pub fn parse_content_disposition(header: &str) -> ParsedContentDisposition {
     let params = parse_param_content(header);
     let disposition = parse_disposition_type(&params.value);
     ParsedContentDisposition {
-        disposition: disposition,
+        disposition,
         params: params.params,
     }
 }
@@ -775,8 +775,8 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
         .unwrap_or_default();
 
     let mut result = ParsedMail {
-        headers: headers,
-        ctype: ctype,
+        headers,
+        ctype,
         body: &raw_data[ix_body..],
         subparts: Vec::<ParsedMail>::new(),
     };
