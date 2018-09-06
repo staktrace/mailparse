@@ -14,7 +14,7 @@ The primary entry point for this library is the following function:
 ```
 
 This function takes the raw message data, including headers and body, and returns a structured object to more easily access pieces of the email message.
-There are other public functions that allow parsing smaller parts of the message as well; refer to the [full documentation](http://staktrace.github.io/mailparse/target/doc/mailparse/).
+There are other public functions that allow parsing smaller parts of the message as well; refer to the [full documentation](https://docs.rs/mailparse/).
 
 The library is designed to process real-world email data such as might be obtained by using the FETCH command on an IMAP server, or in a Maildir.
 As such, this library should successfully handle any valid MIME-formatted message, although it may not follow all the strict requirements in the various specifications that cover the format (predominantly IETF RFC 822 and IETF RFC 2045).
@@ -55,7 +55,7 @@ Example usage
 
 Documentation
 ---
-See the rustdoc at [http://staktrace.github.io/mailparse/target/doc/mailparse/](http://staktrace.github.io/mailparse/target/doc/mailparse/).
+See the rustdoc at [https://docs.rs/mailparse/](docs.rs).
 
 Other notes
 ---
