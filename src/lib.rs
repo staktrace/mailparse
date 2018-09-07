@@ -9,8 +9,6 @@ use std::collections::BTreeMap;
 
 use encoding::Encoding;
 
-#[macro_use]
-mod macros;
 mod dateparse;
 
 pub use dateparse::dateparse;
@@ -147,15 +145,15 @@ impl<'a> MailHeader<'a> {
     }
 
     fn decode_word(&self, encoded: &str) -> Option<String> {
-        let ix_delim1 = try_none!(encoded.find('?'));
-        let ix_delim2 = try_none!(find_from(encoded, ix_delim1 + 1, "?"));
+        let ix_delim1 = encoded.find('?')?;
+        let ix_delim2 = find_from(encoded, ix_delim1 + 1, "?")?;
 
         let charset = &encoded[0..ix_delim1];
         let transfer_coding = &encoded[ix_delim1 + 1..ix_delim2];
         let input = &encoded[ix_delim2 + 1..];
 
         let decoded = match transfer_coding {
-            "B" | "b" => try_none!(base64::decode(input.as_bytes()).ok()),
+            "B" | "b" => base64::decode(input.as_bytes()).ok()?,
             "Q" | "q" => {
                 // The quoted_printable module does a trim_right on the input, so if
                 // that affects the output we should save and restore the trailing
@@ -169,11 +167,11 @@ impl<'a> MailHeader<'a> {
                         to_decode[trimmed.len()..].as_bytes(),
                     );
                 }
-                try_none!(d.ok())
+                d.ok()?
             }
             _ => return None,
         };
-        let charset_conv = try_none!(encoding::label::encoding_from_whatwg_label(charset));
+        let charset_conv = encoding::label::encoding_from_whatwg_label(charset)?;
         charset_conv
             .decode(&decoded, encoding::DecoderTrap::Replace)
             .ok()
