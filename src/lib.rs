@@ -95,11 +95,9 @@ pub struct MailHeader<'a> {
 }
 
 fn is_boundary(line: &str, ix: Option<usize>) -> bool {
-    ix.map(|v| {
-        line.chars().nth(v).map_or(true, |c| {
-            c.is_whitespace() || c == '"' || c == '(' || c == ')' || c == '<' || c == '>'
-        })
-    }).unwrap_or(true)
+    ix.and_then(|v| line.chars().nth(v))
+        .map(|c| c.is_whitespace() || c == '"' || c == '(' || c == ')' || c == '<' || c == '>')
+        .unwrap_or(true)
 }
 
 fn find_from(line: &str, ix_start: usize, key: &str) -> Option<usize> {
