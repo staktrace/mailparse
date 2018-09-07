@@ -141,7 +141,7 @@ impl<'a> MailHeader<'a> {
         encoding::all::ISO_8859_1
             .decode(self.key, encoding::DecoderTrap::Strict)
             .map(|s| s.trim().to_string())
-            .map_err(MailParseError::EncodingError)
+            .map_err(|e| e.into())
     }
 
     fn decode_word(&self, encoded: &str) -> Option<String> {
@@ -657,8 +657,8 @@ impl<'a> ParsedMail<'a> {
         let decoded = self.get_body_raw()?;
         let charset_conv = encoding::label::encoding_from_whatwg_label(&self.ctype.charset)
             .unwrap_or(encoding::all::ASCII);
-        let str_body = charset_conv.decode(&decoded, encoding::DecoderTrap::Replace)?;
-        Ok(str_body)
+        charset_conv.decode(&decoded, encoding::DecoderTrap::Replace)
+            .map_err(|e| e.into())
     }
 
     /// Get the body of the message as a Rust Vec<u8>. This function tries to
