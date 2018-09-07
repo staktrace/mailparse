@@ -142,13 +142,10 @@ fn test_find_from_u8() {
 impl<'a> MailHeader<'a> {
     /// Get the name of the header. Note that header names are case-insensitive.
     pub fn get_key(&self) -> Result<String, MailParseError> {
-        Ok(
-            try!(encoding::all::ISO_8859_1.decode(
-                self.key,
-                encoding::DecoderTrap::Strict,
-            )).trim()
-                .to_string(),
-        )
+        encoding::all::ISO_8859_1
+            .decode(self.key, encoding::DecoderTrap::Strict)
+            .map(|s| s.trim().to_string())
+            .map_err(MailParseError::EncodingError)
     }
 
     fn decode_word(&self, encoded: &str) -> Option<String> {
