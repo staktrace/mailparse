@@ -194,10 +194,7 @@ impl<'a> MailHeader<'a> {
     /// ```
     pub fn get_value(&self) -> Result<String, MailParseError> {
         let mut result = String::new();
-        let chars = try!(encoding::all::ISO_8859_1.decode(
-            self.value,
-            encoding::DecoderTrap::Strict,
-        ));
+        let chars = encoding::all::ISO_8859_1.decode(self.value, encoding::DecoderTrap::Strict)?;
         let mut lines = chars.lines();
         let mut add_space = false;
         while let Some(line) = lines.next().map(str::trim_left) {
@@ -406,7 +403,7 @@ pub trait MailHeaderMap {
 impl<'a> MailHeaderMap for Vec<MailHeader<'a>> {
     fn get_first_value(&self, key: &str) -> Result<Option<String>, MailParseError> {
         for x in self {
-            if try!(x.get_key()).eq_ignore_ascii_case(key) {
+            if x.get_key()?.eq_ignore_ascii_case(key) {
                 return x.get_value().map(Some);
             }
         }
@@ -416,8 +413,8 @@ impl<'a> MailHeaderMap for Vec<MailHeader<'a>> {
     fn get_all_values(&self, key: &str) -> Result<Vec<String>, MailParseError> {
         let mut values: Vec<String> = Vec::new();
         for x in self {
-            if try!(x.get_key()).eq_ignore_ascii_case(key) {
-                values.push(try!(x.get_value()));
+            if x.get_key()?.eq_ignore_ascii_case(key) {
+                values.push(x.get_value()?);
             }
         }
         Ok(values)
@@ -467,7 +464,7 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
                 ));
             }
         }
-        let (header, ix_next) = try!(parse_header(&raw_data[ix..]));
+        let (header, ix_next) = parse_header(&raw_data[ix..])?;
         headers.push(header);
         ix += ix_next;
     }
@@ -662,10 +659,7 @@ impl<'a> ParsedMail<'a> {
         let decoded = self.get_body_raw()?;
         let charset_conv = encoding::label::encoding_from_whatwg_label(&self.ctype.charset)
             .unwrap_or(encoding::all::ASCII);
-        let str_body = try!(charset_conv.decode(
-            &decoded,
-            encoding::DecoderTrap::Replace,
-        ));
+        let str_body = charset_conv.decode(&decoded, encoding::DecoderTrap::Replace)?;
         Ok(str_body)
     }
 
@@ -684,7 +678,7 @@ impl<'a> ParsedMail<'a> {
     ///     assert_eq!(p.get_body_raw().unwrap(), b"This is the body");
     /// ```
     pub fn get_body_raw(&self) -> Result<Vec<u8>, MailParseError> {
-        let transfer_coding = try!(self.headers.get_first_value("Content-Transfer-Encoding"))
+        let transfer_coding = self.headers.get_first_value("Content-Transfer-Encoding")?
             .map(|s| s.to_lowercase());
         let decoded = match transfer_coding.unwrap_or_default().as_ref() {
             "base64" => {
@@ -695,13 +689,13 @@ impl<'a> ParsedMail<'a> {
                         v => Some(v),
                     })
                     .collect::<Vec<u8>>();
-                try!(base64::decode(&cleaned))
+                base64::decode(&cleaned)?
             }
             "quoted-printable" => {
-                try!(quoted_printable::decode(
+                quoted_printable::decode(
                     self.body,
                     quoted_printable::ParseMode::Robust,
-                ))
+                )?
             }
             _ => Vec::<u8>::from(self.body),
         };
@@ -760,7 +754,7 @@ impl<'a> ParsedMail<'a> {
 ///     assert_eq!(dateparse(parsed.headers.get_first_value("Date").unwrap().unwrap().as_str()).unwrap(), 1475417182);
 /// ```
 pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
-    let (headers, ix_body) = try!(parse_headers(raw_data));
+    let (headers, ix_body) = parse_headers(raw_data)?;
     let ctype = headers
         .get_first_value("Content-Type")?
         .map(|s| parse_content_type(&s))
@@ -786,9 +780,7 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
                 let ix_part_end = find_from_u8(raw_data, ix_part_start, boundary.as_bytes())
                     .unwrap_or_else(|| raw_data.len());
 
-                result.subparts.push(try!(parse_mail(
-                    &raw_data[ix_part_start..ix_part_end],
-                )));
+                result.subparts.push(parse_mail(&raw_data[ix_part_start..ix_part_end])?);
                 ix_boundary_end = ix_part_end + boundary.len();
                 if ix_boundary_end + 2 > raw_data.len() ||
                     (raw_data[ix_boundary_end] == b'-' && raw_data[ix_boundary_end + 1] == b'-')
