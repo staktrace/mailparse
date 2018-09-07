@@ -682,12 +682,11 @@ impl<'a> ParsedMail<'a> {
             .map(|s| s.to_lowercase());
         let decoded = match transfer_coding.unwrap_or_default().as_ref() {
             "base64" => {
-                let cleaned = self.body
+                let cleaned = self
+                    .body
                     .iter()
-                    .filter_map(|&c| match c {
-                        b' ' | b'\t' | b'\r' | b'\n' => None,
-                        v => Some(v),
-                    })
+                    .filter(|c| !c.is_ascii_whitespace())
+                    .cloned()
                     .collect::<Vec<u8>>();
                 base64::decode(&cleaned)?
             }
