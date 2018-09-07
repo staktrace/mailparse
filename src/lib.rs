@@ -678,10 +678,13 @@ impl<'a> ParsedMail<'a> {
     ///     assert_eq!(p.get_body_raw().unwrap(), b"This is the body");
     /// ```
     pub fn get_body_raw(&self) -> Result<Vec<u8>, MailParseError> {
-        let transfer_coding = self.headers.get_first_value("Content-Transfer-Encoding")?
+        let transfer_coding = self
+            .headers
+            .get_first_value("Content-Transfer-Encoding")?
             .map(|s| s.to_lowercase());
-        let decoded = match transfer_coding.unwrap_or_default().as_ref() {
-            "base64" => {
+
+        let decoded = match transfer_coding {
+            Some(ref enc) if enc == "base64" => {
                 let cleaned = self
                     .body
                     .iter()
@@ -690,11 +693,8 @@ impl<'a> ParsedMail<'a> {
                     .collect::<Vec<u8>>();
                 base64::decode(&cleaned)?
             }
-            "quoted-printable" => {
-                quoted_printable::decode(
-                    self.body,
-                    quoted_printable::ParseMode::Robust,
-                )?
+            Some(ref enc) if enc == "quoted-printable" => {
+                quoted_printable::decode(self.body, quoted_printable::ParseMode::Robust)?
             }
             _ => Vec::<u8>::from(self.body),
         };
