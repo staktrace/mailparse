@@ -813,17 +813,16 @@ fn parse_param_content(content: &str) -> ParamContent {
     // There must be at least one token produced by split, even if it's empty.
     let value = tokens.next().unwrap().trim();
     let map = tokens
-        .filter_map(|kv| if let Some(idx) = kv.find('=') {
-            let key = kv[0..idx].trim().to_lowercase();
-            let mut value = kv[idx + 1..].trim();
-            if value.starts_with('"') && value.ends_with('"') {
-                value = &value[1..value.len() - 1];
-            }
-            Some((key, value.to_string()))
-        } else {
-            None
-        })
-        .collect();
+        .filter_map(|kv| {
+            kv.find('=').map(|idx| {
+                let key = kv[0..idx].trim().to_lowercase();
+                let mut value = kv[idx + 1..].trim();
+                if value.starts_with('"') && value.ends_with('"') {
+                    value = &value[1..value.len() - 1];
+                }
+                (key, value.to_string())
+            })
+        }).collect();
 
     ParamContent {
         value: value.into(),
