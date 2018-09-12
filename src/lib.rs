@@ -359,7 +359,8 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
     }
 }
 
-/// A trait that is implemented by the Vec<MailHeader> returned by the parse_headers
+/// A trait that is implemented by the [MailHeader] slice. These functions are
+/// also available on Vec<MailHeader> which is returned by the parse_headers
 /// function. It provides a map-like interface to look up header values by their
 /// name.
 pub trait MailHeaderMap {
@@ -398,7 +399,7 @@ pub trait MailHeaderMap {
     fn get_all_values(&self, key: &str) -> Result<Vec<String>, MailParseError>;
 }
 
-impl<'a> MailHeaderMap for Vec<MailHeader<'a>> {
+impl<'a> MailHeaderMap for [MailHeader<'a>] {
     fn get_first_value(&self, key: &str) -> Result<Option<String>, MailParseError> {
         for x in self {
             if x.get_key()?.eq_ignore_ascii_case(key) {
