@@ -103,7 +103,7 @@ fn find_from(line: &str, ix_start: usize, key: &str) -> Option<usize> {
 }
 
 fn find_from_u8(line: &[u8], ix_start: usize, key: &[u8]) -> Option<usize> {
-    assert!(key.len() > 0);
+    assert!(!key.is_empty());
     assert!(ix_start < line.len());
     let ix_end = line.len() - key.len();
     if ix_start <= ix_end {
