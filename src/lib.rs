@@ -945,6 +945,22 @@ mod tests {
             "[Ontario Builder] Understanding home shopping \u{2013} a quick survey"
         );
 
+        let (parsed, _) = parse_header(b"Subject: =?ISO-2022-JP?B?GyRCRnwbKEI=?=\n\t=?ISO-2022-JP?B?GyRCS1wbKEI=?=\n\t=?ISO-2022-JP?B?GyRCOGwbKEI=?=")
+            .unwrap();
+        assert_eq!(parsed.get_key().unwrap(), "Subject");
+        assert_eq!(
+            parsed.get_value().unwrap(),
+            "\u{65E5}\u{672C}\u{8A9E}"
+        );
+
+        let (parsed, _) = parse_header(b"Subject: =?ISO-2022-JP?Q?=1B\x24\x42\x46\x7C=1B\x28\x42?=\n\t=?ISO-2022-JP?Q?=1B\x24\x42\x4B\x5C=1B\x28\x42?=\n\t=?ISO-2022-JP?Q?=1B\x24\x42\x38\x6C=1B\x28\x42?=")
+            .unwrap();
+        assert_eq!(parsed.get_key().unwrap(), "Subject");
+        assert_eq!(
+            parsed.get_value().unwrap(),
+            "\u{65E5}\u{672C}\u{8A9E}"
+        );
+
         let (parsed, _) = parse_header(
             b"Content-Type: image/jpeg; name=\"=?UTF-8?B?MDY2MTM5ODEuanBn?=\"",
         ).unwrap();
