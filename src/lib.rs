@@ -1,5 +1,5 @@
 extern crate base64;
-extern crate encoding;
+extern crate charset;
 extern crate quoted_printable;
 
 use std::error;
@@ -7,7 +7,9 @@ use std::fmt;
 use std::ops::Deref;
 use std::collections::BTreeMap;
 
-use encoding::Encoding;
+use charset::Charset;
+use charset::decode_latin1;
+use charset::decode_ascii;
 
 mod dateparse;
 
@@ -138,10 +140,7 @@ fn test_find_from_u8() {
 impl<'a> MailHeader<'a> {
     /// Get the name of the header. Note that header names are case-insensitive.
     pub fn get_key(&self) -> Result<String, MailParseError> {
-        encoding::all::ISO_8859_1
-            .decode(self.key, encoding::DecoderTrap::Strict)
-            .map(|s| s.trim().to_string())
-            .map_err(|e| e.into())
+        Ok(decode_latin1(self.key).into_owned())
     }
 
     fn decode_word(&self, encoded: &str) -> Option<String> {
@@ -171,10 +170,9 @@ impl<'a> MailHeader<'a> {
             }
             _ => return None,
         };
-        let charset_conv = encoding::label::encoding_from_whatwg_label(charset)?;
-        charset_conv
-            .decode(&decoded, encoding::DecoderTrap::Replace)
-            .ok()
+        let charset = Charset::for_label_no_replacement(charset.as_bytes())?;
+        let (cow, _) = charset.decode_without_bom_handling(&decoded);
+        Some(cow.into_owned())
     }
 
     /// Get the value of the header. Any sequences of newlines characters followed
@@ -192,7 +190,7 @@ impl<'a> MailHeader<'a> {
     /// ```
     pub fn get_value(&self) -> Result<String, MailParseError> {
         let mut result = String::new();
-        let chars = encoding::all::ISO_8859_1.decode(self.value, encoding::DecoderTrap::Strict)?;
+        let chars = decode_latin1(self.value);
         let mut lines = chars.lines();
         let mut add_space = false;
         while let Some(line) = lines.next().map(str::trim_left) {
@@ -656,10 +654,13 @@ impl<'a> ParsedMail<'a> {
     /// ```
     pub fn get_body(&self) -> Result<String, MailParseError> {
         let decoded = self.get_body_raw()?;
-        let charset_conv = encoding::label::encoding_from_whatwg_label(&self.ctype.charset)
-            .unwrap_or(encoding::all::ASCII);
-        charset_conv.decode(&decoded, encoding::DecoderTrap::Replace)
-            .map_err(|e| e.into())
+        let cow = if let Some(charset) = Charset::for_label(self.ctype.charset.as_bytes()) {
+            let (cow, _, _) = charset.decode(&decoded);
+            cow
+        } else {
+            decode_ascii(&decoded)
+        };
+        Ok(cow.into_owned())
     }
 
     /// Get the body of the message as a Rust Vec<u8>. This function tries to
