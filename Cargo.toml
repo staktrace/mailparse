@@ -19,4 +19,4 @@ maintenance = { status = "passively-maintained" }
 [dependencies]
 base64 = "0.9.0"
 quoted_printable = "0.4.0"
-encoding = "0.2.32"
+charset = "0.1.1"
