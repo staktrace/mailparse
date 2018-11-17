@@ -961,6 +961,14 @@ mod tests {
             "\u{65E5}\u{672C}\u{8A9E}"
         );
 
+        let (parsed, _) = parse_header(b"Subject: =?UTF-7?Q?+JgM-?=")
+            .unwrap();
+        assert_eq!(parsed.get_key().unwrap(), "Subject");
+        assert_eq!(
+            parsed.get_value().unwrap(),
+            "\u{2603}"
+        );
+
         let (parsed, _) = parse_header(
             b"Content-Type: image/jpeg; name=\"=?UTF-8?B?MDY2MTM5ODEuanBn?=\"",
         ).unwrap();
