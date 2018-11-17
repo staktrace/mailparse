@@ -1173,6 +1173,19 @@ mod tests {
         assert_eq!(mail.ctype.mimetype, "text/html");
         assert_eq!(mail.get_body_raw().unwrap(), b"hello world");
         assert_eq!(mail.get_body().unwrap(), "hello world");
+
+        let mail = parse_mail(
+            b"Content-Type: text/plain; charset=UTF-7\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n+JgM-",
+        ).unwrap();
+        assert_eq!(mail.get_body_raw().unwrap(), b"+JgM-");
+        assert_eq!(mail.get_body().unwrap(), "\u{2603}");
+
+        let mail = parse_mail(
+            b"Content-Type: text/plain; charset=UTF-7\r\n\r\n+JgM-",
+        ).unwrap();
+        assert_eq!(mail.get_body_raw().unwrap(), b"+JgM-");
+        assert_eq!(mail.get_body().unwrap(), "\u{2603}");
+
     }
 
     #[test]
