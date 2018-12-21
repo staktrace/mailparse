@@ -55,7 +55,7 @@ Example usage
 
 Documentation
 ---
-See the rustdoc at [https://docs.rs/mailparse/](docs.rs).
+See the rustdoc at [docs.rs](https://docs.rs/mailparse/).
 
 Other notes
 ---
