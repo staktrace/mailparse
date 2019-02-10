@@ -815,7 +815,7 @@ fn parse_param_content(content: &str) -> ParamContent {
             kv.find('=').map(|idx| {
                 let key = kv[0..idx].trim().to_lowercase();
                 let mut value = kv[idx + 1..].trim();
-                if value.starts_with('"') && value.ends_with('"') {
+                if value.starts_with('"') && value.ends_with('"') && value.len() > 1 {
                     value = &value[1..value.len() - 1];
                 }
                 (key, value.to_string())
@@ -1207,5 +1207,11 @@ mod tests {
         // 6x'REPLACEMENT CHARACTER', but 18 bytes of data:
         let test = "\u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD}";
         assert!(is_boundary(test, Some(8)));
+    }
+
+    #[test]
+    fn test_dont_panic_for_value_with_new_lines() {
+        let parsed = parse_param_content(r#"Content-Type: application/octet-stream; name=""#);
+        assert_eq!(parsed.params["name"], "\"");
     }
 }
