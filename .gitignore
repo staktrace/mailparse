@@ -1,3 +1,2 @@
-target/debug
-target/package
+target/
 Cargo.lock
