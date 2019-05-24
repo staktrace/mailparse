@@ -154,11 +154,11 @@ impl<'a> MailHeader<'a> {
         let decoded = match transfer_coding {
             "B" | "b" => base64::decode(input.as_bytes()).ok()?,
             "Q" | "q" => {
-                // The quoted_printable module does a trim_right on the input, so if
+                // The quoted_printable module does a trim_end on the input, so if
                 // that affects the output we should save and restore the trailing
                 // whitespace
                 let to_decode = input.replace("_", " ");
-                let trimmed = to_decode.trim_right();
+                let trimmed = to_decode.trim_end();
                 let mut d =
                     quoted_printable::decode(&trimmed, quoted_printable::ParseMode::Robust);
                 if d.is_ok() && to_decode.len() != trimmed.len() {
@@ -193,7 +193,7 @@ impl<'a> MailHeader<'a> {
         let chars = decode_latin1(self.value);
         let mut lines = chars.lines();
         let mut add_space = false;
-        while let Some(line) = lines.next().map(str::trim_left) {
+        while let Some(line) = lines.next().map(str::trim_start) {
             if add_space {
                 result.push(' ');
             }
