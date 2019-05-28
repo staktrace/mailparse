@@ -22,10 +22,9 @@ impl<'a> Body<'a> {
     pub fn new(
         body: &'a [u8],
         ctype: &'a ParsedContentType,
-        transfer_encoding: &Option<String>,
+        transfer_encoding: Option<&str>,
     ) -> Body<'a> {
         transfer_encoding
-            .as_ref()
             .map(|encoding| match encoding.as_ref() {
                 "base64" => Body::Base64(Base64Body {
                     body,
