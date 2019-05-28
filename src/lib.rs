@@ -727,7 +727,11 @@ impl<'a> ParsedMail<'a> {
             .get_first_value("Content-Transfer-Encoding")?
             .map(|s| s.to_lowercase());
 
-        Ok(Body::new(self.body, &self.ctype, &transfer_encoding))
+        Ok(Body::new(
+            self.body,
+            &self.ctype,
+            transfer_encoding.as_ref().map(|x| &**x),
+        ))
     }
 
     /// Returns a struct containing a parsed representation of the
