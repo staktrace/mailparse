@@ -7,12 +7,13 @@ use std::error;
 use std::fmt;
 use std::ops::Deref;
 
-use charset::decode_ascii;
 use charset::decode_latin1;
 use charset::Charset;
 
+pub mod body;
 mod dateparse;
 
+use body::Body;
 pub use dateparse::dateparse;
 
 /// An error type that represents the different kinds of errors that may be
@@ -650,14 +651,13 @@ impl<'a> ParsedMail<'a> {
     ///     assert_eq!(p.get_body().unwrap(), "This is the body");
     /// ```
     pub fn get_body(&self) -> Result<String, MailParseError> {
-        let decoded = self.get_body_raw()?;
-        let cow = if let Some(charset) = Charset::for_label(self.ctype.charset.as_bytes()) {
-            let (cow, _, _) = charset.decode(&decoded);
-            cow
-        } else {
-            decode_ascii(&decoded)
-        };
-        Ok(cow.into_owned())
+        match self.get_body_encoded()? {
+            Body::Base64(body) | Body::QuotedPrintable(body) => body.get_decoded_as_string(),
+            Body::SevenBit(body) | Body::EightBit(body) => body.get_as_string(),
+            Body::Binary(_) => Err(MailParseError::Generic(
+                "Message body of type binary body cannot be parsed into a string",
+            )),
+        }
     }
 
     /// Get the body of the message as a Rust Vec<u8>. This function tries to
@@ -675,27 +675,59 @@ impl<'a> ParsedMail<'a> {
     ///     assert_eq!(p.get_body_raw().unwrap(), b"This is the body");
     /// ```
     pub fn get_body_raw(&self) -> Result<Vec<u8>, MailParseError> {
-        let transfer_coding = self
+        match self.get_body_encoded()? {
+            Body::Base64(body) | Body::QuotedPrintable(body) => body.get_decoded(),
+            Body::SevenBit(body) | Body::EightBit(body) => Ok(Vec::<u8>::from(body.get_raw())),
+            Body::Binary(body) => Ok(Vec::<u8>::from(body.get_raw())),
+        }
+    }
+
+    /// Get the body of the message.
+    /// This function returns original the body without attempting to
+    /// unapply the Content-Transfer-Encoding.
+    ///
+    /// # Examples
+    /// ```
+    ///     use mailparse::parse_mail;
+    ///     use mailparse::body::Body;
+    ///
+    ///     let mail = parse_mail(b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG 8gd\r\n29ybGQ=").unwrap();
+    ///
+    ///     match mail.get_body_encoded().unwrap() {
+    ///         Body::Base64(body) => {
+    ///             assert_eq!(body.get_raw(), b"aGVsbG 8gd\r\n29ybGQ=");
+    ///             assert_eq!(body.get_decoded().unwrap(), b"hello world");
+    ///             assert_eq!(body.get_decoded_as_string().unwrap(), "hello world");
+    ///         },
+    ///         _ => assert!(false),
+    ///     };
+    ///
+    ///
+    ///     // An email whose body encoding is not known upfront
+    ///     let another_mail = parse_mail(b"").unwrap();
+    ///
+    ///     match another_mail.get_body_encoded().unwrap() {
+    ///         Body::Base64(body) | Body::QuotedPrintable(body) => {
+    ///             println!("mail body encoded: {:?}", body.get_raw());
+    ///             println!("mail body decoded: {:?}", body.get_decoded().unwrap());
+    ///             println!("mail body decoded as string: {}", body.get_decoded_as_string().unwrap());
+    ///         },
+    ///         Body::SevenBit(body) | Body::EightBit(body) => {
+    ///             println!("mail body: {:?}", body.get_raw());
+    ///             println!("mail body as string: {}", body.get_as_string().unwrap());
+    ///         },
+    ///         Body::Binary(body) => {
+    ///             println!("mail body binary: {:?}", body.get_raw());
+    ///         }
+    ///     }
+    /// ```
+    pub fn get_body_encoded(&'a self) -> Result<Body<'a>, MailParseError> {
+        let transfer_encoding = self
             .headers
             .get_first_value("Content-Transfer-Encoding")?
             .map(|s| s.to_lowercase());
 
-        let decoded = match transfer_coding {
-            Some(ref enc) if enc == "base64" => {
-                let cleaned = self
-                    .body
-                    .iter()
-                    .filter(|c| !c.is_ascii_whitespace())
-                    .cloned()
-                    .collect::<Vec<u8>>();
-                base64::decode(&cleaned)?
-            }
-            Some(ref enc) if enc == "quoted-printable" => {
-                quoted_printable::decode(self.body, quoted_printable::ParseMode::Robust)?
-            }
-            _ => Vec::<u8>::from(self.body),
-        };
-        Ok(decoded)
+        Ok(Body::new(self.body, &self.ctype, &transfer_encoding))
     }
 
     /// Returns a struct containing a parsed representation of the
@@ -1264,5 +1296,126 @@ mod tests {
     fn test_dont_panic_for_value_with_new_lines() {
         let parsed = parse_param_content(r#"Content-Type: application/octet-stream; name=""#);
         assert_eq!(parsed.params["name"], "\"");
+    }
+
+    #[test]
+    fn test_default_content_encoding() {
+        let mail = parse_mail(b"Content-Type: text/plain; charset=UTF-7\r\n\r\n+JgM-").unwrap();
+        let body = mail.get_body_encoded().unwrap();
+        match body {
+            Body::SevenBit(body) => {
+                assert_eq!(body.get_raw(), b"+JgM-");
+                assert_eq!(body.get_as_string().unwrap(), "\u{2603}");
+            }
+            _ => assert!(false),
+        };
+    }
+
+    #[test]
+    fn test_7bit_content_encoding() {
+        let mail = parse_mail(b"Content-Type: text/plain; charset=UTF-7\r\nContent-Transfer-Encoding: 7bit\r\n\r\n+JgM-").unwrap();
+        let body = mail.get_body_encoded().unwrap();
+        match body {
+            Body::SevenBit(body) => {
+                assert_eq!(body.get_raw(), b"+JgM-");
+                assert_eq!(body.get_as_string().unwrap(), "\u{2603}");
+            }
+            _ => assert!(false),
+        };
+    }
+
+    #[test]
+    fn test_8bit_content_encoding() {
+        let mail = parse_mail(b"Content-Type: text/plain; charset=UTF-7\r\nContent-Transfer-Encoding: 8bit\r\n\r\n+JgM-").unwrap();
+        let body = mail.get_body_encoded().unwrap();
+        match body {
+            Body::EightBit(body) => {
+                assert_eq!(body.get_raw(), b"+JgM-");
+                assert_eq!(body.get_as_string().unwrap(), "\u{2603}");
+            }
+            _ => assert!(false),
+        };
+    }
+
+    #[test]
+    fn test_quoted_printable_content_encoding() {
+        let mail = parse_mail(
+            b"Content-Type: text/plain; charset=UTF-7\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n+JgM-",
+        ).unwrap();
+        match mail.get_body_encoded().unwrap() {
+            Body::QuotedPrintable(body) => {
+                assert_eq!(body.get_raw(), b"+JgM-");
+                assert_eq!(body.get_decoded().unwrap(), b"+JgM-");
+                assert_eq!(body.get_decoded_as_string().unwrap(), "\u{2603}");
+            }
+            _ => assert!(false),
+        };
+    }
+
+    #[test]
+    fn test_base64_content_encoding() {
+        let mail =
+            parse_mail(b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG 8gd\r\n29ybGQ=").unwrap();
+        match mail.get_body_encoded().unwrap() {
+            Body::Base64(body) => {
+                assert_eq!(body.get_raw(), b"aGVsbG 8gd\r\n29ybGQ=");
+                assert_eq!(body.get_decoded().unwrap(), b"hello world");
+                assert_eq!(body.get_decoded_as_string().unwrap(), "hello world");
+            }
+            _ => assert!(false),
+        };
+    }
+
+    #[test]
+    fn test_binary_content_encoding() {
+        let mail = parse_mail(b"Content-Transfer-Encoding: binary\r\n\r\n######").unwrap();
+        let body = mail.get_body_encoded().unwrap();
+        match body {
+            Body::Binary(body) => {
+                assert_eq!(body.get_raw(), b"######");
+            }
+            _ => assert!(false),
+        };
+    }
+
+    #[test]
+    fn test_body_content_encoding_with_multipart() {
+        let mail_filepath = "./tests/files/test_email_01.txt";
+        let mail = std::fs::read(mail_filepath)
+            .expect(&format!("Unable to open the file [{}]", mail_filepath));
+        let mail = parse_mail(&mail).unwrap();
+
+        let subpart_0 = mail.subparts.get(0).unwrap();
+        match subpart_0.get_body_encoded().unwrap() {
+            Body::SevenBit(body) => {
+                assert_eq!(
+                    body.get_as_string().unwrap().trim(),
+                    "<html>Test with attachments</html>"
+                );
+            }
+            _ => assert!(false),
+        };
+
+        let subpart_1 = mail.subparts.get(1).unwrap();
+        match subpart_1.get_body_encoded().unwrap() {
+            Body::Base64(body) => {
+                let pdf_filepath = "./tests/files/test_email_01_sample.pdf";
+                let original_pdf = std::fs::read(pdf_filepath)
+                    .expect(&format!("Unable to open the file [{}]", pdf_filepath));
+                assert_eq!(body.get_decoded().unwrap(), original_pdf);
+            }
+            _ => assert!(false),
+        };
+
+        let subpart_2 = mail.subparts.get(2).unwrap();
+        match subpart_2.get_body_encoded().unwrap() {
+            Body::Base64(body) => {
+                assert_eq!(
+                    body.get_decoded_as_string().unwrap(),
+                    "txt file context for email collector\n1234567890987654321\n"
+                );
+            }
+            _ => assert!(false),
+        };
     }
 }
