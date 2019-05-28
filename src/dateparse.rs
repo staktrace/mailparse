@@ -117,7 +117,8 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                     Ok(v) => v,
                     Err(_) => return Err("Invalid year"),
                 };
-                result = seconds_to_date(i64::from(year), i64::from(month), i64::from(day_of_month));
+                result =
+                    seconds_to_date(i64::from(year), i64::from(month), i64::from(day_of_month));
                 state = DateParseState::Hour;
                 continue;
             }
@@ -190,18 +191,30 @@ mod tests {
 
     #[test]
     fn parse_dates() {
-        assert_eq!(dateparse("Sun, 25 Sep 2016 18:36:33 -0400").unwrap(),
-                   1474842993);
-        assert_eq!(dateparse("Fri, 01 Jan 2100 11:12:13 +0000").unwrap(),
-                   4102485133);
-        assert_eq!(dateparse("Fri, 31 Dec 2100 00:00:00 +0000").unwrap(),
-                   4133894400);
-        assert_eq!(dateparse("Fri, 31 Dec 2399 00:00:00 +0000").unwrap(),
-                   13569379200);
-        assert_eq!(dateparse("Fri, 31 Dec 2400 00:00:00 +0000").unwrap(),
-                   13601001600);
+        assert_eq!(
+            dateparse("Sun, 25 Sep 2016 18:36:33 -0400").unwrap(),
+            1474842993
+        );
+        assert_eq!(
+            dateparse("Fri, 01 Jan 2100 11:12:13 +0000").unwrap(),
+            4102485133
+        );
+        assert_eq!(
+            dateparse("Fri, 31 Dec 2100 00:00:00 +0000").unwrap(),
+            4133894400
+        );
+        assert_eq!(
+            dateparse("Fri, 31 Dec 2399 00:00:00 +0000").unwrap(),
+            13569379200
+        );
+        assert_eq!(
+            dateparse("Fri, 31 Dec 2400 00:00:00 +0000").unwrap(),
+            13601001600
+        );
         assert_eq!(dateparse("17 Sep 2016 16:05:38 -1000").unwrap(), 1474164338);
-        assert_eq!(dateparse("Fri, 30 Nov 2012 20:57:23 GMT").unwrap(),
-                   1354309043);
+        assert_eq!(
+            dateparse("Fri, 30 Nov 2012 20:57:23 GMT").unwrap(),
+            1354309043
+        );
     }
 }
