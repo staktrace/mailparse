@@ -1,5 +1,8 @@
 use charset::{decode_ascii, Charset};
 use {MailParseError, ParsedContentType};
+use base64_stream::FromBase64Reader;
+use iter_read::IterRead;
+use std::io::Read;
 
 /// Represents the body of an email (or mail subpart)
 pub enum Body<'a> {
@@ -126,12 +129,13 @@ impl<'a> BinaryBody<'a> {
 }
 
 fn decode_base64(body: &[u8]) -> Result<Vec<u8>, MailParseError> {
-    let cleaned = body
-        .iter()
-        .filter(|c| !c.is_ascii_whitespace())
-        .cloned()
-        .collect::<Vec<u8>>();
-    Ok(base64::decode(&cleaned)?)
+    let cleaned_iter = body.iter().filter(|c| !c.is_ascii_whitespace());
+
+    let mut reader = FromBase64Reader::new(IterRead::new(cleaned_iter));
+
+    let mut decoded = vec![];
+    reader.read_to_end(&mut decoded)?;
+    Ok(decoded)
 }
 
 fn decode_quoted_printable(body: &[u8]) -> Result<Vec<u8>, MailParseError> {

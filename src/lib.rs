@@ -1,6 +1,8 @@
 extern crate base64;
 extern crate charset;
 extern crate quoted_printable;
+extern crate base64_stream;
+extern crate iter_read;
 
 use std::collections::BTreeMap;
 use std::error;
@@ -26,6 +28,8 @@ pub enum MailParseError {
     /// Data that was specified as being in the base64 transfer-encoding could
     /// not be successfully decoded as base64 data.
     Base64DecodeError(base64::DecodeError),
+    /// Data could not be read or written correctly.
+    IoError(std::io::Error),
     /// An error occurred when converting the raw byte data to Rust UTF-8 string
     /// format using the charset specified in the message.
     EncodingError(std::borrow::Cow<'static, str>),
@@ -42,6 +46,7 @@ impl fmt::Display for MailParseError {
             }
             MailParseError::Base64DecodeError(ref err) => write!(f, "Base64 decode error: {}", err),
             MailParseError::EncodingError(ref err) => write!(f, "Encoding error: {}", err),
+            MailParseError::IoError(ref err) => write!(f, "IO error: {}", err),
             MailParseError::Generic(ref description) => write!(f, "{}", description),
         }
     }
@@ -52,6 +57,7 @@ impl error::Error for MailParseError {
         match *self {
             MailParseError::QuotedPrintableDecodeError(ref err) => err.description(),
             MailParseError::Base64DecodeError(ref err) => err.description(),
+            MailParseError::IoError(ref err) => err.description(),
             MailParseError::EncodingError(ref err) => err.deref(),
             _ => "An error occurred while attempting to parse the input",
         }
@@ -61,6 +67,7 @@ impl error::Error for MailParseError {
         match *self {
             MailParseError::QuotedPrintableDecodeError(ref err) => Some(err),
             MailParseError::Base64DecodeError(ref err) => Some(err),
+            MailParseError::IoError(ref err) => Some(err),
             _ => None,
         }
     }
@@ -81,6 +88,12 @@ impl From<base64::DecodeError> for MailParseError {
 impl From<std::borrow::Cow<'static, str>> for MailParseError {
     fn from(err: std::borrow::Cow<'static, str>) -> MailParseError {
         MailParseError::EncodingError(err)
+    }
+}
+
+impl From<std::io::Error> for MailParseError {
+    fn from(err: std::io::Error) -> MailParseError {
+        MailParseError::IoError(err)
     }
 }
 
