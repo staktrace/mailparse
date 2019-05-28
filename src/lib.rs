@@ -665,7 +665,8 @@ impl<'a> ParsedMail<'a> {
     /// ```
     pub fn get_body(&self) -> Result<String, MailParseError> {
         match self.get_body_encoded()? {
-            Body::Base64(body) | Body::QuotedPrintable(body) => body.get_decoded_as_string(),
+            Body::Base64(body) => body.get_decoded_as_string(),
+            Body::QuotedPrintable(body) => body.get_decoded_as_string(),
             Body::SevenBit(body) | Body::EightBit(body) => body.get_as_string(),
             Body::Binary(_) => Err(MailParseError::Generic(
                 "Message body of type binary body cannot be parsed into a string",
@@ -689,7 +690,8 @@ impl<'a> ParsedMail<'a> {
     /// ```
     pub fn get_body_raw(&self) -> Result<Vec<u8>, MailParseError> {
         match self.get_body_encoded()? {
-            Body::Base64(body) | Body::QuotedPrintable(body) => body.get_decoded(),
+            Body::Base64(body) => body.get_decoded(),
+            Body::QuotedPrintable(body) => body.get_decoded(),
             Body::SevenBit(body) | Body::EightBit(body) => Ok(Vec::<u8>::from(body.get_raw())),
             Body::Binary(body) => Ok(Vec::<u8>::from(body.get_raw())),
         }
@@ -703,6 +705,7 @@ impl<'a> ParsedMail<'a> {
     /// ```
     ///     use mailparse::parse_mail;
     ///     use mailparse::body::Body;
+    ///     use std::io::Read;
     ///
     ///     let mail = parse_mail(b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG 8gd\r\n29ybGQ=").unwrap();
     ///
@@ -720,7 +723,19 @@ impl<'a> ParsedMail<'a> {
     ///     let another_mail = parse_mail(b"").unwrap();
     ///
     ///     match another_mail.get_body_encoded().unwrap() {
-    ///         Body::Base64(body) | Body::QuotedPrintable(body) => {
+    ///         Body::Base64(body) => {
+    ///             println!("mail body encoded: {:?}", body.get_raw());
+    ///             println!("mail body decoded: {:?}", body.get_decoded().unwrap());
+    ///             println!("mail body decoded as string: {}", body.get_decoded_as_string().unwrap());
+    ///
+    ///             // otherwise, use a reader to access the encoded body to stream it
+    ///             // without loading it into memory
+    ///             let mut reader = body.get_decoded_reader();
+    ///             let mut decoded = vec![];
+    ///             reader.read_to_end(&mut decoded).unwrap();
+    ///
+    ///         },
+    ///         Body::QuotedPrintable(body) => {
     ///             println!("mail body encoded: {:?}", body.get_raw());
     ///             println!("mail body decoded: {:?}", body.get_decoded().unwrap());
     ///             println!("mail body decoded as string: {}", body.get_decoded_as_string().unwrap());

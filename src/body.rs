@@ -7,9 +7,9 @@ use std::io::Read;
 /// Represents the body of an email (or mail subpart)
 pub enum Body<'a> {
     /// A body with 'base64' Content-Transfer-Encoding.
-    Base64(EncodedBody<'a>),
+    Base64(Base64Body<'a>),
     /// A body with 'quoted-printable' Content-Transfer-Encoding.
-    QuotedPrintable(EncodedBody<'a>),
+    QuotedPrintable(QuotedPrintableBody<'a>),
     /// A body with '7bit' Content-Transfer-Encoding.
     SevenBit(TextBody<'a>),
     /// A body with '8bit' Content-Transfer-Encoding.
@@ -27,13 +27,11 @@ impl<'a> Body<'a> {
         transfer_encoding
             .as_ref()
             .map(|encoding| match encoding.as_ref() {
-                "base64" => Body::Base64(EncodedBody {
-                    decoder: decode_base64,
+                "base64" => Body::Base64(Base64Body {
                     body,
                     ctype,
                 }),
-                "quoted-printable" => Body::QuotedPrintable(EncodedBody {
-                    decoder: decode_quoted_printable,
+                "quoted-printable" => Body::QuotedPrintable(QuotedPrintableBody {
                     body,
                     ctype,
                 }),
@@ -51,13 +49,12 @@ impl<'a> Body<'a> {
 }
 
 /// Struct that holds the encoded body representation of the message (or message subpart).
-pub struct EncodedBody<'a> {
-    decoder: fn(&[u8]) -> Result<Vec<u8>, MailParseError>,
+pub struct Base64Body<'a> {
     ctype: &'a ParsedContentType,
     body: &'a [u8],
 }
 
-impl<'a> EncodedBody<'a> {
+impl<'a> Base64Body<'a> {
     /// Get the body Content-Type
     pub fn get_content_type(&self) -> &'a ParsedContentType {
         self.ctype
@@ -70,7 +67,55 @@ impl<'a> EncodedBody<'a> {
 
     /// Get the decoded body of the message (or message subpart).
     pub fn get_decoded(&self) -> Result<Vec<u8>, MailParseError> {
-        (self.decoder)(self.body)
+        let mut reader = self.get_decoded_reader();
+        let mut decoded = vec![];
+        reader.read_to_end(&mut decoded)?;
+        Ok(decoded)
+    }
+
+    /// Get a reader on the decoded body of the message (or message subpart).
+    /// This function allows to decode, read the body and to stream it
+    /// without loading the decoded body into memory.
+    pub fn get_decoded_reader(&'a self) -> impl Read + 'a {
+        let cleaned_iter = self.body.iter().filter(|c| !c.is_ascii_whitespace());
+        FromBase64Reader::new(IterRead::new(cleaned_iter))
+    }
+
+    /// Get the body of the message as a Rust string.
+    /// This function tries to decode the body and then converts
+    /// the result into a Rust UTF-8 string using the charset in the Content-Type
+    /// (or "us-ascii" if the charset was missing or not recognized).
+    /// This operation returns a valid result only if the decoded body
+    /// has a text format.
+    pub fn get_decoded_as_string(&self) -> Result<String, MailParseError> {
+        get_body_as_string(&self.get_decoded()?, &self.ctype)
+    }
+}
+
+
+/// Struct that holds the encoded body representation of the message (or message subpart).
+pub struct QuotedPrintableBody<'a> {
+    ctype: &'a ParsedContentType,
+    body: &'a [u8],
+}
+
+impl<'a> QuotedPrintableBody<'a> {
+    /// Get the body Content-Type
+    pub fn get_content_type(&self) -> &'a ParsedContentType {
+        self.ctype
+    }
+
+    /// Get the raw body of the message exactly as it is written in the message (or message subpart).
+    pub fn get_raw(&self) -> &'a [u8] {
+        self.body
+    }
+
+    /// Get the decoded body of the message (or message subpart).
+    pub fn get_decoded(&self) -> Result<Vec<u8>, MailParseError> {
+        Ok(quoted_printable::decode(
+            self.body,
+            quoted_printable::ParseMode::Robust,
+        )?)
     }
 
     /// Get the body of the message as a Rust string.
@@ -126,23 +171,6 @@ impl<'a> BinaryBody<'a> {
     pub fn get_raw(&self) -> &'a [u8] {
         self.body
     }
-}
-
-fn decode_base64(body: &[u8]) -> Result<Vec<u8>, MailParseError> {
-    let cleaned_iter = body.iter().filter(|c| !c.is_ascii_whitespace());
-
-    let mut reader = FromBase64Reader::new(IterRead::new(cleaned_iter));
-
-    let mut decoded = vec![];
-    reader.read_to_end(&mut decoded)?;
-    Ok(decoded)
-}
-
-fn decode_quoted_printable(body: &[u8]) -> Result<Vec<u8>, MailParseError> {
-    Ok(quoted_printable::decode(
-        body,
-        quoted_printable::ParseMode::Robust,
-    )?)
 }
 
 fn get_body_as_string(body: &[u8], ctype: &ParsedContentType) -> Result<String, MailParseError> {
