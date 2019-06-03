@@ -25,7 +25,7 @@ impl<'a> Body<'a> {
         transfer_encoding: Option<&str>,
     ) -> Body<'a> {
         transfer_encoding
-            .map(|encoding| match encoding.as_ref() {
+            .map(|encoding| match encoding {
                 "base64" => Body::Base64(Base64Body {
                     body,
                     ctype,

@@ -4,13 +4,13 @@ extern crate quoted_printable;
 extern crate base64_stream;
 extern crate iter_read;
 
-use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
 use std::ops::Deref;
+use std::collections::BTreeMap;
 
-use charset::decode_latin1;
 use charset::Charset;
+use charset::decode_latin1;
 
 pub mod body;
 mod dateparse;
@@ -173,11 +173,12 @@ impl<'a> MailHeader<'a> {
                 // whitespace
                 let to_decode = input.replace("_", " ");
                 let trimmed = to_decode.trim_end();
-                let mut d = quoted_printable::decode(&trimmed, quoted_printable::ParseMode::Robust);
+                let mut d =
+                    quoted_printable::decode(&trimmed, quoted_printable::ParseMode::Robust);
                 if d.is_ok() && to_decode.len() != trimmed.len() {
-                    d.as_mut()
-                        .unwrap()
-                        .extend_from_slice(to_decode[trimmed.len()..].as_bytes());
+                    d.as_mut().unwrap().extend_from_slice(
+                        to_decode[trimmed.len()..].as_bytes(),
+                    );
                 }
                 d.ok()?
             }
@@ -308,8 +309,8 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
                 if c == b' ' {
                     return Err(MailParseError::Generic(
                         "Header cannot start with a space; it is \
-                         likely an overhanging line from a \
-                         previous header",
+                                                        likely an overhanging line from a \
+                                                        previous header",
                     ));
                 };
                 state = HeaderParseState::Key;
@@ -354,13 +355,15 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
         };
     }
     match ix_key_end {
-        Some(v) => Ok((
-            MailHeader {
-                key: &raw_data[0..v],
-                value: &raw_data[ix_value_start..ix_value_end],
-            },
-            ix,
-        )),
+        Some(v) => {
+            Ok((
+                MailHeader {
+                    key: &raw_data[0..v],
+                    value: &raw_data[ix_value_start..ix_value_end],
+                },
+                ix,
+            ))
+        }
 
         None => Err(MailParseError::Generic(
             "Unable to determine end of the header key component",
@@ -468,7 +471,7 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
             } else {
                 return Err(MailParseError::Generic(
                     "Headers were followed by an unexpected lone \
-                     CR character!",
+                                                    CR character!",
                 ));
             }
         }
@@ -768,8 +771,7 @@ impl<'a> ParsedMail<'a> {
     /// method documentation for more details on the semantics of the
     /// returned object.
     pub fn get_content_disposition(&self) -> Result<ParsedContentDisposition, MailParseError> {
-        let disposition = self
-            .headers
+        let disposition = self.headers
             .get_first_value("Content-Disposition")?
             .map(|s| parse_content_disposition(&s))
             .unwrap_or_default();
@@ -827,9 +829,8 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
         body: &raw_data[ix_body..],
         subparts: Vec::<ParsedMail>::new(),
     };
-    if result.ctype.mimetype.starts_with("multipart/")
-        && result.ctype.params.get("boundary").is_some()
-        && raw_data.len() > ix_body
+    if result.ctype.mimetype.starts_with("multipart/") &&
+        result.ctype.params.get("boundary").is_some() && raw_data.len() > ix_body
     {
         let boundary = String::from("--") + &result.ctype.params["boundary"];
         if let Some(ix_body_end) = find_from_u8(raw_data, ix_body, boundary.as_bytes()) {
@@ -842,12 +843,10 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
                 let ix_part_end = find_from_u8(raw_data, ix_part_start, boundary.as_bytes())
                     .unwrap_or_else(|| raw_data.len());
 
-                result
-                    .subparts
-                    .push(parse_mail(&raw_data[ix_part_start..ix_part_end])?);
+                result.subparts.push(parse_mail(&raw_data[ix_part_start..ix_part_end])?);
                 ix_boundary_end = ix_part_end + boundary.len();
-                if ix_boundary_end + 2 > raw_data.len()
-                    || (raw_data[ix_boundary_end] == b'-' && raw_data[ix_boundary_end + 1] == b'-')
+                if ix_boundary_end + 2 > raw_data.len() ||
+                    (raw_data[ix_boundary_end] == b'-' && raw_data[ix_boundary_end + 1] == b'-')
                 {
                     break;
                 }
@@ -886,8 +885,7 @@ fn parse_param_content(content: &str) -> ParamContent {
                 }
                 (key, value.to_string())
             })
-        })
-        .collect();
+        }).collect();
 
     ParamContent {
         value: value.into(),
@@ -903,13 +901,9 @@ mod tests {
         ( $x:expr, $p:pat ) => {
             match $x {
                 $p => (),
-                _ => panic!(
-                    "Expression {} does not match pattern {}",
-                    $x,
-                    stringify!($p)
-                ),
+                _ => panic!("Expression {} does not match pattern {}", $x, stringify!($p)),
             }
-        };
+        }
     }
 
     #[test]
@@ -971,8 +965,7 @@ mod tests {
         let (parsed, _) = parse_header(
             b"Subject: =?iso-8859-1?Q?=A1Hola,?=\n \
                                         =?iso-8859-1?Q?_se=F1or!?=",
-        )
-        .unwrap();
+        ).unwrap();
         assert_eq!(parsed.get_key().unwrap(), "Subject");
         assert_eq!(parsed.get_value().unwrap(), "\u{a1}Hola, se\u{f1}or!");
 
@@ -1019,20 +1012,30 @@ mod tests {
         let (parsed, _) = parse_header(b"Subject: =?ISO-2022-JP?B?GyRCRnwbKEI=?=\n\t=?ISO-2022-JP?B?GyRCS1wbKEI=?=\n\t=?ISO-2022-JP?B?GyRCOGwbKEI=?=")
             .unwrap();
         assert_eq!(parsed.get_key().unwrap(), "Subject");
-        assert_eq!(parsed.get_value().unwrap(), "\u{65E5}\u{672C}\u{8A9E}");
+        assert_eq!(
+            parsed.get_value().unwrap(),
+            "\u{65E5}\u{672C}\u{8A9E}"
+        );
 
         let (parsed, _) = parse_header(b"Subject: =?ISO-2022-JP?Q?=1B\x24\x42\x46\x7C=1B\x28\x42?=\n\t=?ISO-2022-JP?Q?=1B\x24\x42\x4B\x5C=1B\x28\x42?=\n\t=?ISO-2022-JP?Q?=1B\x24\x42\x38\x6C=1B\x28\x42?=")
             .unwrap();
         assert_eq!(parsed.get_key().unwrap(), "Subject");
-        assert_eq!(parsed.get_value().unwrap(), "\u{65E5}\u{672C}\u{8A9E}");
+        assert_eq!(
+            parsed.get_value().unwrap(),
+            "\u{65E5}\u{672C}\u{8A9E}"
+        );
 
-        let (parsed, _) = parse_header(b"Subject: =?UTF-7?Q?+JgM-?=").unwrap();
+        let (parsed, _) = parse_header(b"Subject: =?UTF-7?Q?+JgM-?=")
+            .unwrap();
         assert_eq!(parsed.get_key().unwrap(), "Subject");
-        assert_eq!(parsed.get_value().unwrap(), "\u{2603}");
+        assert_eq!(
+            parsed.get_value().unwrap(),
+            "\u{2603}"
+        );
 
-        let (parsed, _) =
-            parse_header(b"Content-Type: image/jpeg; name=\"=?UTF-8?B?MDY2MTM5ODEuanBn?=\"")
-                .unwrap();
+        let (parsed, _) = parse_header(
+            b"Content-Type: image/jpeg; name=\"=?UTF-8?B?MDY2MTM5ODEuanBn?=\"",
+        ).unwrap();
         assert_eq!(parsed.get_key().unwrap(), "Content-Type");
         assert_eq!(
             parsed.get_value().unwrap(),
@@ -1041,8 +1044,7 @@ mod tests {
 
         let (parsed, _) = parse_header(
             b"From: =?UTF-8?Q?\"Motorola_Owners=E2=80=99_Forums\"_?=<forums@motorola.com>",
-        )
-        .unwrap();
+        ).unwrap();
         assert_eq!(parsed.get_key().unwrap(), "From");
         assert_eq!(
             parsed.get_value().unwrap(),
@@ -1059,8 +1061,8 @@ mod tests {
         assert_eq!(parsed[1].key, b"Two");
         assert_eq!(parsed[1].value, b"Second");
 
-        let (parsed, _) =
-            parse_headers(b"Key: Value\n Overhang\nTwo: Second\nThree: Third").unwrap();
+        let (parsed, _) = parse_headers(b"Key: Value\n Overhang\nTwo: Second\nThree: Third")
+            .unwrap();
         assert_eq!(parsed.len(), 3);
         assert_eq!(parsed[0].key, b"Key");
         assert_eq!(parsed[0].value, b"Value\n Overhang");
@@ -1083,29 +1085,27 @@ mod tests {
                 "Delivered-To: kats@baz.staktrace.com\n",
                 "Received: from foobar.staktrace.com (localhost [127.0.0.1])\n",
                 "    by foobar.staktrace.com (Postfix) with ESMTP id \
-                 139F711C1C34\n",
+                                   139F711C1C34\n",
                 "    for <kats@baz.staktrace.com>; Fri, 27 May 2016 02:34:26 \
-                 -0400 (EDT)\n",
+                                   -0400 (EDT)\n",
                 "Date: Fri, 27 May 2016 02:34:25 -0400\n",
                 "To: kats@baz.staktrace.com\n",
                 "From: kats@foobar.staktrace.com\n",
                 "Subject: test Fri, 27 May 2016 02:34:25 -0400\n",
                 "X-Mailer: swaks v20130209.0 jetmore.org/john/code/swaks/\n",
                 "Message-Id: \
-                 <20160527063426.139F711C1C34@foobar.staktrace.com>\n",
+                                   <20160527063426.139F711C1C34@foobar.staktrace.com>\n",
                 "\n",
                 "This is a test mailing\n"
-            )
-            .as_bytes(),
-        )
-        .unwrap();
+            ).as_bytes(),
+        ).unwrap();
         assert_eq!(parsed.len(), 10);
         assert_eq!(parsed[0].key, b"Return-Path");
         assert_eq!(parsed[9].key, b"Message-Id");
 
-        let (parsed, _) =
-            parse_headers(b"Key: Value\nAnotherKey: AnotherValue\nKey: Value2\nKey: Value3\n")
-                .unwrap();
+        let (parsed, _) = parse_headers(
+            b"Key: Value\nAnotherKey: AnotherValue\nKey: Value2\nKey: Value3\n",
+        ).unwrap();
         assert_eq!(parsed.len(), 4);
         assert_eq!(
             parsed.get_first_value("Key").unwrap(),
@@ -1140,14 +1140,8 @@ mod tests {
             Some("CRLF".to_string())
         );
 
-        assert_match!(
-            parse_headers(b"Bad\nKey").unwrap_err(),
-            MailParseError::Generic(_)
-        );
-        assert_match!(
-            parse_headers(b"K:V\nBad\nKey").unwrap_err(),
-            MailParseError::Generic(_)
-        );
+        assert_match!(parse_headers(b"Bad\nKey").unwrap_err(), MailParseError::Generic(_));
+        assert_match!(parse_headers(b"K:V\nBad\nKey").unwrap_err(), MailParseError::Generic(_));
     }
 
     #[test]
@@ -1179,10 +1173,7 @@ mod tests {
             " attachment; x=y; charset=\"fake\" ; x2=y2; name=\"King Joffrey.death\"",
         );
         assert_eq!(dis.disposition, DispositionType::Attachment);
-        assert_eq!(
-            dis.params.get("name"),
-            Some(&"King Joffrey.death".to_string())
-        );
+        assert_eq!(dis.params.get("name"), Some(&"King Joffrey.death".to_string()));
         assert_eq!(dis.params.get("filename"), None);
 
         let dis = parse_content_disposition(" form-data");
@@ -1214,11 +1205,8 @@ mod tests {
                 "--myboundary\r\n",
                 "Content-Type: text/html;chARset=utf-8\r\n\r\n",
                 "This is the <b>HTML</b> version with fake --MYBOUNDARY.\r\n",
-                "--myboundary--"
-            )
-            .as_bytes(),
-        )
-        .unwrap();
+                "--myboundary--").as_bytes(),
+        ).unwrap();
         assert_eq!(mail.headers.len(), 1);
         assert_eq!(mail.headers[0].get_key().unwrap(), "Content-Type");
         assert_eq!(mail.ctype.mimetype, "multipart/alternative");
@@ -1233,13 +1221,15 @@ mod tests {
         assert_eq!(mail.subparts[1].ctype.charset, "utf-8");
         assert_eq!(mail.subparts[1].ctype.params.get("boundary"), None);
 
-        let mail =
-            parse_mail(b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG 8gd\r\n29ybGQ=").unwrap();
+        let mail = parse_mail(
+            b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG 8gd\r\n29ybGQ=",
+        ).unwrap();
         assert_eq!(mail.get_body_raw().unwrap(), b"hello world");
         assert_eq!(mail.get_body().unwrap(), "hello world");
 
-        let mail =
-            parse_mail(b"Content-Type: text/plain; charset=x-unknown\r\n\r\nhello world").unwrap();
+        let mail = parse_mail(
+            b"Content-Type: text/plain; charset=x-unknown\r\n\r\nhello world",
+        ).unwrap();
         assert_eq!(mail.get_body_raw().unwrap(), b"hello world");
         assert_eq!(mail.get_body().unwrap(), "hello world");
 
@@ -1254,9 +1244,12 @@ mod tests {
         assert_eq!(mail.get_body_raw().unwrap(), b"+JgM-");
         assert_eq!(mail.get_body().unwrap(), "\u{2603}");
 
-        let mail = parse_mail(b"Content-Type: text/plain; charset=UTF-7\r\n\r\n+JgM-").unwrap();
+        let mail = parse_mail(
+            b"Content-Type: text/plain; charset=UTF-7\r\n\r\n+JgM-",
+        ).unwrap();
         assert_eq!(mail.get_body_raw().unwrap(), b"+JgM-");
         assert_eq!(mail.get_body().unwrap(), "\u{2603}");
+
     }
 
     #[test]
@@ -1269,20 +1262,17 @@ mod tests {
                 "part0\r\n",
                 "--myboundary\r\n",
                 "Content-Type: text/html\r\n\r\n",
-                "part1\r\n"
-            )
-            .as_bytes(),
-        )
-        .unwrap();
+                "part1\r\n").as_bytes(),
+        ).unwrap();
         assert_eq!(mail.subparts[0].get_body().unwrap(), "part0\r\n");
         assert_eq!(mail.subparts[1].get_body().unwrap(), "part1\r\n");
     }
 
     #[test]
     fn test_missing_body() {
-        let parsed =
-            parse_mail("Content-Type: multipart/related; boundary=\"----=_\"\n".as_bytes())
-                .unwrap();
+        let parsed = parse_mail(
+            "Content-Type: multipart/related; boundary=\"----=_\"\n".as_bytes(),
+        ).unwrap();
         assert_eq!(parsed.headers[0].get_key().unwrap(), "Content-Type");
         assert_eq!(parsed.get_body_raw().unwrap(), b"");
         assert_eq!(parsed.get_body().unwrap(), "");
@@ -1297,11 +1287,8 @@ mod tests {
                 "\n",
                 "--1404630116.22555.postech.q0.x.x.x\n",
                 "\n",
-                "--1404630116.22555.postech.q0.x.x.x--\n"
-            )
-            .as_bytes(),
-        )
-        .unwrap();
+                "--1404630116.22555.postech.q0.x.x.x--\n").as_bytes(),
+        ).unwrap();
         assert_eq!(mail.ctype.mimetype, "multipart/report");
         assert_eq!(mail.subparts[0].headers.len(), 0);
         assert_eq!(mail.subparts[0].ctype.mimetype, "text/plain");
