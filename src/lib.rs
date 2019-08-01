@@ -229,6 +229,7 @@ impl<'a> MailHeader<'a> {
                                 }
                                 None => {
                                     result.push_str(&"=?");
+                                    ix_search = ix_begin - 2;
                                 }
                             };
                             break;
@@ -1417,5 +1418,16 @@ mod tests {
             }
             _ => assert!(false),
         };
+    }
+
+    #[test]
+    fn test_fuzzer_testcase() {
+        const INPUT: &'static str = "U3ViamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IW11bAAAAAAAAAAAamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IG11bAAAAAAAAAAAAAAAAABTTUFZdWJqZf86OiP/dCBTdWJqZWN0Ol8KRGF0ZTog/////////////////////wAAAAAAAAAAAHQgYnJmAHQgYnJmZXItRW5jeXBlOnY9NmU3OjA2OgAAAAAAAAAAAAAAADEAAAAAAP/8mAAAAAAAAAAA+f///wAAAAAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAPT0/PzEAAAEAAA==";
+
+        if let Ok(parsed) = parse_mail(&base64::decode(INPUT).unwrap()) {
+            if let Ok(Some(date)) = parsed.headers.get_first_value("Date") {
+                let _ = dateparse(&date);
+            }
+        }
     }
 }
