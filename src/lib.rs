@@ -108,6 +108,9 @@ fn find_from(line: &str, ix_start: usize, key: &str) -> Option<usize> {
 fn find_from_u8(line: &[u8], ix_start: usize, key: &[u8]) -> Option<usize> {
     assert!(!key.is_empty());
     assert!(ix_start < line.len());
+    if line.len() < key.len() {
+        return None;
+    }
     let ix_end = line.len() - key.len();
     if ix_start <= ix_end {
         for i in ix_start..ix_end {
@@ -1424,6 +1427,16 @@ mod tests {
     fn test_fuzzer_testcase() {
         const INPUT: &'static str = "U3ViamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IW11bAAAAAAAAAAAamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IG11bAAAAAAAAAAAAAAAAABTTUFZdWJqZf86OiP/dCBTdWJqZWN0Ol8KRGF0ZTog/////////////////////wAAAAAAAAAAAHQgYnJmAHQgYnJmZXItRW5jeXBlOnY9NmU3OjA2OgAAAAAAAAAAAAAAADEAAAAAAP/8mAAAAAAAAAAA+f///wAAAAAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAPT0/PzEAAAEAAA==";
 
+        if let Ok(parsed) = parse_mail(&base64::decode(INPUT).unwrap()) {
+            if let Ok(Some(date)) = parsed.headers.get_first_value("Date") {
+                let _ = dateparse(&date);
+            }
+        }
+    }
+
+    #[test]
+    fn test_fuzzer_testcase_2() {
+        const INPUT: &'static str = "U3ViamVjdDogVGhpcyBpcyBhIHRlc3QgZW1haWwKQ29udGVudC1UeXBlOiBtdWx0aXBhcnQvYWx0ZXJuYXRpdmU7IGJvdW5kYXJ5PczMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMZm9vYmFyCkRhdGU6IFN1biwgMDIgT2MKCi1TdWJqZWMtZm9vYmFydDo=";
         if let Ok(parsed) = parse_mail(&base64::decode(INPUT).unwrap()) {
             if let Ok(Some(date)) = parsed.headers.get_first_value("Date") {
                 let _ = dateparse(&date);
