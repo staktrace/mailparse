@@ -4,12 +4,10 @@ extern crate quoted_printable;
 
 use std::collections::BTreeMap;
 
-use charset::decode_latin1;
-use charset::Charset;
-
 pub mod body;
 mod dateparse;
 mod error;
+mod util;
 
 use body::Body;
 pub use dateparse::dateparse;
@@ -24,52 +22,6 @@ pub use error::*;
 pub struct MailHeader<'a> {
     key: &'a [u8],
     value: &'a [u8],
-}
-
-fn is_boundary(line: &str, ix: Option<usize>) -> bool {
-    ix.and_then(|v| line.chars().nth(v))
-        .map(|c| c.is_whitespace() || c == '"' || c == '(' || c == ')' || c == '<' || c == '>')
-        .unwrap_or(true)
-}
-
-fn find_from(line: &str, ix_start: usize, key: &str) -> Option<usize> {
-    line[ix_start..].find(key).map(|v| ix_start + v)
-}
-
-fn find_from_u8(line: &[u8], ix_start: usize, key: &[u8]) -> Option<usize> {
-    assert!(!key.is_empty());
-    assert!(ix_start < line.len());
-    if line.len() < key.len() {
-        return None;
-    }
-    let ix_end = line.len() - key.len();
-    if ix_start <= ix_end {
-        for i in ix_start..ix_end {
-            if line[i] == key[0] {
-                let mut success = true;
-                for j in 1..key.len() {
-                    if line[i + j] != key[j] {
-                        success = false;
-                        break;
-                    }
-                }
-                if success {
-                    return Some(i);
-                }
-            }
-        }
-    }
-    None
-}
-
-#[test]
-fn test_find_from_u8() {
-    assert_eq!(find_from_u8(b"hello world", 0, b"hell"), Some(0));
-    assert_eq!(find_from_u8(b"hello world", 0, b"o"), Some(4));
-    assert_eq!(find_from_u8(b"hello world", 4, b"o"), Some(4));
-    assert_eq!(find_from_u8(b"hello world", 5, b"o"), Some(7));
-    assert_eq!(find_from_u8(b"hello world", 8, b"o"), None);
-    assert_eq!(find_from_u8(b"hello world", 10, b"d"), None);
 }
 
 impl<'a> MailHeader<'a> {
@@ -735,14 +687,14 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
         && raw_data.len() > ix_body
     {
         let boundary = String::from("--") + &result.ctype.params["boundary"];
-        if let Some(ix_body_end) = find_from_u8(raw_data, ix_body, boundary.as_bytes()) {
+        if let Some(ix_body_end) = util::find_from_u8(raw_data, ix_body, boundary.as_bytes()) {
             result.body = &raw_data[ix_body..ix_body_end];
             let mut ix_boundary_end = ix_body_end + boundary.len();
             while let Some(ix_part_start) =
-                find_from_u8(raw_data, ix_boundary_end, b"\n").map(|v| v + 1)
+                util::find_from_u8(raw_data, ix_boundary_end, b"\n").map(|v| v + 1)
             {
                 // if there is no terminating boundary, assume the part end is the end of the email
-                let ix_part_end = find_from_u8(raw_data, ix_part_start, boundary.as_bytes())
+                let ix_part_end = util::find_from_u8(raw_data, ix_part_start, boundary.as_bytes())
                     .unwrap_or_else(|| raw_data.len());
 
                 result
@@ -801,6 +753,9 @@ fn parse_param_content(content: &str) -> ParamContent {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use util::is_boundary;
+    use util::find_from;
+    use util::find_from_u8;
 
     macro_rules! assert_match {
         ( $x:expr, $p:pat ) => {
