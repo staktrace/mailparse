@@ -57,7 +57,7 @@ impl error::Error for MailParseError {
         }
     }
 
-    fn cause(&self) -> Option<&error::Error> {
+    fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             MailParseError::QuotedPrintableDecodeError(ref err) => Some(err),
             MailParseError::Base64DecodeError(ref err) => Some(err),
