@@ -1,3 +1,5 @@
+/// A representation of a single mailbox. Each mailbox has
+/// a routing address `addr` and an optional display name.
 #[derive(Debug, PartialEq)]
 pub struct SingleInfo {
     pub display_name: Option<String>,
@@ -13,6 +15,8 @@ impl SingleInfo {
     }
 }
 
+/// A representation of a group address. It has a name and
+/// a list of mailboxes.
 #[derive(Debug, PartialEq)]
 pub struct GroupInfo {
     pub group_name: String,
@@ -28,6 +32,12 @@ impl GroupInfo {
     }
 }
 
+/// An abstraction over the two different kinds of top-level addresses allowed
+/// in email headers. Group addresses have a name and a list of mailboxes. Single
+/// addresses are just a mailbox. Each mailbox consists of what you would consider
+/// an email address (e.g. foo@bar.com) and optionally a display name ("Foo Bar").
+/// Groups are represented in email headers with colons and semicolons, e.g.
+///    To: my-peeps: foo@peeps.org, bar@peeps.org;
 #[derive(Debug, PartialEq)]
 pub enum MailAddr {
     Group(GroupInfo),
@@ -46,6 +56,21 @@ enum AddrParseState {
     TrailerComment,
 }
 
+/// Convert an address field from an email header into a structured type.
+/// This function handles the most common formatting of to/from/cc/bcc fields
+/// found in email headers.
+///
+/// # Examples
+/// ```
+///     use mailparse::{addrparse, MailAddr, SingleInfo};
+///     match &addrparse("John Doe <john@doe.com>").unwrap()[0] {
+///         MailAddr::Single(info) => {
+///             assert_eq!(info.display_name, Some("John Doe".to_string()));
+///             assert_eq!(info.addr, "john@doe.com".to_string());
+///         }
+///         _ => panic!()
+///     };
+/// ```
 pub fn addrparse(addrs: &str) -> Result<Vec<MailAddr>, &'static str> {
     let mut it = addrs.chars();
     addrparse_inner(&mut it, false)
