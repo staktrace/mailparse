@@ -15,7 +15,7 @@ mod addrparse;
 mod dateparse;
 
 use body::Body;
-pub use addrparse::{addrparse, GroupInfo, MailAddr, SingleInfo};
+pub use addrparse::{addrparse, GroupInfo, MailAddr, MailAddrList, SingleInfo};
 pub use dateparse::dateparse;
 
 /// An error type that represents the different kinds of errors that may be
