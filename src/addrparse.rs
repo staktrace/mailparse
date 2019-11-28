@@ -85,7 +85,8 @@ enum AddrParseState {
 
 /// A simple wrapper around `Vec<MailAddr>`. This is primarily here so we can
 /// implement the Display trait on it, and allow user code to easily convert
-/// the return value from `addrparse` back into a string.
+/// the return value from `addrparse` back into a string. However there are some
+/// additional utility functions on this wrapper as well.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MailAddrList(Vec<MailAddr>);
 
@@ -126,6 +127,32 @@ impl fmt::Display for MailAddrList {
             }
         }
         Ok(())
+    }
+}
+
+impl MailAddrList {
+    /// Count the number of `SingleInfo` instances in this list of addresses.
+    pub fn count_addrs(&self) -> usize {
+        self.iter().fold(0, |acc, elem| {
+            match elem {
+                MailAddr::Single(_) => acc + 1,
+                MailAddr::Group(g) => acc + g.addrs.len(),
+            }
+        })
+    }
+
+    /// Convenience function to check if this list of addresses contains exactly
+    /// one `SingleInfo`, and if it does, to return it. If there is not exactly
+    /// one `SingleInfo`, this function returns None.
+    pub fn extract_single_info(self) -> Option<SingleInfo> {
+        if self.len() == 1 {
+            match &self[0] {
+                MailAddr::Group(_) => None,
+                MailAddr::Single(s) => Some(s.clone()),
+            }
+        } else {
+            None
+        }
     }
 }
 
@@ -543,5 +570,49 @@ mod tests {
         ]);
         assert_eq!(tc.to_string(),
                    r#""marvel": ironman@marvel.com, spiderman@marvel.com; "b-man" <b@man.com>, "dc": batman@dc.com, superman@dc.com; "d-woman" <d@woman.com>"#);
+    }
+
+    #[test]
+    fn count_addrs() {
+        let tc = MailAddrList(vec![
+            MailAddr::Group(GroupInfo::new("marvel".to_string(), vec![
+                SingleInfo::new(None, "ironman@marvel.com".to_string()),
+                SingleInfo::new(None, "spiderman@marvel.com".to_string()),
+            ])),
+            MailAddr::Single(SingleInfo::new(Some("b-man".to_string()), "b@man.com".to_string())),
+            MailAddr::Group(GroupInfo::new("dc".to_string(), vec![
+                SingleInfo::new(None, "batman@dc.com".to_string()),
+                SingleInfo::new(None, "superman@dc.com".to_string()),
+            ])),
+            MailAddr::Single(SingleInfo::new(Some("d-woman".to_string()), "d@woman.com".to_string())),
+        ]);
+        assert_eq!(tc.count_addrs(), 6);
+        assert_eq!(tc.extract_single_info(), None);
+
+        let tc = MailAddrList(vec![]);
+        assert_eq!(tc.count_addrs(), 0);
+        assert_eq!(tc.extract_single_info(), None);
+
+        let tc = MailAddrList(vec![
+            MailAddr::Group(GroupInfo::new("group".to_string(), vec![
+                SingleInfo::new(None, "foo@bar.com".to_string()),
+            ])),
+        ]);
+        assert_eq!(tc.count_addrs(), 1);
+        assert_eq!(tc.extract_single_info(), None);
+
+        let tc = MailAddrList(vec![
+            MailAddr::Single(SingleInfo::new(None, "foo@bar.com".to_string())),
+        ]);
+        assert_eq!(tc.count_addrs(), 1);
+        assert_eq!(tc.extract_single_info(), Some(SingleInfo::new(None, "foo@bar.com".to_string())));
+
+        let tc = MailAddrList(vec![
+            MailAddr::Group(GroupInfo::new("group".to_string(), vec![])),
+            MailAddr::Group(GroupInfo::new("group".to_string(), vec![])),
+        ]);
+        assert_eq!(tc.count_addrs(), 0);
+        assert_eq!(tc.extract_single_info(), None);
+
     }
 }
