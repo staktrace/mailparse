@@ -130,6 +130,12 @@ impl fmt::Display for MailAddrList {
     }
 }
 
+impl From<Vec<MailAddr>> for MailAddrList {
+    fn from(addrs: Vec<MailAddr>) -> Self {
+        MailAddrList(addrs)
+    }
+}
+
 impl MailAddrList {
     /// Count the number of `SingleInfo` instances in this list of addresses.
     pub fn count_addrs(&self) -> usize {
