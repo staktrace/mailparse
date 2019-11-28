@@ -97,6 +97,12 @@ impl std::ops::Deref for MailAddrList {
     }
 }
 
+impl std::ops::DerefMut for MailAddrList {
+    fn deref_mut(&mut self) -> &mut Vec<MailAddr> {
+        &mut self.0
+    }
+}
+
 impl fmt::Display for MailAddrList {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut last_was_group = false;
