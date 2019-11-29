@@ -749,6 +749,12 @@ impl<'a> ParsedMail<'a> {
             .unwrap_or_default();
         Ok(disposition)
     }
+
+    /// Returns the subparts, consuming the existing structure, allowing them to be
+    /// processed further independently.
+    pub fn into_subparts(self) -> Vec<ParsedMail<'a>> {
+        self.subparts
+    }
 }
 
 /// The main mail-parsing entry point.
