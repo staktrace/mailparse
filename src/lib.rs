@@ -10,12 +10,12 @@ use std::ops::Deref;
 use charset::decode_latin1;
 use charset::Charset;
 
-pub mod body;
 mod addrparse;
+pub mod body;
 mod dateparse;
 
-use body::Body;
 pub use addrparse::{addrparse, GroupInfo, MailAddr, MailAddrList, SingleInfo};
+use body::Body;
 pub use dateparse::dateparse;
 
 /// An error type that represents the different kinds of errors that may be
@@ -91,7 +91,7 @@ impl From<std::borrow::Cow<'static, str>> for MailParseError {
 /// lifetime of this struct must be contained within the lifetime of the raw
 /// input. There are additional accessor functions on this struct to extract
 /// the data as Rust strings.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct MailHeader<'a> {
     key: &'a [u8],
     value: &'a [u8],
@@ -475,7 +475,7 @@ pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailPa
 /// A struct to hold a more structured representation of the Content-Type header.
 /// This is provided mostly as a convenience since this metadata is usually
 /// needed to interpret the message body properly.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ParsedContentType {
     /// The type of the data, for example "text/plain" or "application/pdf".
     pub mimetype: String,
@@ -555,7 +555,7 @@ pub fn parse_content_type(header: &str) -> ParsedContentType {
 /// https://www.iana.org/assignments/cont-disp/cont-disp.xhtml. This library
 /// only enumerates the types most commonly found in email messages, and
 /// provides the `Extension` value for holding all other types.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DispositionType {
     /// Default value, indicating the content is to be displayed inline as
     /// part of the enclosing document.
@@ -588,7 +588,7 @@ fn parse_disposition_type(disposition: &str) -> DispositionType {
 /// A struct to hold a more structured representation of the Content-Disposition header.
 /// This is provided mostly as a convenience since this metadata is usually
 /// needed to interpret the message body properly.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct ParsedContentDisposition {
     /// The disposition type of the Content-Disposition header. If this
     /// is an extension type, the string will be lowercased.
@@ -627,7 +627,7 @@ pub fn parse_content_disposition(header: &str) -> ParsedContentDisposition {
 /// since MIME allows for nested multipart messages, a tree-like structure is
 /// necessary to represent it properly. This struct accomplishes that by holding
 /// a vector of other ParsedMail structures for the subparts.
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ParsedMail<'a> {
     /// The headers for the message (or message subpart).
     pub headers: Vec<MailHeader<'a>>,

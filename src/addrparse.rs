@@ -2,7 +2,7 @@ use std::fmt;
 
 /// A representation of a single mailbox. Each mailbox has
 /// a routing address `addr` and an optional display name.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SingleInfo {
     pub display_name: Option<String>,
     pub addr: String,
@@ -29,7 +29,7 @@ impl fmt::Display for SingleInfo {
 
 /// A representation of a group address. It has a name and
 /// a list of mailboxes.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GroupInfo {
     pub group_name: String,
     pub addrs: Vec<SingleInfo>,
@@ -65,7 +65,7 @@ impl fmt::Display for GroupInfo {
 /// an email address (e.g. foo@bar.com) and optionally a display name ("Foo Bar").
 /// Groups are represented in email headers with colons and semicolons, e.g.
 ///    To: my-peeps: foo@peeps.org, bar@peeps.org;
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MailAddr {
     Group(GroupInfo),
     Single(SingleInfo),
