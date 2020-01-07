@@ -10,12 +10,12 @@ use std::ops::Deref;
 use charset::decode_latin1;
 use charset::Charset;
 
-pub mod body;
 mod addrparse;
+pub mod body;
 mod dateparse;
 
-use body::Body;
 pub use addrparse::{addrparse, GroupInfo, MailAddr, MailAddrList, SingleInfo};
+use body::Body;
 pub use dateparse::dateparse;
 
 /// An error type that represents the different kinds of errors that may be
