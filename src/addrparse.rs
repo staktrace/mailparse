@@ -9,10 +9,14 @@ pub struct SingleInfo {
 }
 
 impl SingleInfo {
-    fn new(name: Option<String>, addr: String) -> Self {
-        SingleInfo {
-            display_name: name,
-            addr: addr,
+    fn new(name: Option<String>, addr: String) -> Result<Self, &'static str> {
+        if addr.contains('@') {
+            Ok(SingleInfo {
+                display_name: name,
+                addr: addr,
+            })
+        } else {
+            Err("Invalid address found: must contain a '@' symbol")
         }
     }
 }
@@ -271,7 +275,7 @@ fn addrparse_inner(it: &mut std::str::Chars, in_group: bool) -> Result<MailAddrL
             AddrParseState::BracketedAddr => {
                 if c == '>' {
                     state = AddrParseState::AfterBracketedAddr;
-                    result.push(MailAddr::Single(SingleInfo::new(name, addr.unwrap())));
+                    result.push(MailAddr::Single(SingleInfo::new(name, addr.unwrap())?));
                     name = None;
                     addr = None;
                 } else {
@@ -302,10 +306,10 @@ fn addrparse_inner(it: &mut std::str::Chars, in_group: bool) -> Result<MailAddrL
                     addr = Some(String::new());
                 } else if c == ',' {
                     state = AddrParseState::Initial;
-                    result.push(MailAddr::Single(SingleInfo::new(None, addr.unwrap().trim_end().to_owned())));
+                    result.push(MailAddr::Single(SingleInfo::new(None, addr.unwrap().trim_end().to_owned())?));
                     addr = None;
                 } else if c == ';' {
-                    result.push(MailAddr::Single(SingleInfo::new(None, addr.unwrap().trim_end().to_owned())));
+                    result.push(MailAddr::Single(SingleInfo::new(None, addr.unwrap().trim_end().to_owned())?));
                     if in_group {
                         return Ok(MailAddrList(result));
                     }
@@ -358,7 +362,7 @@ fn addrparse_inner(it: &mut std::str::Chars, in_group: bool) -> Result<MailAddrL
             Err("Address string unexpected terminated")
         }
         AddrParseState::Unquoted => {
-            result.push(MailAddr::Single(SingleInfo::new(None, addr.unwrap().trim_end().to_owned())));
+            result.push(MailAddr::Single(SingleInfo::new(None, addr.unwrap().trim_end().to_owned())?));
             Ok(MailAddrList(result))
         }
         _ => {
@@ -375,27 +379,27 @@ mod tests {
     fn parse_basic() {
         assert_eq!(
             addrparse("foo bar <foo@bar.com>").unwrap(),
-            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("foo bar".to_string()), "foo@bar.com".to_string()))])
+            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("foo bar".to_string()), "foo@bar.com".to_string()).unwrap())])
         );
         assert_eq!(
             addrparse("\"foo bar\" <foo@bar.com>").unwrap(),
-            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("foo bar".to_string()), "foo@bar.com".to_string()))])
+            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("foo bar".to_string()), "foo@bar.com".to_string()).unwrap())])
         );
         assert_eq!(
             addrparse("foo@bar.com ").unwrap(),
-            MailAddrList(vec![MailAddr::Single(SingleInfo::new(None, "foo@bar.com".to_string()))])
+            MailAddrList(vec![MailAddr::Single(SingleInfo::new(None, "foo@bar.com".to_string()).unwrap())])
         );
         assert_eq!(
-            addrparse("foo <bar>").unwrap(),
-            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("foo".to_string()), "bar".to_string()))])
+            addrparse("foo <bar@baz.com>").unwrap(),
+            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("foo".to_string()), "bar@baz.com".to_string()).unwrap())])
         );
         assert_eq!(
-            addrparse("\"foo\" <bar>").unwrap(),
-            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("foo".to_string()), "bar".to_string()))])
+            addrparse("\"foo\" <bar@baz.com>").unwrap(),
+            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("foo".to_string()), "bar@baz.com".to_string()).unwrap())])
         );
         assert_eq!(
-            addrparse("\"foo \" <bar>").unwrap(),
-            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("foo ".to_string()), "bar".to_string()))])
+            addrparse("\"foo \" <bar@baz.com>").unwrap(),
+            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("foo ".to_string()), "bar@baz.com".to_string()).unwrap())])
         );
     }
 
@@ -403,22 +407,22 @@ mod tests {
     fn parse_backslashes() {
         assert_eq!(
             addrparse(r#" "First \"nick\" Last" <user@host.tld> "#).unwrap(),
-            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("First \"nick\" Last".to_string()), "user@host.tld".to_string()))])
+            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("First \"nick\" Last".to_string()), "user@host.tld".to_string()).unwrap())])
         );
         assert_eq!(
             addrparse(r#" First \"nick\" Last <user@host.tld> "#).unwrap(),
-            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("First \\\"nick\\\" Last".to_string()), "user@host.tld".to_string()))])
+            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("First \\\"nick\\\" Last".to_string()), "user@host.tld".to_string()).unwrap())])
         );
     }
 
     #[test]
     fn parse_multi() {
         assert_eq!(
-            addrparse("foo <bar>, joe, baz <quux>").unwrap(),
+            addrparse("foo <ba@r>, jo@e, baz <qu@ux>").unwrap(),
             MailAddrList(vec![
-                MailAddr::Single(SingleInfo::new(Some("foo".to_string()), "bar".to_string())),
-                MailAddr::Single(SingleInfo::new(None, "joe".to_string())),
-                MailAddr::Single(SingleInfo::new(Some("baz".to_string()), "quux".to_string())),
+                MailAddr::Single(SingleInfo::new(Some("foo".to_string()), "ba@r".to_string()).unwrap()),
+                MailAddr::Single(SingleInfo::new(None, "jo@e".to_string()).unwrap()),
+                MailAddr::Single(SingleInfo::new(Some("baz".to_string()), "qu@ux".to_string()).unwrap()),
             ])
         );
     }
@@ -441,7 +445,7 @@ mod tests {
             addrparse("bar-group: foo <foo@bar.com>;").unwrap(),
             MailAddrList(vec![
                 MailAddr::Group(GroupInfo::new("bar-group".to_string(), vec![
-                    SingleInfo::new(Some("foo".to_string()), "foo@bar.com".to_string()),
+                    SingleInfo::new(Some("foo".to_string()), "foo@bar.com".to_string()).unwrap(),
                 ]))
             ])
         );
@@ -449,8 +453,8 @@ mod tests {
             addrparse("bar-group: foo <foo@bar.com>, baz@bar.com;").unwrap(),
             MailAddrList(vec![
                 MailAddr::Group(GroupInfo::new("bar-group".to_string(), vec![
-                    SingleInfo::new(Some("foo".to_string()), "foo@bar.com".to_string()),
-                    SingleInfo::new(None, "baz@bar.com".to_string()),
+                    SingleInfo::new(Some("foo".to_string()), "foo@bar.com".to_string()).unwrap(),
+                    SingleInfo::new(None, "baz@bar.com".to_string()).unwrap(),
                 ]))
             ])
         );
@@ -461,9 +465,9 @@ mod tests {
         assert_eq!(
             addrparse("joe@bloe.com, bar-group: foo <foo@bar.com>;").unwrap(),
             MailAddrList(vec![
-                MailAddr::Single(SingleInfo::new(None, "joe@bloe.com".to_string())),
+                MailAddr::Single(SingleInfo::new(None, "joe@bloe.com".to_string()).unwrap()),
                 MailAddr::Group(GroupInfo::new("bar-group".to_string(), vec![
-                    SingleInfo::new(Some("foo".to_string()), "foo@bar.com".to_string()),
+                    SingleInfo::new(Some("foo".to_string()), "foo@bar.com".to_string()).unwrap(),
                 ])),
             ])
         );
@@ -471,34 +475,34 @@ mod tests {
             addrparse("bar-group: foo <foo@bar.com>; joe@bloe.com").unwrap(),
             MailAddrList(vec![
                 MailAddr::Group(GroupInfo::new("bar-group".to_string(), vec![
-                    SingleInfo::new(Some("foo".to_string()), "foo@bar.com".to_string()),
+                    SingleInfo::new(Some("foo".to_string()), "foo@bar.com".to_string()).unwrap(),
                 ])),
-                MailAddr::Single(SingleInfo::new(None, "joe@bloe.com".to_string())),
+                MailAddr::Single(SingleInfo::new(None, "joe@bloe.com".to_string()).unwrap()),
             ])
         );
         assert_eq!(
             addrparse("flim@flam.com, bar-group: foo <foo@bar.com>; joe@bloe.com").unwrap(),
             MailAddrList(vec![
-                MailAddr::Single(SingleInfo::new(None, "flim@flam.com".to_string())),
+                MailAddr::Single(SingleInfo::new(None, "flim@flam.com".to_string()).unwrap()),
                 MailAddr::Group(GroupInfo::new("bar-group".to_string(), vec![
-                    SingleInfo::new(Some("foo".to_string()), "foo@bar.com".to_string()),
+                    SingleInfo::new(Some("foo".to_string()), "foo@bar.com".to_string()).unwrap(),
                 ])),
-                MailAddr::Single(SingleInfo::new(None, "joe@bloe.com".to_string())),
+                MailAddr::Single(SingleInfo::new(None, "joe@bloe.com".to_string()).unwrap()),
             ])
         );
         assert_eq!(
-            addrparse("first-group:; flim@flam.com, bar-group: foo <foo@bar.com>; joe@bloe.com, final-group: zip, zap, \"Zaphod\" <zaphod@beeblebrox>;").unwrap(),
+            addrparse("first-group:; flim@flam.com, bar-group: foo <foo@bar.com>; joe@bloe.com, final-group: zi@p, za@p, \"Zaphod\" <zaphod@beeblebrox>;").unwrap(),
             MailAddrList(vec![
                 MailAddr::Group(GroupInfo::new("first-group".to_string(), vec![])),
-                MailAddr::Single(SingleInfo::new(None, "flim@flam.com".to_string())),
+                MailAddr::Single(SingleInfo::new(None, "flim@flam.com".to_string()).unwrap()),
                 MailAddr::Group(GroupInfo::new("bar-group".to_string(), vec![
-                    SingleInfo::new(Some("foo".to_string()), "foo@bar.com".to_string()),
+                    SingleInfo::new(Some("foo".to_string()), "foo@bar.com".to_string()).unwrap(),
                 ])),
-                MailAddr::Single(SingleInfo::new(None, "joe@bloe.com".to_string())),
+                MailAddr::Single(SingleInfo::new(None, "joe@bloe.com".to_string()).unwrap()),
                 MailAddr::Group(GroupInfo::new("final-group".to_string(), vec![
-                    SingleInfo::new(None, "zip".to_string()),
-                    SingleInfo::new(None, "zap".to_string()),
-                    SingleInfo::new(Some("Zaphod".to_string()), "zaphod@beeblebrox".to_string()),
+                    SingleInfo::new(None, "zi@p".to_string()).unwrap(),
+                    SingleInfo::new(None, "za@p".to_string()).unwrap(),
+                    SingleInfo::new(Some("Zaphod".to_string()), "zaphod@beeblebrox".to_string()).unwrap(),
                 ])),
             ])
         );
@@ -510,34 +514,34 @@ mod tests {
         // but obviously made it through the internet so we should at least not crash.
         assert_eq!(
             addrparse("\"The Foo of Bar\" Course Staff <foo-no-reply@bar.edx.org>").unwrap(),
-            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("The Foo of Bar Course Staff".to_string()), "foo-no-reply@bar.edx.org".to_string()))])
+            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("The Foo of Bar Course Staff".to_string()), "foo-no-reply@bar.edx.org".to_string()).unwrap())])
         );
 
         // This one has a comment tacked on to the end. Adding proper support for comments seems
         // complicated so I just added trailer comment support.
         assert_eq!(
             addrparse("John Doe <support@github.com> (GitHub Staff)").unwrap(),
-            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("John Doe".to_string()), "support@github.com".to_string()))])
+            MailAddrList(vec![MailAddr::Single(SingleInfo::new(Some("John Doe".to_string()), "support@github.com".to_string()).unwrap())])
         );
 
         // Taken from a real world "To" header. It was spam, but still...
         assert_eq!(
             addrparse("foo@bar.com;").unwrap(),
-            MailAddrList(vec![MailAddr::Single(SingleInfo::new(None, "foo@bar.com".to_string()))])
+            MailAddrList(vec![MailAddr::Single(SingleInfo::new(None, "foo@bar.com".to_string()).unwrap())])
         );
     }
 
     #[test]
     fn stringify_single() {
-        let tc = SingleInfo::new(Some("John Doe".to_string()), "john@doe.com".to_string());
+        let tc = SingleInfo::new(Some("John Doe".to_string()), "john@doe.com".to_string()).unwrap();
         assert_eq!(tc.to_string(), r#""John Doe" <john@doe.com>"#);
         assert_eq!(addrparse(&tc.to_string()).unwrap(), MailAddrList(vec![MailAddr::Single(tc)]));
 
-        let tc = SingleInfo::new(Some(r#"John "Jack" Doe"#.to_string()), "john@doe.com".to_string());
+        let tc = SingleInfo::new(Some(r#"John "Jack" Doe"#.to_string()), "john@doe.com".to_string()).unwrap();
         assert_eq!(tc.to_string(), r#""John \"Jack\" Doe" <john@doe.com>"#);
         assert_eq!(addrparse(&tc.to_string()).unwrap(), MailAddrList(vec![MailAddr::Single(tc)]));
 
-        let tc = SingleInfo::new(None, "foo@bar.com".to_string());
+        let tc = SingleInfo::new(None, "foo@bar.com".to_string()).unwrap();
         assert_eq!(tc.to_string(), r#"foo@bar.com"#);
         assert_eq!(addrparse(&tc.to_string()).unwrap(), MailAddrList(vec![MailAddr::Single(tc)]));
     }
@@ -545,8 +549,8 @@ mod tests {
     #[test]
     fn stringify_group() {
         let tc = GroupInfo::new("group-name".to_string(), vec![
-            SingleInfo::new(None, "foo@bar.com".to_string()),
-            SingleInfo::new(Some("A".to_string()), "a@b".to_string()),
+            SingleInfo::new(None, "foo@bar.com".to_string()).unwrap(),
+            SingleInfo::new(Some("A".to_string()), "a@b".to_string()).unwrap(),
         ]);
         assert_eq!(tc.to_string(), r#""group-name": foo@bar.com, "A" <a@b>;"#);
         assert_eq!(addrparse(&tc.to_string()).unwrap(), MailAddrList(vec![MailAddr::Group(tc)]));
@@ -564,15 +568,15 @@ mod tests {
     fn stringify_list() {
         let tc = MailAddrList(vec![
             MailAddr::Group(GroupInfo::new("marvel".to_string(), vec![
-                SingleInfo::new(None, "ironman@marvel.com".to_string()),
-                SingleInfo::new(None, "spiderman@marvel.com".to_string()),
+                SingleInfo::new(None, "ironman@marvel.com".to_string()).unwrap(),
+                SingleInfo::new(None, "spiderman@marvel.com".to_string()).unwrap(),
             ])),
-            MailAddr::Single(SingleInfo::new(Some("b-man".to_string()), "b@man.com".to_string())),
+            MailAddr::Single(SingleInfo::new(Some("b-man".to_string()), "b@man.com".to_string()).unwrap()),
             MailAddr::Group(GroupInfo::new("dc".to_string(), vec![
-                SingleInfo::new(None, "batman@dc.com".to_string()),
-                SingleInfo::new(None, "superman@dc.com".to_string()),
+                SingleInfo::new(None, "batman@dc.com".to_string()).unwrap(),
+                SingleInfo::new(None, "superman@dc.com".to_string()).unwrap(),
             ])),
-            MailAddr::Single(SingleInfo::new(Some("d-woman".to_string()), "d@woman.com".to_string())),
+            MailAddr::Single(SingleInfo::new(Some("d-woman".to_string()), "d@woman.com".to_string()).unwrap()),
         ]);
         assert_eq!(tc.to_string(),
                    r#""marvel": ironman@marvel.com, spiderman@marvel.com; "b-man" <b@man.com>, "dc": batman@dc.com, superman@dc.com; "d-woman" <d@woman.com>"#);
@@ -582,15 +586,15 @@ mod tests {
     fn count_addrs() {
         let tc = MailAddrList(vec![
             MailAddr::Group(GroupInfo::new("marvel".to_string(), vec![
-                SingleInfo::new(None, "ironman@marvel.com".to_string()),
-                SingleInfo::new(None, "spiderman@marvel.com".to_string()),
+                SingleInfo::new(None, "ironman@marvel.com".to_string()).unwrap(),
+                SingleInfo::new(None, "spiderman@marvel.com".to_string()).unwrap(),
             ])),
-            MailAddr::Single(SingleInfo::new(Some("b-man".to_string()), "b@man.com".to_string())),
+            MailAddr::Single(SingleInfo::new(Some("b-man".to_string()), "b@man.com".to_string()).unwrap()),
             MailAddr::Group(GroupInfo::new("dc".to_string(), vec![
-                SingleInfo::new(None, "batman@dc.com".to_string()),
-                SingleInfo::new(None, "superman@dc.com".to_string()),
+                SingleInfo::new(None, "batman@dc.com".to_string()).unwrap(),
+                SingleInfo::new(None, "superman@dc.com".to_string()).unwrap(),
             ])),
-            MailAddr::Single(SingleInfo::new(Some("d-woman".to_string()), "d@woman.com".to_string())),
+            MailAddr::Single(SingleInfo::new(Some("d-woman".to_string()), "d@woman.com".to_string()).unwrap()),
         ]);
         assert_eq!(tc.count_addrs(), 6);
         assert_eq!(tc.extract_single_info(), None);
@@ -601,17 +605,17 @@ mod tests {
 
         let tc = MailAddrList(vec![
             MailAddr::Group(GroupInfo::new("group".to_string(), vec![
-                SingleInfo::new(None, "foo@bar.com".to_string()),
+                SingleInfo::new(None, "foo@bar.com".to_string()).unwrap(),
             ])),
         ]);
         assert_eq!(tc.count_addrs(), 1);
         assert_eq!(tc.extract_single_info(), None);
 
         let tc = MailAddrList(vec![
-            MailAddr::Single(SingleInfo::new(None, "foo@bar.com".to_string())),
+            MailAddr::Single(SingleInfo::new(None, "foo@bar.com".to_string()).unwrap()),
         ]);
         assert_eq!(tc.count_addrs(), 1);
-        assert_eq!(tc.extract_single_info(), Some(SingleInfo::new(None, "foo@bar.com".to_string())));
+        assert_eq!(tc.extract_single_info(), Some(SingleInfo::new(None, "foo@bar.com".to_string()).unwrap()));
 
         let tc = MailAddrList(vec![
             MailAddr::Group(GroupInfo::new("group".to_string(), vec![])),
@@ -619,6 +623,12 @@ mod tests {
         ]);
         assert_eq!(tc.count_addrs(), 0);
         assert_eq!(tc.extract_single_info(), None);
+    }
 
+    #[test]
+    fn parse_invalid() {
+        assert!(addrparse("foo").is_err());
+        assert!(addrparse("foo <bar>").is_err());
+        assert!(addrparse("group: foo <bar>;").is_err());
     }
 }
