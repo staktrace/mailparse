@@ -1,6 +1,6 @@
 [package]
 name = "mailparse"
-version = "0.10.1"
+version = "0.10.2"
 authors = ["Kartikaya Gupta <kats@seldon.staktrace.com>"]
 description = "A simple parser for MIME e-mail messages"
 documentation = "https://docs.rs/mailparse/"
