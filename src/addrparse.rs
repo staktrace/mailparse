@@ -680,8 +680,10 @@ mod tests {
                 SingleInfo::new(Some("d-woman".to_string()), "d@woman.com".to_string()).unwrap(),
             ),
         ]);
-        assert_eq!(tc.to_string(),
-                   r#""marvel": ironman@marvel.com, spiderman@marvel.com; "b-man" <b@man.com>, "dc": batman@dc.com, superman@dc.com; "d-woman" <d@woman.com>"#);
+        assert_eq!(
+            tc.to_string(),
+            r#""marvel": ironman@marvel.com, spiderman@marvel.com; "b-man" <b@man.com>, "dc": batman@dc.com, superman@dc.com; "d-woman" <d@woman.com>"#
+        );
     }
 
     #[test]
