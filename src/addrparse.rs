@@ -245,7 +245,7 @@ fn addrparse_inner(it: &mut std::str::Chars, in_group: bool) -> Result<MailAddrL
                     if in_group {
                         return Err("Found unexpected nested group");
                     }
-                    let group_addrs = try!(addrparse_inner(it, true));
+                    let group_addrs = addrparse_inner(it, true)?;
                     state = AddrParseState::Initial;
                     result.push(MailAddr::Group(GroupInfo::new(
                         name.unwrap(),
@@ -326,7 +326,7 @@ fn addrparse_inner(it: &mut std::str::Chars, in_group: bool) -> Result<MailAddrL
                     if in_group {
                         return Err("Found unexpected nested group");
                     }
-                    let group_addrs = try!(addrparse_inner(it, true));
+                    let group_addrs = addrparse_inner(it, true)?;
                     state = AddrParseState::Initial;
                     result.push(MailAddr::Group(GroupInfo::new(
                         addr.unwrap().trim_end().to_owned(),
