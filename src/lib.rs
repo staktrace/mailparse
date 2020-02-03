@@ -13,10 +13,12 @@ use charset::Charset;
 mod addrparse;
 pub mod body;
 mod dateparse;
+mod msgidparse;
 
 pub use addrparse::{addrparse, GroupInfo, MailAddr, MailAddrList, SingleInfo};
 use body::Body;
 pub use dateparse::dateparse;
+pub use msgidparse::{msgidparse, MessageIdList};
 
 /// An error type that represents the different kinds of errors that may be
 /// encountered during message parsing.
