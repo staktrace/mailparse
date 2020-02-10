@@ -1,2 +1,1 @@
-target/doc/* linguist-generated=true
 tests/files/test_email_01_sample.pdf -text -diff

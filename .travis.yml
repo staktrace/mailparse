@@ -14,5 +14,3 @@ matrix:
         - rustup component add rustfmt
       script:
         - cargo fmt -v -- --check
-notifications:
-  email: false

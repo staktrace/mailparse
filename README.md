@@ -56,7 +56,3 @@ Example usage
 Documentation
 ---
 See the rustdoc at [docs.rs](https://docs.rs/mailparse/).
-
-Other notes
----
-This is written by a newbie Rust programmer, so code may be non-idiomatic or suboptimal. Pull requests are welcome!

@@ -3,23 +3,21 @@ name = "mailparse"
 version = "0.10.3"
 authors = ["Kartikaya Gupta <kats@seldon.staktrace.com>"]
 edition = "2018"
+license = "0BSD"
+
 description = "A simple parser for MIME e-mail messages"
-documentation = "https://docs.rs/mailparse/"
 homepage = "https://github.com/staktrace/mailparse/blob/master/README.md"
 repository = "https://github.com/staktrace/mailparse"
 readme = "README.md"
 keywords = ["parser", "email", "rfc822", "mime", "maildir"]
 categories = ["email", "parsing"]
-license = "0BSD"
-exclude = ["target/doc/**", ".gitattributes"]
+exclude = [".gitattributes"]
 
 [badges]
-travis-ci = { repository = "staktrace/mailparse", branch = "master" }
-is-it-maintained-issue-resolution = { repository = "staktrace/mailparse" }
-is-it-maintained-open-issues = { repository = "staktrace/mailparse" }
+travis-ci = { repository = "staktrace/mailparse" }
 maintenance = { status = "passively-maintained" }
 
 [dependencies]
 base64 = "0.10.0"
-quoted_printable = "0.4.1"
+quoted_printable = "0.4.2"
 charset = "0.1.1"
