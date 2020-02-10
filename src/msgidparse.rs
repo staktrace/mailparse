@@ -50,6 +50,9 @@ impl fmt::Display for MessageIdList {
 ///     assert_eq!(parsed_ids[1], "<msg_two@bar.com>");
 /// ```
 pub fn msgidparse(ids: &str) -> Result<MessageIdList, &'static str> {
-    let ids = ids.split_whitespace().map(String::from).collect::<Vec<String>>();
+    let ids = ids
+        .split_whitespace()
+        .map(String::from)
+        .collect::<Vec<String>>();
     Ok(MessageIdList(ids))
 }
