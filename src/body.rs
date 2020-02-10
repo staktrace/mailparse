@@ -1,5 +1,5 @@
 use charset::{decode_ascii, Charset};
-use {MailParseError, ParsedContentType};
+use crate::{MailParseError, ParsedContentType};
 
 /// Represents the body of an email (or mail subpart)
 pub enum Body<'a> {
