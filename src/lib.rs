@@ -1024,6 +1024,19 @@ mod tests {
             parsed.get_value().unwrap(),
             "\"Motorola Owners\u{2019} Forums\" <forums@motorola.com>"
         );
+
+        let (parsed, _) = parse_header(
+            b"From: =?UTF-8?B?0JjQvNGPLCDQpNCw0LzQuNC70LjRjw==?= <foobar@example.com>",
+        )
+        .unwrap();
+        assert_eq!(parsed.get_key().unwrap().as_str(), "From");
+        match &addrparse(&parsed.get_value().unwrap()).unwrap()[0] {
+            MailAddr::Single(info) => {
+                assert_eq!(info.display_name, Some("Имя, Фамилия".to_string()));
+                assert_eq!(info.addr, "foobar@example.com");
+            }
+            _ => panic!(),
+        };
     }
 
     #[test]

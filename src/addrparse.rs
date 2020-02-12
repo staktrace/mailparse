@@ -305,12 +305,20 @@ fn addrparse_inner(it: &mut std::str::Chars, in_group: bool) -> Result<MailAddrL
                     name = addr.map(|s| s.trim_end().to_owned());
                     addr = Some(String::new());
                 } else if c == ',' {
-                    state = AddrParseState::Initial;
-                    result.push(MailAddr::Single(SingleInfo::new(
-                        None,
-                        addr.unwrap().trim_end().to_owned(),
-                    )?));
-                    addr = None;
+                    if let Some(unwrapped_addr) = &addr {
+                        if unwrapped_addr.contains('@') {
+                            state = AddrParseState::Initial;
+                            result.push(MailAddr::Single(SingleInfo::new(
+                                None,
+                                unwrapped_addr.trim_end().to_owned(),
+                            )?));
+                            addr = None;
+                        } else {
+                            // XXX: commas are not allowed inside words by RFC822,
+                            // but may result from quoted-printable and base64 decoding.
+                            addr.as_mut().unwrap().push(c);
+                        }
+                    }
                 } else if c == ';' {
                     result.push(MailAddr::Single(SingleInfo::new(
                         None,
