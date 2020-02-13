@@ -228,7 +228,16 @@ impl<'a> MailHeader<'a> {
                                     match self.decode_word(&line[ix_begin..ix_end]) {
                                         Some(v) => {
                                             result.push_str(&v);
-                                            add_space = false;
+                                            // Drop the space inserted when merging a multiline header, if the
+                                            // quoted-printable word is the last non-whitespace thing on the line.
+                                            // Technically the first clause of the following `if` condition is
+                                            // redundant with the second one, but it allows short-circuiting the
+                                            // overhead of `trim_end` in the common case.
+                                            if ix_end + 2 == line.len()
+                                                || ix_end + 2 == line.trim_end().len()
+                                            {
+                                                add_space = false;
+                                            }
                                         }
                                         None => result.push_str(&line[ix_begin - 2..ix_end + 2]),
                                     };
@@ -990,6 +999,26 @@ mod tests {
         assert_eq!(
             parsed.get_value().unwrap(),
             "[Ontario Builder] Understanding home shopping \u{2013} a quick survey"
+        );
+
+        let (parsed, _) = parse_header(
+            b"Subject: =?utf-8?q?=5BOntario_Builder=5D?= non-qp words\n \
+             and the subject continues",
+        )
+        .unwrap();
+        assert_eq!(
+            parsed.get_value().unwrap(),
+            "[Ontario Builder] non-qp words and the subject continues"
+        );
+
+        let (parsed, _) = parse_header(
+            b"Subject: =?utf-8?q?=5BOntario_Builder=5D?= \n \
+             and the subject continues",
+        )
+        .unwrap();
+        assert_eq!(
+            parsed.get_value().unwrap(),
+            "[Ontario Builder] and the subject continues"
         );
 
         let (parsed, _) = parse_header(b"Subject: =?ISO-2022-JP?B?GyRCRnwbKEI=?=\n\t=?ISO-2022-JP?B?GyRCS1wbKEI=?=\n\t=?ISO-2022-JP?B?GyRCOGwbKEI=?=")
