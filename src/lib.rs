@@ -233,6 +233,8 @@ impl<'a> MailHeader<'a> {
                                             // Technically the first clause of the following `if` condition is
                                             // redundant with the second one, but it allows short-circuiting the
                                             // overhead of `trim_end` in the common case.
+                                            // Note that this implementation may not handle all the cases properly;
+                                            // see RFC 2047 section 6.2 for what should actually happen per spec.
                                             if ix_end + 2 == line.len()
                                                 || ix_end + 2 == line.trim_end().len()
                                             {
