@@ -145,41 +145,41 @@ fn test_find_from_u8() {
     assert_eq!(find_from_u8(b"hello world", 10, b"d"), None);
 }
 
+fn decode_word(encoded: &str) -> Option<String> {
+    let ix_delim1 = encoded.find('?')?;
+    let ix_delim2 = find_from(encoded, ix_delim1 + 1, "?")?;
+
+    let charset = &encoded[0..ix_delim1];
+    let transfer_coding = &encoded[ix_delim1 + 1..ix_delim2];
+    let input = &encoded[ix_delim2 + 1..];
+
+    let decoded = match transfer_coding {
+        "B" | "b" => base64::decode(input.as_bytes()).ok()?,
+        "Q" | "q" => {
+            // The quoted_printable module does a trim_end on the input, so if
+            // that affects the output we should save and restore the trailing
+            // whitespace
+            let to_decode = input.replace("_", " ");
+            let trimmed = to_decode.trim_end();
+            let mut d = quoted_printable::decode(&trimmed, quoted_printable::ParseMode::Robust);
+            if d.is_ok() && to_decode.len() != trimmed.len() {
+                d.as_mut()
+                    .unwrap()
+                    .extend_from_slice(to_decode[trimmed.len()..].as_bytes());
+            }
+            d.ok()?
+        }
+        _ => return None,
+    };
+    let charset = Charset::for_label_no_replacement(charset.as_bytes())?;
+    let (cow, _) = charset.decode_without_bom_handling(&decoded);
+    Some(cow.into_owned())
+}
+
 impl<'a> MailHeader<'a> {
     /// Get the name of the header. Note that header names are case-insensitive.
     pub fn get_key(&self) -> Result<String, MailParseError> {
         Ok(decode_latin1(self.key).into_owned())
-    }
-
-    fn decode_word(&self, encoded: &str) -> Option<String> {
-        let ix_delim1 = encoded.find('?')?;
-        let ix_delim2 = find_from(encoded, ix_delim1 + 1, "?")?;
-
-        let charset = &encoded[0..ix_delim1];
-        let transfer_coding = &encoded[ix_delim1 + 1..ix_delim2];
-        let input = &encoded[ix_delim2 + 1..];
-
-        let decoded = match transfer_coding {
-            "B" | "b" => base64::decode(input.as_bytes()).ok()?,
-            "Q" | "q" => {
-                // The quoted_printable module does a trim_end on the input, so if
-                // that affects the output we should save and restore the trailing
-                // whitespace
-                let to_decode = input.replace("_", " ");
-                let trimmed = to_decode.trim_end();
-                let mut d = quoted_printable::decode(&trimmed, quoted_printable::ParseMode::Robust);
-                if d.is_ok() && to_decode.len() != trimmed.len() {
-                    d.as_mut()
-                        .unwrap()
-                        .extend_from_slice(to_decode[trimmed.len()..].as_bytes());
-                }
-                d.ok()?
-            }
-            _ => return None,
-        };
-        let charset = Charset::for_label_no_replacement(charset.as_bytes())?;
-        let (cow, _) = charset.decode_without_bom_handling(&decoded);
-        Some(cow.into_owned())
     }
 
     /// Get the value of the header. Any sequences of newlines characters followed
@@ -225,7 +225,7 @@ impl<'a> MailHeader<'a> {
                                         ix_end_search = ix_end + 2;
                                         continue;
                                     }
-                                    match self.decode_word(&line[ix_begin..ix_end]) {
+                                    match decode_word(&line[ix_begin..ix_end]) {
                                         Some(v) => {
                                             result.push_str(&v);
                                             // Drop the space inserted when merging a multiline header, if the
