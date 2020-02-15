@@ -176,6 +176,66 @@ fn decode_word(encoded: &str) -> Option<String> {
     Some(cow.into_owned())
 }
 
+enum HeaderToken<'a> {
+    Text(&'a str),
+    Whitespace(&'a str),
+    DecodedWord(String),
+}
+
+fn tokenize_header_line<'a>(line: &'a str) -> Vec<HeaderToken<'a>> {
+    fn maybe_whitespace<'a>(text: &'a str) -> HeaderToken<'a> {
+        if text.trim_end().len() == 0 {
+            HeaderToken::Whitespace(text)
+        } else {
+            HeaderToken::Text(text)
+        }
+    }
+
+    let mut result = Vec::new();
+    let mut ix_search = 0;
+    loop {
+        match find_from(line, ix_search, "=?") {
+            Some(v) => {
+                let ix_begin = v + 2;
+                if !is_boundary(line, ix_begin.checked_sub(3)) {
+                    result.push(HeaderToken::Text(&line[ix_search..ix_begin]));
+                    ix_search = ix_begin;
+                    continue;
+                }
+                result.push(maybe_whitespace(&line[ix_search..ix_begin - 2]));
+                let mut ix_end_search = ix_begin;
+                loop {
+                    match find_from(line, ix_end_search, "?=") {
+                        Some(ix_end) => {
+                            if !is_boundary(line, ix_end.checked_add(2)) {
+                                ix_end_search = ix_end + 2;
+                                continue;
+                            }
+                            match decode_word(&line[ix_begin..ix_end]) {
+                                Some(v) => result.push(HeaderToken::DecodedWord(v)),
+                                None => result.push(HeaderToken::Text(&line[ix_begin - 2..ix_end + 2])),
+                            }
+                            ix_search = ix_end;
+                        }
+                        None => {
+                            result.push(HeaderToken::Text("=?"));
+                            ix_search = ix_begin - 2;
+                        }
+                    };
+                    break;
+                }
+                ix_search += 2;
+                continue;
+            }
+            None => {
+                result.push(maybe_whitespace(&line[ix_search..]));
+                break;
+            }
+        };
+    }
+    result
+}
+
 impl<'a> MailHeader<'a> {
     /// Get the name of the header. Note that header names are case-insensitive.
     pub fn get_key(&self) -> Result<String, MailParseError> {
@@ -206,60 +266,29 @@ impl<'a> MailHeader<'a> {
             }
             add_space = true;
 
-            let mut ix_search = 0;
-            loop {
-                match find_from(line, ix_search, "=?") {
-                    Some(v) => {
-                        let ix_begin = v + 2;
-                        if !is_boundary(line, ix_begin.checked_sub(3)) {
-                            result.push_str(&line[ix_search..ix_begin]);
-                            ix_search = ix_begin;
-                            continue;
-                        }
-                        result.push_str(&line[ix_search..ix_begin - 2]);
-                        let mut ix_end_search = ix_begin;
-                        loop {
-                            match find_from(line, ix_end_search, "?=") {
-                                Some(ix_end) => {
-                                    if !is_boundary(line, ix_end.checked_add(2)) {
-                                        ix_end_search = ix_end + 2;
-                                        continue;
-                                    }
-                                    match decode_word(&line[ix_begin..ix_end]) {
-                                        Some(v) => {
-                                            result.push_str(&v);
-                                            // Drop the space inserted when merging a multiline header, if the
-                                            // quoted-printable word is the last non-whitespace thing on the line.
-                                            // Technically the first clause of the following `if` condition is
-                                            // redundant with the second one, but it allows short-circuiting the
-                                            // overhead of `trim_end` in the common case.
-                                            // Note that this implementation may not handle all the cases properly;
-                                            // see RFC 2047 section 6.2 for what should actually happen per spec.
-                                            if ix_end + 2 == line.len()
-                                                || ix_end + 2 == line.trim_end().len()
-                                            {
-                                                add_space = false;
-                                            }
-                                        }
-                                        None => result.push_str(&line[ix_begin - 2..ix_end + 2]),
-                                    };
-                                    ix_search = ix_end;
-                                }
-                                None => {
-                                    result.push_str(&"=?");
-                                    ix_search = ix_begin - 2;
-                                }
-                            };
-                            break;
-                        }
-                        ix_search += 2;
-                        continue;
+            let mut last_token_was_encoded = false;
+            for tok in tokenize_header_line(line) {
+                match tok {
+                    HeaderToken::Text(t) => {
+                        result.push_str(t);
+                        last_token_was_encoded = false;
                     }
-                    None => {
-                        result.push_str(&line[ix_search..]);
-                        break;
+                    HeaderToken::Whitespace(t) => {
+                        result.push_str(t);
                     }
-                };
+                    HeaderToken::DecodedWord(dw) => {
+                        result.push_str(&dw);
+                        last_token_was_encoded = true;
+                    }
+                }
+            }
+
+            // Drop the space inserted when merging a multiline header, if the
+            // quoted-printable word is the last non-whitespace thing on the line.
+            // Note that this implementation may not handle all the cases properly;
+            // see RFC 2047 section 6.2 for what should actually happen per spec.
+            if last_token_was_encoded {
+                add_space = false;
             }
         }
         Ok(result)
