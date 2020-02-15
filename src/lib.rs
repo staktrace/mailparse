@@ -257,38 +257,60 @@ impl<'a> MailHeader<'a> {
     /// ```
     pub fn get_value(&self) -> Result<String, MailParseError> {
         let mut result = String::new();
+
+        let mut first_line = true;
+        let mut carryover_whitespace = String::new();
+        let mut add_space = false;
+
         let chars = decode_latin1(self.value);
         let mut lines = chars.lines();
-        let mut add_space = false;
         while let Some(line) = lines.next().map(str::trim_start) {
+            let mut saved_token = None;
             if add_space {
                 result.push(' ');
+            } else if !first_line {
+                carryover_whitespace.push(' ');
+                saved_token = Some(HeaderToken::Whitespace(&carryover_whitespace));
             }
-            add_space = true;
 
-            let mut last_token_was_encoded = false;
             for tok in tokenize_header_line(line) {
                 match tok {
                     HeaderToken::Text(t) => {
+                        if let Some(HeaderToken::Whitespace(ws)) = saved_token {
+                            result.push_str(ws);
+                        }
                         result.push_str(t);
-                        last_token_was_encoded = false;
+                        saved_token = None;
                     }
-                    HeaderToken::Whitespace(t) => {
-                        result.push_str(t);
+                    HeaderToken::Whitespace(ws) => {
+                        if let Some(HeaderToken::DecodedWord(_)) = saved_token {
+                            saved_token = Some(HeaderToken::Whitespace(ws));
+                        } else {
+                            result.push_str(ws);
+                            saved_token = None;
+                        }
                     }
                     HeaderToken::DecodedWord(dw) => {
                         result.push_str(&dw);
-                        last_token_was_encoded = true;
+                        saved_token = Some(HeaderToken::DecodedWord(dw));
                     }
                 }
             }
 
-            // Drop the space inserted when merging a multiline header, if the
-            // quoted-printable word is the last non-whitespace thing on the line.
-            // Note that this implementation may not handle all the cases properly;
-            // see RFC 2047 section 6.2 for what should actually happen per spec.
-            if last_token_was_encoded {
+            // If the line ended with an encoded word, we might need to drop
+            // the newline whitespace if the next line also starts with an
+            // encoded word.
+            // See RFC 2047 section 6.2.
+            first_line = false;
+            if let Some(HeaderToken::Whitespace(ws)) = saved_token {
+                carryover_whitespace = ws.to_string();
                 add_space = false;
+            } else if let Some(HeaderToken::DecodedWord(_)) = saved_token {
+                carryover_whitespace = String::new();
+                add_space = false;
+            } else {
+                carryover_whitespace = String::new();
+                add_space = true;
             }
         }
         Ok(result)
@@ -1049,7 +1071,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             parsed.get_value().unwrap(),
-            "[Ontario Builder] and the subject continues"
+            "[Ontario Builder]  and the subject continues"
         );
 
         let (parsed, _) = parse_header(b"Subject: =?ISO-2022-JP?B?GyRCRnwbKEI=?=\n\t=?ISO-2022-JP?B?GyRCS1wbKEI=?=\n\t=?ISO-2022-JP?B?GyRCOGwbKEI=?=")
@@ -1084,6 +1106,18 @@ mod tests {
             parsed.get_value().unwrap(),
             "\"Motorola Owners\u{2019} Forums\" <forums@motorola.com>"
         );
+    }
+
+    #[test]
+    fn encoded_words_and_spaces() {
+        let (parsed, _) = parse_header(b"K: an =?utf-8?q?encoded?=\n word").unwrap();
+        assert_eq!(parsed.get_value().unwrap(), "an encoded word");
+
+        let (parsed, _) = parse_header(b"K: =?utf-8?q?glue?= =?utf-8?q?these?= \n words").unwrap();
+        assert_eq!(parsed.get_value().unwrap(), "gluethese  words");
+
+        let (parsed, _) = parse_header(b"K: =?utf-8?q?glue?= \n =?utf-8?q?again?=").unwrap();
+        assert_eq!(parsed.get_value().unwrap(), "glueagain");
     }
 
     #[test]
