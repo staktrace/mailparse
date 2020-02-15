@@ -213,8 +213,10 @@ fn tokenize_header_line<'a>(line: &'a str) -> Vec<HeaderToken<'a>> {
                             }
                             match decode_word(&line[ix_begin..ix_end]) {
                                 Some(v) => result.push(HeaderToken::DecodedWord(v)),
-                                None => result.push(HeaderToken::Text(&line[ix_begin - 2..ix_end + 2])),
-                            }
+                                None => {
+                                    result.push(HeaderToken::Text(&line[ix_begin - 2..ix_end + 2]));
+                                }
+                            };
                             ix_search = ix_end;
                         }
                         None => {
