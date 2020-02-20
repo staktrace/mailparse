@@ -176,13 +176,29 @@ fn decode_word(encoded: &str) -> Option<String> {
     Some(cow.into_owned())
 }
 
+/// Some types of tokens that might be present in a MIME header. This
+/// list is incomplete relative the types of tokens defined in the RFC,
+/// but can be expanded as needed. Currently the list of tokens is
+/// sufficient to properly handle encoded words and line unfolding.
 enum HeaderToken<'a> {
+    /// A bunch of not-encoded text. This can include whitespace and
+    /// non-whitespace chars.
     Text(&'a str),
+    /// A bunch of text that is purely whitespace.
     Whitespace(&'a str),
+    /// An end-of-line marker. If it contains None, then it represents
+    /// a raw CRLF that has not yet been line-unfolded. If it contains
+    /// a string, that represents the whitespace that was produced
+    /// around that CRLF during line unfolding. This may include whitespace
+    /// from the end of the previous line.
     Newline(Option<String>),
+    /// The decoded value of an encoded word found in the header.
     DecodedWord(String),
 }
 
+/// Tokenizes a single line of the header and produces a vector of
+/// tokens. Because this only processes a single line, it will never
+/// generate `HeaderToken::Newline` tokens.
 fn tokenize_header_line<'a>(line: &'a str) -> Vec<HeaderToken<'a>> {
     fn maybe_whitespace<'a>(text: &'a str) -> HeaderToken<'a> {
         if text.trim_end().len() == 0 {
@@ -239,6 +255,12 @@ fn tokenize_header_line<'a>(line: &'a str) -> Vec<HeaderToken<'a>> {
     result
 }
 
+/// Tokenize an entire header, including newlines. This includes
+/// decoded words, but doesn't do line unfolding, so any `HeaderToken::Newline`
+/// tokens will always have a `None` inner value. Whitespace preceding
+/// the newline will be in a separate `HeaderToken::Whitespace` or
+/// `HeaderToken::Text` token. Semantically the `HeaderToken::Newline`
+/// tokens that come out of this still represent the CRLF newline.
 fn tokenize_header<'a>(value: &'a str) -> Vec<HeaderToken<'a>> {
     let mut tokens = Vec::new();
     let mut lines = value.lines();
@@ -253,6 +275,72 @@ fn tokenize_header<'a>(value: &'a str) -> Vec<HeaderToken<'a>> {
         tokens.append(&mut line_tokens);
     }
     tokens
+}
+
+/// Takes in a list of tokens and processes them to normalize the whitespace
+/// per the RFC. This includes dropping any whitespace between two adjacent
+/// encoded words, and also doing line unfolding. As a result, the `HeaderToken::Newline`
+/// tokens that come out of this no longer represent the CRLF newline, but instead
+/// their contained `Option<String>` will be populated with whatever whitespace gets
+/// generated from unfolding the line. This might include end-of-line whitespace from
+/// the previous line.
+fn normalize_header_whitespace<'a>(tokens: Vec<HeaderToken<'a>>) -> Vec<HeaderToken<'a>> {
+    let mut result = Vec::<HeaderToken<'a>>::new();
+
+    let mut saved_token = None;
+    // See RFC 2047 section 6.2 for what's going on here. Basically whitespace
+    // that's between two adjacent encoded words should be thrown away.
+    for tok in tokens {
+        match &tok {
+            HeaderToken::Text(_) => {
+                // If we saved some whitespace, put it in since we encountered
+                // non-whitespace chars that weren't part of an encoded word.
+                if let Some(HeaderToken::Whitespace(_)) = &saved_token {
+                    result.push(saved_token.unwrap());
+                } else if let Some(HeaderToken::Newline(Some(_))) = &saved_token {
+                    result.push(saved_token.unwrap());
+                }
+                // Also put the actual non-whitespace chars.
+                result.push(tok);
+                saved_token = None;
+            }
+            HeaderToken::Whitespace(_) => {
+                // If the previous token was an encoded word, save the whitespace
+                // as whitespace that's between two encoded words should be dropped.
+                // We only know if this whitespace goes into `result` after parsing
+                // the next token.
+                if let Some(HeaderToken::DecodedWord(_)) = saved_token {
+                    saved_token = Some(tok);
+                } else {
+                    result.push(tok);
+                    saved_token = None;
+                }
+            }
+            HeaderToken::Newline(_) => {
+                // If we saved whitespace at the end of the line, add an extra space
+                // to it from the line unfolding.
+                if let Some(HeaderToken::Whitespace(ws)) = saved_token {
+                    let new_ws = ws.to_owned() + " ";
+                    saved_token = Some(HeaderToken::Newline(Some(new_ws)));
+                // If the end of the line had an encoded word, save the space from
+                // line unfolding.
+                } else if let Some(HeaderToken::DecodedWord(_)) = saved_token {
+                    saved_token = Some(HeaderToken::Newline(Some(" ".to_string())));
+                } else {
+                    result.push(HeaderToken::Newline(Some(" ".to_string())));
+                    saved_token = None;
+                }
+            }
+            HeaderToken::DecodedWord(_) => {
+                // Note that saved_token might be a whitespace thing here. But we
+                // throw it away because that means it fell between two adjacent
+                // encoded words.
+                saved_token = Some(HeaderToken::DecodedWord(String::new()));
+                result.push(tok);
+            }
+        }
+    }
+    result
 }
 
 impl<'a> MailHeader<'a> {
@@ -278,57 +366,20 @@ impl<'a> MailHeader<'a> {
         let mut result = String::new();
 
         let chars = decode_latin1(self.value);
-        let mut saved_token = None;
-
-        // See RFC 2047 section 6.2 for what's going on here. Basically whitespace
-        // that's between two adjacent encoded words should be thrown away.
-        for tok in tokenize_header(&chars) {
+        for tok in normalize_header_whitespace(tokenize_header(&chars)) {
             match tok {
                 HeaderToken::Text(t) => {
-                    // If we saved some whitespace, put it in since we encountered
-                    // non-whitespace chars that weren't part of an encoded word.
-                    if let Some(HeaderToken::Whitespace(ws)) = saved_token {
-                        result.push_str(ws);
-                    } else if let Some(HeaderToken::Newline(Some(ws))) = saved_token {
-                        result.push_str(&ws);
-                    }
-                    // Also put the actual non-whitespace chars.
                     result.push_str(t);
-                    saved_token = None;
                 }
                 HeaderToken::Whitespace(ws) => {
-                    // If the previous token was an encoded word, save the whitespace
-                    // as whitespace that's between two encoded words should be dropped.
-                    // We only know if this whitespace goes into `result` after parsing
-                    // the next token.
-                    if let Some(HeaderToken::DecodedWord(_)) = saved_token {
-                        saved_token = Some(HeaderToken::Whitespace(ws));
-                    } else {
-                        result.push_str(ws);
-                        saved_token = None;
-                    }
+                    result.push_str(ws);
                 }
-                HeaderToken::Newline(_) => {
-                    // If we saved whitespace at the end of the line, add an extra space
-                    // to it from the line unfolding.
-                    if let Some(HeaderToken::Whitespace(ws)) = saved_token {
-                        let new_ws = ws.to_owned() + " ";
-                        saved_token = Some(HeaderToken::Newline(Some(new_ws)));
-                    // If the end of the line had an encoded word, save the space from
-                    // line unfolding.
-                    } else if let Some(HeaderToken::DecodedWord(_)) = saved_token {
-                        saved_token = Some(HeaderToken::Newline(Some(" ".to_string())));
-                    } else {
-                        result.push(' ');
-                        saved_token = None;
-                    }
+                HeaderToken::Newline(Some(ws)) => {
+                    result.push_str(&ws);
                 }
+                HeaderToken::Newline(None) => {}
                 HeaderToken::DecodedWord(dw) => {
-                    // Note that saved_token might be a whitespace thing here. But we
-                    // throw it away because that means it fell between two adjacent
-                    // encoded words.
                     result.push_str(&dw);
-                    saved_token = Some(HeaderToken::DecodedWord(dw));
                 }
             }
         }
