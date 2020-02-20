@@ -179,6 +179,7 @@ fn decode_word(encoded: &str) -> Option<String> {
 enum HeaderToken<'a> {
     Text(&'a str),
     Whitespace(&'a str),
+    Newline(Option<String>),
     DecodedWord(String),
 }
 
@@ -238,6 +239,22 @@ fn tokenize_header_line<'a>(line: &'a str) -> Vec<HeaderToken<'a>> {
     result
 }
 
+fn tokenize_header<'a>(value: &'a str) -> Vec<HeaderToken<'a>> {
+    let mut tokens = Vec::new();
+    let mut lines = value.lines();
+    let mut first = true;
+    while let Some(line) = lines.next().map(str::trim_start) {
+        if first {
+            first = false;
+        } else {
+            tokens.push(HeaderToken::Newline(None));
+        }
+        let mut line_tokens = tokenize_header_line(line);
+        tokens.append(&mut line_tokens);
+    }
+    tokens
+}
+
 impl<'a> MailHeader<'a> {
     /// Get the name of the header. Note that header names are case-insensitive.
     pub fn get_key(&self) -> Result<String, MailParseError> {
@@ -260,61 +277,62 @@ impl<'a> MailHeader<'a> {
     pub fn get_value(&self) -> Result<String, MailParseError> {
         let mut result = String::new();
 
-        let mut first_line = true;
-        let mut carryover_whitespace = String::new();
-        let mut add_space = false;
-
         let chars = decode_latin1(self.value);
-        let mut lines = chars.lines();
-        while let Some(line) = lines.next().map(str::trim_start) {
-            let mut saved_token = None;
-            if add_space {
-                result.push(' ');
-            } else if !first_line {
-                carryover_whitespace.push(' ');
-                saved_token = Some(HeaderToken::Whitespace(&carryover_whitespace));
-            }
+        let mut saved_token = None;
 
-            for tok in tokenize_header_line(line) {
-                match tok {
-                    HeaderToken::Text(t) => {
-                        if let Some(HeaderToken::Whitespace(ws)) = saved_token {
-                            result.push_str(ws);
-                        }
-                        result.push_str(t);
+        // See RFC 2047 section 6.2 for what's going on here. Basically whitespace
+        // that's between two adjacent encoded words should be thrown away.
+        for tok in tokenize_header(&chars) {
+            match tok {
+                HeaderToken::Text(t) => {
+                    // If we saved some whitespace, put it in since we encountered
+                    // non-whitespace chars that weren't part of an encoded word.
+                    if let Some(HeaderToken::Whitespace(ws)) = saved_token {
+                        result.push_str(ws);
+                    } else if let Some(HeaderToken::Newline(Some(ws))) = saved_token {
+                        result.push_str(&ws);
+                    }
+                    // Also put the actual non-whitespace chars.
+                    result.push_str(t);
+                    saved_token = None;
+                }
+                HeaderToken::Whitespace(ws) => {
+                    // If the previous token was an encoded word, save the whitespace
+                    // as whitespace that's between two encoded words should be dropped.
+                    // We only know if this whitespace goes into `result` after parsing
+                    // the next token.
+                    if let Some(HeaderToken::DecodedWord(_)) = saved_token {
+                        saved_token = Some(HeaderToken::Whitespace(ws));
+                    } else {
+                        result.push_str(ws);
                         saved_token = None;
                     }
-                    HeaderToken::Whitespace(ws) => {
-                        if let Some(HeaderToken::DecodedWord(_)) = saved_token {
-                            saved_token = Some(HeaderToken::Whitespace(ws));
-                        } else {
-                            result.push_str(ws);
-                            saved_token = None;
-                        }
-                    }
-                    HeaderToken::DecodedWord(dw) => {
-                        result.push_str(&dw);
-                        saved_token = Some(HeaderToken::DecodedWord(dw));
+                }
+                HeaderToken::Newline(_) => {
+                    // If we saved whitespace at the end of the line, add an extra space
+                    // to it from the line unfolding.
+                    if let Some(HeaderToken::Whitespace(ws)) = saved_token {
+                        let new_ws = ws.to_owned() + " ";
+                        saved_token = Some(HeaderToken::Newline(Some(new_ws)));
+                    // If the end of the line had an encoded word, save the space from
+                    // line unfolding.
+                    } else if let Some(HeaderToken::DecodedWord(_)) = saved_token {
+                        saved_token = Some(HeaderToken::Newline(Some(" ".to_string())));
+                    } else {
+                        result.push(' ');
+                        saved_token = None;
                     }
                 }
-            }
-
-            // If the line ended with an encoded word, we might need to drop
-            // the newline whitespace if the next line also starts with an
-            // encoded word.
-            // See RFC 2047 section 6.2.
-            first_line = false;
-            if let Some(HeaderToken::Whitespace(ws)) = saved_token {
-                carryover_whitespace = ws.to_string();
-                add_space = false;
-            } else if let Some(HeaderToken::DecodedWord(_)) = saved_token {
-                carryover_whitespace = String::new();
-                add_space = false;
-            } else {
-                carryover_whitespace = String::new();
-                add_space = true;
+                HeaderToken::DecodedWord(dw) => {
+                    // Note that saved_token might be a whitespace thing here. But we
+                    // throw it away because that means it fell between two adjacent
+                    // encoded words.
+                    result.push_str(&dw);
+                    saved_token = Some(HeaderToken::DecodedWord(dw));
+                }
             }
         }
+
         Ok(result)
     }
 }
