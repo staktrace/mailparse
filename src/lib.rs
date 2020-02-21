@@ -15,7 +15,7 @@ pub mod body;
 mod dateparse;
 mod msgidparse;
 
-pub use crate::addrparse::{addrparse, GroupInfo, MailAddr, MailAddrList, SingleInfo};
+pub use crate::addrparse::{addrparse, addrparse_header, GroupInfo, MailAddr, MailAddrList, SingleInfo};
 use crate::body::Body;
 pub use crate::dateparse::dateparse;
 pub use crate::msgidparse::{msgidparse, MessageIdList};
@@ -261,7 +261,7 @@ fn tokenize_header_line(line: &str) -> Vec<HeaderToken> {
 /// the newline will be in a separate `HeaderToken::Whitespace` or
 /// `HeaderToken::Text` token. Semantically the `HeaderToken::Newline`
 /// tokens that come out of this still represent the CRLF newline.
-fn tokenize_header(value: &str) -> Vec<HeaderToken> {
+pub(crate) fn tokenize_header(value: &str) -> Vec<HeaderToken> {
     let mut tokens = Vec::new();
     let mut lines = value.lines();
     let mut first = true;
@@ -284,7 +284,7 @@ fn tokenize_header(value: &str) -> Vec<HeaderToken> {
 /// their contained `Option<String>` will be populated with whatever whitespace gets
 /// generated from unfolding the line. This might include end-of-line whitespace from
 /// the previous line.
-fn normalize_header_whitespace(tokens: Vec<HeaderToken>) -> Vec<HeaderToken> {
+pub(crate) fn normalize_header_whitespace(tokens: Vec<HeaderToken>) -> Vec<HeaderToken> {
     let mut result = Vec::<HeaderToken>::new();
 
     let mut saved_token = None;
