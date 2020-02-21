@@ -199,8 +199,8 @@ enum HeaderToken<'a> {
 /// Tokenizes a single line of the header and produces a vector of
 /// tokens. Because this only processes a single line, it will never
 /// generate `HeaderToken::Newline` tokens.
-fn tokenize_header_line<'a>(line: &'a str) -> Vec<HeaderToken<'a>> {
-    fn maybe_whitespace<'a>(text: &'a str) -> HeaderToken<'a> {
+fn tokenize_header_line(line: &str) -> Vec<HeaderToken> {
+    fn maybe_whitespace(text: &str) -> HeaderToken {
         if text.trim_end().len() == 0 {
             HeaderToken::Whitespace(text)
         } else {
@@ -261,7 +261,7 @@ fn tokenize_header_line<'a>(line: &'a str) -> Vec<HeaderToken<'a>> {
 /// the newline will be in a separate `HeaderToken::Whitespace` or
 /// `HeaderToken::Text` token. Semantically the `HeaderToken::Newline`
 /// tokens that come out of this still represent the CRLF newline.
-fn tokenize_header<'a>(value: &'a str) -> Vec<HeaderToken<'a>> {
+fn tokenize_header(value: &str) -> Vec<HeaderToken> {
     let mut tokens = Vec::new();
     let mut lines = value.lines();
     let mut first = true;
@@ -284,8 +284,8 @@ fn tokenize_header<'a>(value: &'a str) -> Vec<HeaderToken<'a>> {
 /// their contained `Option<String>` will be populated with whatever whitespace gets
 /// generated from unfolding the line. This might include end-of-line whitespace from
 /// the previous line.
-fn normalize_header_whitespace<'a>(tokens: Vec<HeaderToken<'a>>) -> Vec<HeaderToken<'a>> {
-    let mut result = Vec::<HeaderToken<'a>>::new();
+fn normalize_header_whitespace(tokens: Vec<HeaderToken>) -> Vec<HeaderToken> {
+    let mut result = Vec::<HeaderToken>::new();
 
     let mut saved_token = None;
     // See RFC 2047 section 6.2 for what's going on here. Basically whitespace
