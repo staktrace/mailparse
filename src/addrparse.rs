@@ -2,7 +2,8 @@ use std::fmt;
 
 use charset::decode_latin1;
 
-use crate::{HeaderToken, MailHeader, normalize_header_whitespace, tokenize_header};
+use crate::MailHeader;
+use crate::header::{HeaderToken, normalize_header_whitespace, tokenize_header};
 
 /// A representation of a single mailbox. Each mailbox has
 /// a routing address `addr` and an optional display name.
