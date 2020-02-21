@@ -3,7 +3,7 @@ use std::fmt;
 use charset::decode_latin1;
 
 use crate::MailHeader;
-use crate::header::{HeaderToken, normalize_header_whitespace, tokenize_header};
+use crate::header::HeaderToken;
 
 /// A representation of a single mailbox. Each mailbox has
 /// a routing address `addr` and an optional display name.
@@ -278,7 +278,7 @@ pub fn addrparse(addrs: &str) -> Result<MailAddrList, &'static str> {
 /// ```
 pub fn addrparse_header(header: &MailHeader) -> Result<MailAddrList, &'static str> {
     let chars = decode_latin1(header.value);
-    let v = normalize_header_whitespace(tokenize_header(&chars));
+    let v = crate::header::normalized_tokens(&chars);
     let mut w = HeaderTokenWalker::new(v);
     addrparse_inner(&mut w, false)
 }

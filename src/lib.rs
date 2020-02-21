@@ -18,7 +18,7 @@ mod msgidparse;
 pub use crate::addrparse::{addrparse, addrparse_header, GroupInfo, MailAddr, MailAddrList, SingleInfo};
 use crate::body::Body;
 pub use crate::dateparse::dateparse;
-use crate::header::{HeaderToken, normalize_header_whitespace, tokenize_header};
+use crate::header::HeaderToken;
 pub use crate::msgidparse::{msgidparse, MessageIdList};
 
 /// An error type that represents the different kinds of errors that may be
@@ -163,7 +163,7 @@ impl<'a> MailHeader<'a> {
         let mut result = String::new();
 
         let chars = decode_latin1(self.value);
-        for tok in normalize_header_whitespace(tokenize_header(&chars)) {
+        for tok in header::normalized_tokens(&chars) {
             match tok {
                 HeaderToken::Text(t) => {
                     result.push_str(t);

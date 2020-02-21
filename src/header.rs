@@ -124,7 +124,7 @@ fn tokenize_header_line(line: &str) -> Vec<HeaderToken> {
 /// the newline will be in a separate `HeaderToken::Whitespace` or
 /// `HeaderToken::Text` token. Semantically the `HeaderToken::Newline`
 /// tokens that come out of this still represent the CRLF newline.
-pub fn tokenize_header(value: &str) -> Vec<HeaderToken> {
+fn tokenize_header(value: &str) -> Vec<HeaderToken> {
     let mut tokens = Vec::new();
     let mut lines = value.lines();
     let mut first = true;
@@ -147,7 +147,7 @@ pub fn tokenize_header(value: &str) -> Vec<HeaderToken> {
 /// their contained `Option<String>` will be populated with whatever whitespace gets
 /// generated from unfolding the line. This might include end-of-line whitespace from
 /// the previous line.
-pub fn normalize_header_whitespace(tokens: Vec<HeaderToken>) -> Vec<HeaderToken> {
+fn normalize_header_whitespace(tokens: Vec<HeaderToken>) -> Vec<HeaderToken> {
     let mut result = Vec::<HeaderToken>::new();
 
     let mut saved_token = None;
@@ -204,6 +204,10 @@ pub fn normalize_header_whitespace(tokens: Vec<HeaderToken>) -> Vec<HeaderToken>
         }
     }
     result
+}
+
+pub fn normalized_tokens(raw_value: &str) -> Vec<HeaderToken> {
+    normalize_header_whitespace(tokenize_header(&raw_value))
 }
 
 #[cfg(test)]
