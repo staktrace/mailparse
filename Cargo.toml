@@ -1,7 +1,7 @@
 [package]
 name = "mailparse"
-version = "0.10.4"
-authors = ["Kartikaya Gupta <kats@seldon.staktrace.com>"]
+version = "0.11.0"
+authors = ["Kartikaya Gupta"]
 edition = "2018"
 license = "0BSD"
 
