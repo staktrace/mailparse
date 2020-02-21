@@ -1,5 +1,7 @@
 use std::fmt;
 
+use crate::HeaderToken;
+
 /// A representation of a single mailbox. Each mailbox has
 /// a routing address `addr` and an optional display name.
 #[derive(Clone, Debug, PartialEq)]
@@ -164,6 +166,69 @@ impl MailAddrList {
     }
 }
 
+enum HeaderTokenItem<'a> {
+    Char(char),
+    Whitespace(&'a str),
+    Newline(String),
+    DecodedWord(String),
+}
+
+struct HeaderTokenWalker<'a> {
+    tokens: Vec<HeaderToken<'a>>,
+    cur_token: usize,
+    cur_char: usize,
+}
+
+impl<'a> Iterator for HeaderTokenWalker<'a> {
+    type Item = HeaderTokenItem<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if self.cur_token >= self.tokens.len() {
+                return None;
+            }
+            match &self.tokens[self.cur_token] {
+                HeaderToken::Text(s) => {
+                    let c = s.chars().nth(self.cur_char);
+                    if let Some(c) = c {
+                        self.cur_char += 1;
+                        return Some(HeaderTokenItem::Char(c));
+                    } else {
+                        self.cur_char = 0;
+                        self.cur_token += 1;
+                        continue;
+                    }
+                }
+                HeaderToken::Whitespace(ws) => {
+                    self.cur_token += 1;
+                    return Some(HeaderTokenItem::Whitespace(ws));
+                }
+                HeaderToken::Newline(Some(ws)) => {
+                    self.cur_token += 1;
+                    return Some(HeaderTokenItem::Newline(String::from(ws)));
+                }
+                HeaderToken::Newline(None) => {
+                    panic!("Should never reach here");
+                }
+                HeaderToken::DecodedWord(word) => {
+                    self.cur_token += 1;
+                    return Some(HeaderTokenItem::DecodedWord(String::from(word)));
+                }
+            }
+        }
+    }
+}
+
+impl<'a> HeaderTokenWalker<'a> {
+    fn new(tokens: Vec<HeaderToken<'a>>) -> Self {
+        Self {
+            tokens,
+            cur_token: 0,
+            cur_char: 0,
+        }
+    }
+}
+
 /// Convert an address field from an email header into a structured type.
 /// This function handles the most common formatting of to/from/cc/bcc fields
 /// found in email headers.
@@ -180,15 +245,16 @@ impl MailAddrList {
 ///     };
 /// ```
 pub fn addrparse(addrs: &str) -> Result<MailAddrList, &'static str> {
-    let mut it = addrs.chars();
-    addrparse_inner(&mut it, false)
+    let v = vec![HeaderToken::Text(addrs)];
+    let mut w = HeaderTokenWalker::new(v);
+    addrparse_inner(&mut w, false)
 }
 
-fn addrparse_inner(it: &mut std::str::Chars, in_group: bool) -> Result<MailAddrList, &'static str> {
+fn addrparse_inner(it: &mut HeaderTokenWalker, in_group: bool) -> Result<MailAddrList, &'static str> {
     let mut result = vec![];
     let mut state = AddrParseState::Initial;
 
-    let mut c = match it.next() {
+    let mut hti = match it.next() {
         None => return Ok(MailAddrList(vec![])),
         Some(v) => v,
     };
@@ -200,158 +266,198 @@ fn addrparse_inner(it: &mut std::str::Chars, in_group: bool) -> Result<MailAddrL
     loop {
         match state {
             AddrParseState::Initial => {
-                if c.is_whitespace() {
-                    // continue in same state
-                } else if c == '"' {
-                    state = AddrParseState::QuotedName;
-                    name = Some(String::new());
-                } else if c == '<' {
-                    state = AddrParseState::BracketedAddr;
-                    addr = Some(String::new());
-                } else if c == ';' {
-                    if !in_group {
-                        return Err("Unexpected group terminator found in initial list");
+                match hti {
+                    HeaderTokenItem::Char(c) => {
+                        if c.is_whitespace() {
+                            // continue in same state
+                        } else if c == '"' {
+                            state = AddrParseState::QuotedName;
+                            name = Some(String::new());
+                        } else if c == '<' {
+                            state = AddrParseState::BracketedAddr;
+                            addr = Some(String::new());
+                        } else if c == ';' {
+                            if !in_group {
+                                return Err("Unexpected group terminator found in initial list");
+                            }
+                            return Ok(MailAddrList(result));
+                        } else {
+                            state = AddrParseState::Unquoted;
+                            addr = Some(String::new());
+                            addr.as_mut().unwrap().push(c);
+                        }
                     }
-                    return Ok(MailAddrList(result));
-                } else {
-                    state = AddrParseState::Unquoted;
-                    addr = Some(String::new());
-                    addr.as_mut().unwrap().push(c);
+                    _ => unimplemented!(),
                 }
             }
             AddrParseState::QuotedName => {
-                if c == '\\' {
-                    state = AddrParseState::EscapedChar;
-                } else if c == '"' {
-                    state = AddrParseState::AfterQuotedName;
-                } else {
-                    name.as_mut().unwrap().push(c);
+                match hti {
+                    HeaderTokenItem::Char(c) => {
+                        if c == '\\' {
+                            state = AddrParseState::EscapedChar;
+                        } else if c == '"' {
+                            state = AddrParseState::AfterQuotedName;
+                        } else {
+                            name.as_mut().unwrap().push(c);
+                        }
+                    }
+                    _ => unimplemented!(),
                 }
             }
             AddrParseState::EscapedChar => {
-                state = AddrParseState::QuotedName;
-                name.as_mut().unwrap().push(c);
-            }
-            AddrParseState::AfterQuotedName => {
-                if c.is_whitespace() {
-                    if post_quote_ws.is_none() {
-                        post_quote_ws = Some(String::new());
-                    }
-                    post_quote_ws.as_mut().unwrap().push(c);
-                } else if c == '<' {
-                    state = AddrParseState::BracketedAddr;
-                    addr = Some(String::new());
-                } else if c == ':' {
-                    if in_group {
-                        return Err("Found unexpected nested group");
-                    }
-                    let group_addrs = addrparse_inner(it, true)?;
-                    state = AddrParseState::Initial;
-                    result.push(MailAddr::Group(GroupInfo::new(
-                        name.unwrap(),
-                        group_addrs
-                            .0
-                            .into_iter()
-                            .map(|addr| match addr {
-                                MailAddr::Single(s) => s,
-                                MailAddr::Group(_) => panic!("Unexpected nested group encountered"),
-                            })
-                            .collect(),
-                    )));
-                    name = None;
-                } else {
-                    // I think technically not valid, but this occurs in real-world corpus, so
-                    // handle gracefully
-                    if c == '"' {
-                        post_quote_ws.map(|ws| name.as_mut().unwrap().push_str(&ws));
+                match hti {
+                    HeaderTokenItem::Char(c) => {
                         state = AddrParseState::QuotedName;
-                    } else {
-                        post_quote_ws.map(|ws| name.as_mut().unwrap().push_str(&ws));
                         name.as_mut().unwrap().push(c);
                     }
-                    post_quote_ws = None;
+                    _ => unimplemented!(),
+                }
+            }
+            AddrParseState::AfterQuotedName => {
+                match hti {
+                    HeaderTokenItem::Char(c) => {
+                        if c.is_whitespace() {
+                            if post_quote_ws.is_none() {
+                                post_quote_ws = Some(String::new());
+                            }
+                            post_quote_ws.as_mut().unwrap().push(c);
+                        } else if c == '<' {
+                            state = AddrParseState::BracketedAddr;
+                            addr = Some(String::new());
+                        } else if c == ':' {
+                            if in_group {
+                                return Err("Found unexpected nested group");
+                            }
+                            let group_addrs = addrparse_inner(it, true)?;
+                            state = AddrParseState::Initial;
+                            result.push(MailAddr::Group(GroupInfo::new(
+                                name.unwrap(),
+                                group_addrs
+                                    .0
+                                    .into_iter()
+                                    .map(|addr| match addr {
+                                        MailAddr::Single(s) => s,
+                                        MailAddr::Group(_) => panic!("Unexpected nested group encountered"),
+                                    })
+                                    .collect(),
+                            )));
+                            name = None;
+                        } else {
+                            // I think technically not valid, but this occurs in real-world corpus, so
+                            // handle gracefully
+                            if c == '"' {
+                                post_quote_ws.map(|ws| name.as_mut().unwrap().push_str(&ws));
+                                state = AddrParseState::QuotedName;
+                            } else {
+                                post_quote_ws.map(|ws| name.as_mut().unwrap().push_str(&ws));
+                                name.as_mut().unwrap().push(c);
+                            }
+                            post_quote_ws = None;
+                        }
+                    }
+                    _ => unimplemented!(),
                 }
             }
             AddrParseState::BracketedAddr => {
-                if c == '>' {
-                    state = AddrParseState::AfterBracketedAddr;
-                    result.push(MailAddr::Single(SingleInfo::new(name, addr.unwrap())?));
-                    name = None;
-                    addr = None;
-                } else {
-                    addr.as_mut().unwrap().push(c);
+                match hti {
+                    HeaderTokenItem::Char(c) => {
+                        if c == '>' {
+                            state = AddrParseState::AfterBracketedAddr;
+                            result.push(MailAddr::Single(SingleInfo::new(name, addr.unwrap())?));
+                            name = None;
+                            addr = None;
+                        } else {
+                            addr.as_mut().unwrap().push(c);
+                        }
+                    }
+                    _ => unimplemented!(),
                 }
             }
             AddrParseState::AfterBracketedAddr => {
-                if c.is_whitespace() {
-                    // continue in same state
-                } else if c == ',' {
-                    state = AddrParseState::Initial;
-                } else if c == ';' {
-                    if in_group {
-                        return Ok(MailAddrList(result));
+                match hti {
+                    HeaderTokenItem::Char(c) => {
+                        if c.is_whitespace() {
+                            // continue in same state
+                        } else if c == ',' {
+                            state = AddrParseState::Initial;
+                        } else if c == ';' {
+                            if in_group {
+                                return Ok(MailAddrList(result));
+                            }
+                            // Technically not valid, but a similar case occurs in real-world corpus, so handle it gracefully
+                            state = AddrParseState::Initial;
+                        } else if c == '(' {
+                            state = AddrParseState::TrailerComment;
+                        } else {
+                            return Err("Unexpected char found after bracketed address");
+                        }
                     }
-                    // Technically not valid, but a similar case occurs in real-world corpus, so handle it gracefully
-                    state = AddrParseState::Initial;
-                } else if c == '(' {
-                    state = AddrParseState::TrailerComment;
-                } else {
-                    return Err("Unexpected char found after bracketed address");
+                    _ => unimplemented!(),
                 }
             }
             AddrParseState::Unquoted => {
-                if c == '<' {
-                    state = AddrParseState::BracketedAddr;
-                    name = addr.map(|s| s.trim_end().to_owned());
-                    addr = Some(String::new());
-                } else if c == ',' {
-                    state = AddrParseState::Initial;
-                    result.push(MailAddr::Single(SingleInfo::new(
-                        None,
-                        addr.unwrap().trim_end().to_owned(),
-                    )?));
-                    addr = None;
-                } else if c == ';' {
-                    result.push(MailAddr::Single(SingleInfo::new(
-                        None,
-                        addr.unwrap().trim_end().to_owned(),
-                    )?));
-                    if in_group {
-                        return Ok(MailAddrList(result));
+                match hti {
+                    HeaderTokenItem::Char(c) => {
+                        if c == '<' {
+                            state = AddrParseState::BracketedAddr;
+                            name = addr.map(|s| s.trim_end().to_owned());
+                            addr = Some(String::new());
+                        } else if c == ',' {
+                            state = AddrParseState::Initial;
+                            result.push(MailAddr::Single(SingleInfo::new(
+                                None,
+                                addr.unwrap().trim_end().to_owned(),
+                            )?));
+                            addr = None;
+                        } else if c == ';' {
+                            result.push(MailAddr::Single(SingleInfo::new(
+                                None,
+                                addr.unwrap().trim_end().to_owned(),
+                            )?));
+                            if in_group {
+                                return Ok(MailAddrList(result));
+                            }
+                            // Technically not valid, but occurs in real-world corpus, so handle it gracefully
+                            state = AddrParseState::Initial;
+                            addr = None;
+                        } else if c == ':' {
+                            if in_group {
+                                return Err("Found unexpected nested group");
+                            }
+                            let group_addrs = addrparse_inner(it, true)?;
+                            state = AddrParseState::Initial;
+                            result.push(MailAddr::Group(GroupInfo::new(
+                                addr.unwrap().trim_end().to_owned(),
+                                group_addrs
+                                    .0
+                                    .into_iter()
+                                    .map(|addr| match addr {
+                                        MailAddr::Single(s) => s,
+                                        MailAddr::Group(_) => panic!("Unexpected nested group encountered"),
+                                    })
+                                    .collect(),
+                            )));
+                            addr = None;
+                        } else {
+                            addr.as_mut().unwrap().push(c);
+                        }
                     }
-                    // Technically not valid, but occurs in real-world corpus, so handle it gracefully
-                    state = AddrParseState::Initial;
-                    addr = None;
-                } else if c == ':' {
-                    if in_group {
-                        return Err("Found unexpected nested group");
-                    }
-                    let group_addrs = addrparse_inner(it, true)?;
-                    state = AddrParseState::Initial;
-                    result.push(MailAddr::Group(GroupInfo::new(
-                        addr.unwrap().trim_end().to_owned(),
-                        group_addrs
-                            .0
-                            .into_iter()
-                            .map(|addr| match addr {
-                                MailAddr::Single(s) => s,
-                                MailAddr::Group(_) => panic!("Unexpected nested group encountered"),
-                            })
-                            .collect(),
-                    )));
-                    addr = None;
-                } else {
-                    addr.as_mut().unwrap().push(c);
+                    _ => unimplemented!(),
                 }
             }
             AddrParseState::TrailerComment => {
-                if c == ')' {
-                    state = AddrParseState::AfterBracketedAddr;
+                match hti {
+                    HeaderTokenItem::Char(c) => {
+                        if c == ')' {
+                            state = AddrParseState::AfterBracketedAddr;
+                        }
+                    }
+                    _ => unimplemented!(),
                 }
             }
         }
 
-        c = match it.next() {
+        hti = match it.next() {
             None => break,
             Some(v) => v,
         };

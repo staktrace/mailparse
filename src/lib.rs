@@ -180,7 +180,7 @@ fn decode_word(encoded: &str) -> Option<String> {
 /// list is incomplete relative the types of tokens defined in the RFC,
 /// but can be expanded as needed. Currently the list of tokens is
 /// sufficient to properly handle encoded words and line unfolding.
-enum HeaderToken<'a> {
+pub(crate) enum HeaderToken<'a> {
     /// A bunch of not-encoded text. This can include whitespace and
     /// non-whitespace chars.
     Text(&'a str),
