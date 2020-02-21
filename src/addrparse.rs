@@ -2,8 +2,8 @@ use std::fmt;
 
 use charset::decode_latin1;
 
-use crate::MailHeader;
 use crate::header::HeaderToken;
+use crate::MailHeader;
 
 /// A representation of a single mailbox. Each mailbox has
 /// a routing address `addr` and an optional display name.
@@ -283,7 +283,10 @@ pub fn addrparse_header(header: &MailHeader) -> Result<MailAddrList, &'static st
     addrparse_inner(&mut w, false)
 }
 
-fn addrparse_inner(it: &mut HeaderTokenWalker, in_group: bool) -> Result<MailAddrList, &'static str> {
+fn addrparse_inner(
+    it: &mut HeaderTokenWalker,
+    in_group: bool,
+) -> Result<MailAddrList, &'static str> {
     let mut result = vec![];
     let mut state = AddrParseState::Initial;
 
@@ -333,47 +336,43 @@ fn addrparse_inner(it: &mut HeaderTokenWalker, in_group: bool) -> Result<MailAdd
                     }
                 }
             }
-            AddrParseState::QuotedName => {
-                match hti {
-                    HeaderTokenItem::Char(c) => {
-                        if c == '\\' {
-                            state = AddrParseState::EscapedChar;
-                        } else if c == '"' {
-                            state = AddrParseState::AfterQuotedName;
-                        } else {
-                            name.as_mut().unwrap().push(c);
-                        }
-                    }
-                    HeaderTokenItem::Whitespace(ws) => {
-                        name.as_mut().unwrap().push_str(ws);
-                    }
-                    HeaderTokenItem::Newline(ws) => {
-                        name.as_mut().unwrap().push_str(&ws);
-                    }
-                    HeaderTokenItem::DecodedWord(_) => {
-                        return Err("Unexpected encoded word found inside a quoted name");
-                    }
-                }
-            }
-            AddrParseState::EscapedChar => {
-                match hti {
-                    HeaderTokenItem::Char(c) => {
-                        state = AddrParseState::QuotedName;
+            AddrParseState::QuotedName => match hti {
+                HeaderTokenItem::Char(c) => {
+                    if c == '\\' {
+                        state = AddrParseState::EscapedChar;
+                    } else if c == '"' {
+                        state = AddrParseState::AfterQuotedName;
+                    } else {
                         name.as_mut().unwrap().push(c);
                     }
-                    HeaderTokenItem::Whitespace(ws) => {
-                        state = AddrParseState::QuotedName;
-                        name.as_mut().unwrap().push_str(ws);
-                    }
-                    HeaderTokenItem::Newline(ws) => {
-                        state = AddrParseState::QuotedName;
-                        name.as_mut().unwrap().push_str(&ws);
-                    }
-                    HeaderTokenItem::DecodedWord(_) => {
-                        return Err("Unexpected encoded word found inside a quoted name");
-                    }
                 }
-            }
+                HeaderTokenItem::Whitespace(ws) => {
+                    name.as_mut().unwrap().push_str(ws);
+                }
+                HeaderTokenItem::Newline(ws) => {
+                    name.as_mut().unwrap().push_str(&ws);
+                }
+                HeaderTokenItem::DecodedWord(_) => {
+                    return Err("Unexpected encoded word found inside a quoted name");
+                }
+            },
+            AddrParseState::EscapedChar => match hti {
+                HeaderTokenItem::Char(c) => {
+                    state = AddrParseState::QuotedName;
+                    name.as_mut().unwrap().push(c);
+                }
+                HeaderTokenItem::Whitespace(ws) => {
+                    state = AddrParseState::QuotedName;
+                    name.as_mut().unwrap().push_str(ws);
+                }
+                HeaderTokenItem::Newline(ws) => {
+                    state = AddrParseState::QuotedName;
+                    name.as_mut().unwrap().push_str(&ws);
+                }
+                HeaderTokenItem::DecodedWord(_) => {
+                    return Err("Unexpected encoded word found inside a quoted name");
+                }
+            },
             AddrParseState::AfterQuotedName => {
                 match hti {
                     HeaderTokenItem::Char(c) => {
@@ -398,7 +397,9 @@ fn addrparse_inner(it: &mut HeaderTokenWalker, in_group: bool) -> Result<MailAdd
                                     .into_iter()
                                     .map(|addr| match addr {
                                         MailAddr::Single(s) => s,
-                                        MailAddr::Group(_) => panic!("Unexpected nested group encountered"),
+                                        MailAddr::Group(_) => {
+                                            panic!("Unexpected nested group encountered")
+                                        }
                                     })
                                     .collect(),
                             )));
@@ -435,29 +436,27 @@ fn addrparse_inner(it: &mut HeaderTokenWalker, in_group: bool) -> Result<MailAdd
                     }
                 }
             }
-            AddrParseState::BracketedAddr => {
-                match hti {
-                    HeaderTokenItem::Char(c) => {
-                        if c == '>' {
-                            state = AddrParseState::AfterBracketedAddr;
-                            result.push(MailAddr::Single(SingleInfo::new(name, addr.unwrap())?));
-                            name = None;
-                            addr = None;
-                        } else {
-                            addr.as_mut().unwrap().push(c);
-                        }
-                    }
-                    HeaderTokenItem::Whitespace(ws) => {
-                        addr.as_mut().unwrap().push_str(ws);
-                    }
-                    HeaderTokenItem::Newline(ws) => {
-                        addr.as_mut().unwrap().push_str(&ws);
-                    }
-                    HeaderTokenItem::DecodedWord(_) => {
-                        return Err("Unexpected encoded word found inside bracketed address");
+            AddrParseState::BracketedAddr => match hti {
+                HeaderTokenItem::Char(c) => {
+                    if c == '>' {
+                        state = AddrParseState::AfterBracketedAddr;
+                        result.push(MailAddr::Single(SingleInfo::new(name, addr.unwrap())?));
+                        name = None;
+                        addr = None;
+                    } else {
+                        addr.as_mut().unwrap().push(c);
                     }
                 }
-            }
+                HeaderTokenItem::Whitespace(ws) => {
+                    addr.as_mut().unwrap().push_str(ws);
+                }
+                HeaderTokenItem::Newline(ws) => {
+                    addr.as_mut().unwrap().push_str(&ws);
+                }
+                HeaderTokenItem::DecodedWord(_) => {
+                    return Err("Unexpected encoded word found inside bracketed address");
+                }
+            },
             AddrParseState::AfterBracketedAddr => {
                 match hti {
                     HeaderTokenItem::Char(c) => {
@@ -488,46 +487,46 @@ fn addrparse_inner(it: &mut HeaderTokenWalker, in_group: bool) -> Result<MailAdd
                     }
                 }
             }
-            AddrParseState::NameWithEncodedWord => {
-                match hti {
-                    HeaderTokenItem::Char(c) => {
-                        if c == '<' {
-                            state = AddrParseState::BracketedAddr;
-                            name = addr.map(|s| s.trim_end().to_owned());
-                            addr = Some(String::new());
-                        } else if c == ':' {
-                            if in_group {
-                                return Err("Found unexpected nested group");
-                            }
-                            let group_addrs = addrparse_inner(it, true)?;
-                            state = AddrParseState::Initial;
-                            result.push(MailAddr::Group(GroupInfo::new(
-                                addr.unwrap().trim_end().to_owned(),
-                                group_addrs
-                                    .0
-                                    .into_iter()
-                                    .map(|addr| match addr {
-                                        MailAddr::Single(s) => s,
-                                        MailAddr::Group(_) => panic!("Unexpected nested group encountered"),
-                                    })
-                                    .collect(),
-                            )));
-                            addr = None;
-                        } else {
-                            addr.as_mut().unwrap().push(c);
+            AddrParseState::NameWithEncodedWord => match hti {
+                HeaderTokenItem::Char(c) => {
+                    if c == '<' {
+                        state = AddrParseState::BracketedAddr;
+                        name = addr.map(|s| s.trim_end().to_owned());
+                        addr = Some(String::new());
+                    } else if c == ':' {
+                        if in_group {
+                            return Err("Found unexpected nested group");
                         }
-                    }
-                    HeaderTokenItem::Whitespace(ws) => {
-                        addr.as_mut().unwrap().push_str(ws);
-                    }
-                    HeaderTokenItem::Newline(ws) => {
-                        addr.as_mut().unwrap().push_str(&ws);
-                    }
-                    HeaderTokenItem::DecodedWord(word) => {
-                        addr.as_mut().unwrap().push_str(&word);
+                        let group_addrs = addrparse_inner(it, true)?;
+                        state = AddrParseState::Initial;
+                        result.push(MailAddr::Group(GroupInfo::new(
+                            addr.unwrap().trim_end().to_owned(),
+                            group_addrs
+                                .0
+                                .into_iter()
+                                .map(|addr| match addr {
+                                    MailAddr::Single(s) => s,
+                                    MailAddr::Group(_) => {
+                                        panic!("Unexpected nested group encountered")
+                                    }
+                                })
+                                .collect(),
+                        )));
+                        addr = None;
+                    } else {
+                        addr.as_mut().unwrap().push(c);
                     }
                 }
-            }
+                HeaderTokenItem::Whitespace(ws) => {
+                    addr.as_mut().unwrap().push_str(ws);
+                }
+                HeaderTokenItem::Newline(ws) => {
+                    addr.as_mut().unwrap().push_str(&ws);
+                }
+                HeaderTokenItem::DecodedWord(word) => {
+                    addr.as_mut().unwrap().push_str(&word);
+                }
+            },
             AddrParseState::Unquoted => {
                 match hti {
                     HeaderTokenItem::Char(c) => {
@@ -566,7 +565,9 @@ fn addrparse_inner(it: &mut HeaderTokenWalker, in_group: bool) -> Result<MailAdd
                                     .into_iter()
                                     .map(|addr| match addr {
                                         MailAddr::Single(s) => s,
-                                        MailAddr::Group(_) => panic!("Unexpected nested group encountered"),
+                                        MailAddr::Group(_) => {
+                                            panic!("Unexpected nested group encountered")
+                                        }
                                     })
                                     .collect(),
                             )));
@@ -1009,7 +1010,8 @@ mod tests {
     fn parse_with_encoded() {
         let (parsed, _) = crate::parse_header(
             b"From: =?UTF-8?B?0JjQvNGPLCDQpNCw0LzQuNC70LjRjw==?= <foobar@example.com>",
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(
             addrparse_header(&parsed).unwrap(),
             MailAddrList(vec![MailAddr::Single(

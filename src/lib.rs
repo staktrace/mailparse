@@ -15,7 +15,9 @@ mod dateparse;
 mod header;
 mod msgidparse;
 
-pub use crate::addrparse::{addrparse, addrparse_header, GroupInfo, MailAddr, MailAddrList, SingleInfo};
+pub use crate::addrparse::{
+    addrparse, addrparse_header, GroupInfo, MailAddr, MailAddrList, SingleInfo,
+};
 use crate::body::Body;
 pub use crate::dateparse::dateparse;
 use crate::header::HeaderToken;
