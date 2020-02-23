@@ -28,7 +28,7 @@ impl fmt::Display for MessageIdList {
             if !first {
                 write!(f, " ")?;
             }
-            write!(f, "{}", msgid)?;
+            write!(f, "<{}>", msgid)?;
             first = false;
         }
         Ok(())
@@ -38,21 +38,27 @@ impl fmt::Display for MessageIdList {
 /// Parse an email header into a structured type holding a list of message ids.
 /// This function can be used to parse headers containing message IDs, such as
 /// `Message-ID`, `In-Reply-To`, and `References`.
-/// This function is currently trivial (basically just splits on whitespace) but
-/// may be enhanced in the future to strip comments (which are technically allowed
-/// by the RFCs but never really used in practice).
+/// This function is currently mostly trivial (splits on whitespace and strips
+/// angle-brackets) but may be enhanced in the future to strip comments (which
+/// are technically allowed by the RFCs but never really used in practice).
 ///
 /// # Examples
 /// ```
 ///     use mailparse::{msgidparse, MessageIdList};
 ///     let parsed_ids = msgidparse("<msg_one@foo.com>  <msg_two@bar.com>").unwrap();
-///     assert_eq!(parsed_ids[0], "<msg_one@foo.com>");
-///     assert_eq!(parsed_ids[1], "<msg_two@bar.com>");
+///     assert_eq!(parsed_ids[0], "msg_one@foo.com");
+///     assert_eq!(parsed_ids[1], "msg_two@bar.com");
 /// ```
 pub fn msgidparse(ids: &str) -> Result<MessageIdList, &'static str> {
-    let ids = ids
-        .split_whitespace()
-        .map(String::from)
-        .collect::<Vec<String>>();
-    Ok(MessageIdList(ids))
+    let mut msgids = Vec::new();
+    for id in ids.split_whitespace() {
+        if !id.starts_with('<') {
+            return Err("Message IDs must start with <");
+        }
+        if !id.ends_with('>') {
+            return Err("Message IDs must end with >");
+        }
+        msgids.push(id[1..id.len() - 1].to_string());
+    }
+    Ok(MessageIdList(msgids))
 }
