@@ -316,6 +316,10 @@ pub trait MailHeaderMap {
     /// ```
     fn get_first_value(&self, key: &str) -> Result<Option<String>, MailParseError>;
 
+    /// Similar to `get_first_value`, except it returns a reference to the
+    /// MailHeader struct instead of just extracting the value.
+    fn get_first_header(&self, key: &str) -> Result<Option<&MailHeader>, MailParseError>;
+
     /// Look through the list of headers and return the values of all headers
     /// matching the provided key. Returns an empty vector if no matching headers
     /// were found. The order of the returned values is the same as the order
@@ -333,6 +337,10 @@ pub trait MailHeaderMap {
     ///         vec!["Value1".to_string(), "Value2".to_string()]);
     /// ```
     fn get_all_values(&self, key: &str) -> Result<Vec<String>, MailParseError>;
+
+    /// Similar to `get_all_values`, except it returns references to the
+    /// MailHeader structs instead of just extracting the values.
+    fn get_all_headers(&self, key: &str) -> Result<Vec<&MailHeader>, MailParseError>;
 }
 
 impl<'a> MailHeaderMap for [MailHeader<'a>] {
@@ -340,6 +348,15 @@ impl<'a> MailHeaderMap for [MailHeader<'a>] {
         for x in self {
             if x.get_key()?.eq_ignore_ascii_case(key) {
                 return x.get_value().map(Some);
+            }
+        }
+        Ok(None)
+    }
+
+    fn get_first_header(&self, key: &str) -> Result<Option<&MailHeader>, MailParseError> {
+        for x in self {
+            if x.get_key()?.eq_ignore_ascii_case(key) {
+                return Ok(Some(x));
             }
         }
         Ok(None)
@@ -353,6 +370,16 @@ impl<'a> MailHeaderMap for [MailHeader<'a>] {
             }
         }
         Ok(values)
+    }
+
+    fn get_all_headers(&self, key: &str) -> Result<Vec<&MailHeader>, MailParseError> {
+        let mut headers: Vec<&MailHeader> = Vec::new();
+        for x in self {
+            if x.get_key()?.eq_ignore_ascii_case(key) {
+                headers.push(x);
+            }
+        }
+        Ok(headers)
     }
 }
 
