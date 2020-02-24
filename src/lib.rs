@@ -997,10 +997,7 @@ mod tests {
             parse_header(b"Content-Type: image/jpeg; name=\"=?UTF-8?B?MDY2MTM5ODEuanBn?=\"")
                 .unwrap();
         assert_eq!(parsed.get_key(), "Content-Type");
-        assert_eq!(
-            parsed.get_value(),
-            "image/jpeg; name=\"06613981.jpg\""
-        );
+        assert_eq!(parsed.get_value(), "image/jpeg; name=\"06613981.jpg\"");
 
         let (parsed, _) = parse_header(
             b"From: =?UTF-8?Q?\"Motorola_Owners=E2=80=99_Forums\"_?=<forums@motorola.com>",
@@ -1082,10 +1079,7 @@ mod tests {
             parse_headers(b"Key: Value\nAnotherKey: AnotherValue\nKey: Value2\nKey: Value3\n")
                 .unwrap();
         assert_eq!(parsed.len(), 4);
-        assert_eq!(
-            parsed.get_first_value("Key"),
-            Some("Value".to_string())
-        );
+        assert_eq!(parsed.get_first_value("Key"), Some("Value".to_string()));
         assert_eq!(
             parsed.get_all_values("Key"),
             vec!["Value", "Value2", "Value3"]
@@ -1094,26 +1088,14 @@ mod tests {
             parsed.get_first_value("AnotherKey"),
             Some("AnotherValue".to_string())
         );
-        assert_eq!(
-            parsed.get_all_values("AnotherKey"),
-            vec!["AnotherValue"]
-        );
+        assert_eq!(parsed.get_all_values("AnotherKey"), vec!["AnotherValue"]);
         assert_eq!(parsed.get_first_value("NoKey"), None);
-        assert_eq!(
-            parsed.get_all_values("NoKey"),
-            Vec::<String>::new()
-        );
+        assert_eq!(parsed.get_all_values("NoKey"), Vec::<String>::new());
 
         let (parsed, _) = parse_headers(b"Key: value\r\nWith: CRLF\r\n\r\nBody").unwrap();
         assert_eq!(parsed.len(), 2);
-        assert_eq!(
-            parsed.get_first_value("Key"),
-            Some("value".to_string())
-        );
-        assert_eq!(
-            parsed.get_first_value("With"),
-            Some("CRLF".to_string())
-        );
+        assert_eq!(parsed.get_first_value("Key"), Some("value".to_string()));
+        assert_eq!(parsed.get_first_value("With"), Some("CRLF".to_string()));
 
         assert_match!(
             parse_headers(b"Bad\nKey").unwrap_err(),

@@ -21,7 +21,9 @@ impl SingleInfo {
                 addr: addr,
             })
         } else {
-            Err(MailParseError::Generic("Invalid address found: must contain a '@' symbol"))
+            Err(MailParseError::Generic(
+                "Invalid address found: must contain a '@' symbol",
+            ))
         }
     }
 }
@@ -314,7 +316,9 @@ fn addrparse_inner(
                             addr = Some(String::new());
                         } else if c == ';' {
                             if !in_group {
-                                return Err(MailParseError::Generic("Unexpected group terminator found in initial list"));
+                                return Err(MailParseError::Generic(
+                                    "Unexpected group terminator found in initial list",
+                                ));
                             }
                             return Ok(MailAddrList(result));
                         } else {
@@ -353,7 +357,9 @@ fn addrparse_inner(
                     name.as_mut().unwrap().push_str(&ws);
                 }
                 HeaderTokenItem::DecodedWord(_) => {
-                    return Err(MailParseError::Generic("Unexpected encoded word found inside a quoted name"));
+                    return Err(MailParseError::Generic(
+                        "Unexpected encoded word found inside a quoted name",
+                    ));
                 }
             },
             AddrParseState::EscapedChar => match hti {
@@ -370,7 +376,9 @@ fn addrparse_inner(
                     name.as_mut().unwrap().push_str(&ws);
                 }
                 HeaderTokenItem::DecodedWord(_) => {
-                    return Err(MailParseError::Generic("Unexpected encoded word found inside a quoted name"));
+                    return Err(MailParseError::Generic(
+                        "Unexpected encoded word found inside a quoted name",
+                    ));
                 }
             },
             AddrParseState::AfterQuotedName => {
@@ -386,7 +394,9 @@ fn addrparse_inner(
                             addr = Some(String::new());
                         } else if c == ':' {
                             if in_group {
-                                return Err(MailParseError::Generic("Found unexpected nested group"));
+                                return Err(MailParseError::Generic(
+                                    "Found unexpected nested group",
+                                ));
                             }
                             let group_addrs = addrparse_inner(it, true)?;
                             state = AddrParseState::Initial;
@@ -454,7 +464,9 @@ fn addrparse_inner(
                     addr.as_mut().unwrap().push_str(&ws);
                 }
                 HeaderTokenItem::DecodedWord(_) => {
-                    return Err(MailParseError::Generic("Unexpected encoded word found inside bracketed address"));
+                    return Err(MailParseError::Generic(
+                        "Unexpected encoded word found inside bracketed address",
+                    ));
                 }
             },
             AddrParseState::AfterBracketedAddr => {
@@ -473,7 +485,9 @@ fn addrparse_inner(
                         } else if c == '(' {
                             state = AddrParseState::TrailerComment;
                         } else {
-                            return Err(MailParseError::Generic("Unexpected char found after bracketed address"));
+                            return Err(MailParseError::Generic(
+                                "Unexpected char found after bracketed address",
+                            ));
                         }
                     }
                     HeaderTokenItem::Whitespace(_) => {
@@ -483,7 +497,9 @@ fn addrparse_inner(
                         // continue in same state
                     }
                     HeaderTokenItem::DecodedWord(_) => {
-                        return Err(MailParseError::Generic("Unexpected encoded word found after bracketed address"));
+                        return Err(MailParseError::Generic(
+                            "Unexpected encoded word found after bracketed address",
+                        ));
                     }
                 }
             }
@@ -554,7 +570,9 @@ fn addrparse_inner(
                             addr = None;
                         } else if c == ':' {
                             if in_group {
-                                return Err(MailParseError::Generic("Found unexpected nested group"));
+                                return Err(MailParseError::Generic(
+                                    "Found unexpected nested group",
+                                ));
                             }
                             let group_addrs = addrparse_inner(it, true)?;
                             state = AddrParseState::Initial;
@@ -624,7 +642,9 @@ fn addrparse_inner(
         | AddrParseState::AfterQuotedName
         | AddrParseState::BracketedAddr
         | AddrParseState::TrailerComment
-        | AddrParseState::NameWithEncodedWord => Err(MailParseError::Generic("Address string unexpectedly terminated")),
+        | AddrParseState::NameWithEncodedWord => Err(MailParseError::Generic(
+            "Address string unexpectedly terminated",
+        )),
         AddrParseState::Unquoted => {
             result.push(MailAddr::Single(SingleInfo::new(
                 None,
