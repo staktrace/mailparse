@@ -1,5 +1,7 @@
 use std::fmt;
 
+use crate::MailParseError;
+
 /// A simple wrapper around `Vec<String>`. This is primarily here so we can
 /// implement the Display trait on it, and allow user code to easily convert
 /// the return value from `msgidparse` back into a string. This also allows
@@ -49,14 +51,14 @@ impl fmt::Display for MessageIdList {
 ///     assert_eq!(parsed_ids[0], "msg_one@foo.com");
 ///     assert_eq!(parsed_ids[1], "msg_two@bar.com");
 /// ```
-pub fn msgidparse(ids: &str) -> Result<MessageIdList, &'static str> {
+pub fn msgidparse(ids: &str) -> Result<MessageIdList, MailParseError> {
     let mut msgids = Vec::new();
     for id in ids.split_whitespace() {
         if !id.starts_with('<') {
-            return Err("Message IDs must start with <");
+            return Err(MailParseError::Generic("Message IDs must start with <"));
         }
         if !id.ends_with('>') {
-            return Err("Message IDs must end with >");
+            return Err(MailParseError::Generic("Message IDs must end with >"));
         }
         msgids.push(id[1..id.len() - 1].to_string());
     }

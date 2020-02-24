@@ -71,6 +71,14 @@ impl error::Error for MailParseError {
             _ => None,
         }
     }
+
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match *self {
+            MailParseError::QuotedPrintableDecodeError(ref err) => Some(err),
+            MailParseError::Base64DecodeError(ref err) => Some(err),
+            _ => None,
+        }
+    }
 }
 
 impl From<quoted_printable::QuotedPrintableError> for MailParseError {
@@ -144,8 +152,8 @@ fn test_find_from_u8() {
 
 impl<'a> MailHeader<'a> {
     /// Get the name of the header. Note that header names are case-insensitive.
-    pub fn get_key(&self) -> Result<String, MailParseError> {
-        Ok(decode_latin1(self.key).into_owned())
+    pub fn get_key(&self) -> String {
+        decode_latin1(self.key).into_owned()
     }
 
     /// Get the value of the header. Any sequences of newlines characters followed
@@ -158,10 +166,10 @@ impl<'a> MailHeader<'a> {
     /// ```
     ///     use mailparse::parse_header;
     ///     let (parsed, _) = parse_header(b"Subject: =?iso-8859-1?Q?=A1Hola,_se=F1or!?=").unwrap();
-    ///     assert_eq!(parsed.get_key().unwrap(), "Subject");
-    ///     assert_eq!(parsed.get_value().unwrap(), "\u{a1}Hola, se\u{f1}or!");
+    ///     assert_eq!(parsed.get_key(), "Subject");
+    ///     assert_eq!(parsed.get_value(), "\u{a1}Hola, se\u{f1}or!");
     /// ```
-    pub fn get_value(&self) -> Result<String, MailParseError> {
+    pub fn get_value(&self) -> String {
         let mut result = String::new();
 
         let chars = decode_latin1(self.value);
@@ -183,7 +191,7 @@ impl<'a> MailHeader<'a> {
             }
         }
 
-        Ok(result)
+        result
     }
 }
 
@@ -213,8 +221,8 @@ enum HeaderParseState {
 ///             "   I am multiline\n",
 ///             "Next:Header").as_bytes())
 ///         .unwrap();
-///     assert_eq!(parsed.get_key().unwrap(), "Subject");
-///     assert_eq!(parsed.get_value().unwrap(), "Hello, sir, I am multiline");
+///     assert_eq!(parsed.get_key(), "Subject");
+///     assert_eq!(parsed.get_value(), "Hello, sir, I am multiline");
 /// ```
 pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseError> {
     let mut it = raw_data.iter();
@@ -312,13 +320,13 @@ pub trait MailHeaderMap {
     ///             "\n",
     ///             "This is a test message").as_bytes())
     ///         .unwrap().headers;
-    ///     assert_eq!(headers.get_first_value("Subject").unwrap(), Some("Test".to_string()));
+    ///     assert_eq!(headers.get_first_value("Subject"), Some("Test".to_string()));
     /// ```
-    fn get_first_value(&self, key: &str) -> Result<Option<String>, MailParseError>;
+    fn get_first_value(&self, key: &str) -> Option<String>;
 
     /// Similar to `get_first_value`, except it returns a reference to the
     /// MailHeader struct instead of just extracting the value.
-    fn get_first_header(&self, key: &str) -> Result<Option<&MailHeader>, MailParseError>;
+    fn get_first_header(&self, key: &str) -> Option<&MailHeader>;
 
     /// Look through the list of headers and return the values of all headers
     /// matching the provided key. Returns an empty vector if no matching headers
@@ -333,53 +341,53 @@ pub trait MailHeaderMap {
     ///             "Key: Value1\n",
     ///             "Key: Value2").as_bytes())
     ///         .unwrap().headers;
-    ///     assert_eq!(headers.get_all_values("Key").unwrap(),
+    ///     assert_eq!(headers.get_all_values("Key"),
     ///         vec!["Value1".to_string(), "Value2".to_string()]);
     /// ```
-    fn get_all_values(&self, key: &str) -> Result<Vec<String>, MailParseError>;
+    fn get_all_values(&self, key: &str) -> Vec<String>;
 
     /// Similar to `get_all_values`, except it returns references to the
     /// MailHeader structs instead of just extracting the values.
-    fn get_all_headers(&self, key: &str) -> Result<Vec<&MailHeader>, MailParseError>;
+    fn get_all_headers(&self, key: &str) -> Vec<&MailHeader>;
 }
 
 impl<'a> MailHeaderMap for [MailHeader<'a>] {
-    fn get_first_value(&self, key: &str) -> Result<Option<String>, MailParseError> {
+    fn get_first_value(&self, key: &str) -> Option<String> {
         for x in self {
-            if x.get_key()?.eq_ignore_ascii_case(key) {
-                return x.get_value().map(Some);
+            if x.get_key().eq_ignore_ascii_case(key) {
+                return Some(x.get_value());
             }
         }
-        Ok(None)
+        None
     }
 
-    fn get_first_header(&self, key: &str) -> Result<Option<&MailHeader>, MailParseError> {
+    fn get_first_header(&self, key: &str) -> Option<&MailHeader> {
         for x in self {
-            if x.get_key()?.eq_ignore_ascii_case(key) {
-                return Ok(Some(x));
+            if x.get_key().eq_ignore_ascii_case(key) {
+                return Some(x);
             }
         }
-        Ok(None)
+        None
     }
 
-    fn get_all_values(&self, key: &str) -> Result<Vec<String>, MailParseError> {
+    fn get_all_values(&self, key: &str) -> Vec<String> {
         let mut values: Vec<String> = Vec::new();
         for x in self {
-            if x.get_key()?.eq_ignore_ascii_case(key) {
-                values.push(x.get_value()?);
+            if x.get_key().eq_ignore_ascii_case(key) {
+                values.push(x.get_value());
             }
         }
-        Ok(values)
+        values
     }
 
-    fn get_all_headers(&self, key: &str) -> Result<Vec<&MailHeader>, MailParseError> {
+    fn get_all_headers(&self, key: &str) -> Vec<&MailHeader> {
         let mut headers: Vec<&MailHeader> = Vec::new();
         for x in self {
-            if x.get_key()?.eq_ignore_ascii_case(key) {
+            if x.get_key().eq_ignore_ascii_case(key) {
                 headers.push(x);
             }
         }
-        Ok(headers)
+        headers
     }
 }
 
@@ -403,8 +411,8 @@ impl<'a> MailHeaderMap for [MailHeader<'a>] {
 ///             "From: me@myself.com\n",
 ///             "To: you@yourself.com").as_bytes())
 ///         .unwrap();
-///     assert_eq!(headers[1].get_key().unwrap(), "From");
-///     assert_eq!(headers.get_first_value("To").unwrap(), Some("you@yourself.com".to_string()));
+///     assert_eq!(headers[1].get_key(), "From");
+///     assert_eq!(headers.get_first_value("To"), Some("you@yourself.com".to_string()));
 /// ```
 pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailParseError> {
     let mut headers: Vec<MailHeader> = Vec::new();
@@ -471,7 +479,7 @@ impl Default for ParsedContentType {
 ///     let (parsed, _) = parse_header(
 ///             b"Content-Type: text/html; charset=foo; boundary=\"quotes_are_removed\"")
 ///         .unwrap();
-///     let ctype = parse_content_type(&parsed.get_value().unwrap());
+///     let ctype = parse_content_type(&parsed.get_value());
 ///     assert_eq!(ctype.mimetype, "text/html");
 ///     assert_eq!(ctype.charset, "foo");
 ///     assert_eq!(ctype.params.get("boundary"), Some(&"quotes_are_removed".to_string()));
@@ -480,7 +488,7 @@ impl Default for ParsedContentType {
 /// ```
 ///     use mailparse::{parse_header, parse_content_type};
 ///     let (parsed, _) = parse_header(b"Content-Type: bogus").unwrap();
-///     let ctype = parse_content_type(&parsed.get_value().unwrap());
+///     let ctype = parse_content_type(&parsed.get_value());
 ///     assert_eq!(ctype.mimetype, "bogus");
 ///     assert_eq!(ctype.charset, "us-ascii");
 ///     assert_eq!(ctype.params.get("boundary"), None);
@@ -489,7 +497,7 @@ impl Default for ParsedContentType {
 /// ```
 ///     use mailparse::{parse_header, parse_content_type};
 ///     let (parsed, _) = parse_header(br#"Content-Type: application/octet-stream;name="=?utf8?B?6L+O5ai255m95a+M576O?=";charset="utf8""#).unwrap();
-///     let ctype = parse_content_type(&parsed.get_value().unwrap());
+///     let ctype = parse_content_type(&parsed.get_value());
 ///     assert_eq!(ctype.mimetype, "application/octet-stream");
 ///     assert_eq!(ctype.charset, "utf8");
 ///     assert_eq!(ctype.params.get("boundary"), None);
@@ -570,7 +578,7 @@ pub struct ParsedContentDisposition {
 ///     let (parsed, _) = parse_header(
 ///             b"Content-Disposition: attachment; filename=\"yummy dummy\"")
 ///         .unwrap();
-///     let dis = parse_content_disposition(&parsed.get_value().unwrap());
+///     let dis = parse_content_disposition(&parsed.get_value());
 ///     assert_eq!(dis.disposition, DispositionType::Attachment);
 ///     assert_eq!(dis.params.get("name"), None);
 ///     assert_eq!(dis.params.get("filename"), Some(&"yummy dummy".to_string()));
@@ -618,7 +626,7 @@ impl<'a> ParsedMail<'a> {
     ///     assert_eq!(p.get_body().unwrap(), "This is the body");
     /// ```
     pub fn get_body(&self) -> Result<String, MailParseError> {
-        match self.get_body_encoded()? {
+        match self.get_body_encoded() {
             Body::Base64(body) | Body::QuotedPrintable(body) => body.get_decoded_as_string(),
             Body::SevenBit(body) | Body::EightBit(body) => body.get_as_string(),
             Body::Binary(_) => Err(MailParseError::Generic(
@@ -642,7 +650,7 @@ impl<'a> ParsedMail<'a> {
     ///     assert_eq!(p.get_body_raw().unwrap(), b"This is the body");
     /// ```
     pub fn get_body_raw(&self) -> Result<Vec<u8>, MailParseError> {
-        match self.get_body_encoded()? {
+        match self.get_body_encoded() {
             Body::Base64(body) | Body::QuotedPrintable(body) => body.get_decoded(),
             Body::SevenBit(body) | Body::EightBit(body) => Ok(Vec::<u8>::from(body.get_raw())),
             Body::Binary(body) => Ok(Vec::<u8>::from(body.get_raw())),
@@ -660,7 +668,7 @@ impl<'a> ParsedMail<'a> {
     ///
     ///     let mail = parse_mail(b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG 8gd\r\n29ybGQ=").unwrap();
     ///
-    ///     match mail.get_body_encoded().unwrap() {
+    ///     match mail.get_body_encoded() {
     ///         Body::Base64(body) => {
     ///             assert_eq!(body.get_raw(), b"aGVsbG 8gd\r\n29ybGQ=");
     ///             assert_eq!(body.get_decoded().unwrap(), b"hello world");
@@ -673,7 +681,7 @@ impl<'a> ParsedMail<'a> {
     ///     // An email whose body encoding is not known upfront
     ///     let another_mail = parse_mail(b"").unwrap();
     ///
-    ///     match another_mail.get_body_encoded().unwrap() {
+    ///     match another_mail.get_body_encoded() {
     ///         Body::Base64(body) | Body::QuotedPrintable(body) => {
     ///             println!("mail body encoded: {:?}", body.get_raw());
     ///             println!("mail body decoded: {:?}", body.get_decoded().unwrap());
@@ -688,13 +696,13 @@ impl<'a> ParsedMail<'a> {
     ///         }
     ///     }
     /// ```
-    pub fn get_body_encoded(&'a self) -> Result<Body<'a>, MailParseError> {
+    pub fn get_body_encoded(&'a self) -> Body<'a> {
         let transfer_encoding = self
             .headers
-            .get_first_value("Content-Transfer-Encoding")?
+            .get_first_value("Content-Transfer-Encoding")
             .map(|s| s.to_lowercase());
 
-        Ok(Body::new(self.body, &self.ctype, &transfer_encoding))
+        Body::new(self.body, &self.ctype, &transfer_encoding)
     }
 
     /// Returns a struct containing a parsed representation of the
@@ -702,13 +710,13 @@ impl<'a> ParsedMail<'a> {
     /// is used, if there are multiple. See the `parse_content_disposition`
     /// method documentation for more details on the semantics of the
     /// returned object.
-    pub fn get_content_disposition(&self) -> Result<ParsedContentDisposition, MailParseError> {
+    pub fn get_content_disposition(&self) -> ParsedContentDisposition {
         let disposition = self
             .headers
-            .get_first_value("Content-Disposition")?
+            .get_first_value("Content-Disposition")
             .map(|s| parse_content_disposition(&s))
             .unwrap_or_default();
-        Ok(disposition)
+        disposition
     }
 }
 
@@ -739,20 +747,20 @@ impl<'a> ParsedMail<'a> {
 ///             "--foobar--\n",
 ///             "After the final boundary stuff gets ignored.\n").as_bytes())
 ///         .unwrap();
-///     assert_eq!(parsed.headers.get_first_value("Subject").unwrap(),
+///     assert_eq!(parsed.headers.get_first_value("Subject"),
 ///         Some("This is a test email".to_string()));
 ///     assert_eq!(parsed.subparts.len(), 2);
 ///     assert_eq!(parsed.subparts[0].get_body().unwrap(),
 ///         "This is the plaintext version, in utf-8. Proof by Euro: \u{20AC}");
-///     assert_eq!(parsed.subparts[1].headers[1].get_value().unwrap(), "base64");
+///     assert_eq!(parsed.subparts[1].headers[1].get_value(), "base64");
 ///     assert_eq!(parsed.subparts[1].ctype.mimetype, "text/html");
 ///     assert!(parsed.subparts[1].get_body().unwrap().starts_with("<html>"));
-///     assert_eq!(dateparse(parsed.headers.get_first_value("Date").unwrap().unwrap().as_str()).unwrap(), 1475417182);
+///     assert_eq!(dateparse(parsed.headers.get_first_value("Date").unwrap().as_str()).unwrap(), 1475417182);
 /// ```
 pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
     let (headers, ix_body) = parse_headers(raw_data)?;
     let ctype = headers
-        .get_first_value("Content-Type")?
+        .get_first_value("Content-Type")
         .map(|s| parse_content_type(&s))
         .unwrap_or_default();
 
@@ -851,14 +859,14 @@ mod tests {
     fn parse_basic_header() {
         let (parsed, _) = parse_header(b"Key: Value").unwrap();
         assert_eq!(parsed.key, b"Key");
-        assert_eq!(parsed.get_key().unwrap(), "Key");
+        assert_eq!(parsed.get_key(), "Key");
         assert_eq!(parsed.value, b"Value");
-        assert_eq!(parsed.get_value().unwrap(), "Value");
+        assert_eq!(parsed.get_value(), "Value");
 
         let (parsed, _) = parse_header(b"Key :  Value ").unwrap();
         assert_eq!(parsed.key, b"Key ");
         assert_eq!(parsed.value, b"Value ");
-        assert_eq!(parsed.get_value().unwrap(), "Value ");
+        assert_eq!(parsed.get_value(), "Value ");
 
         let (parsed, _) = parse_header(b"Key:").unwrap();
         assert_eq!(parsed.key, b"Key");
@@ -871,12 +879,12 @@ mod tests {
         let (parsed, _) = parse_header(b"Key:Multi-line\n value").unwrap();
         assert_eq!(parsed.key, b"Key");
         assert_eq!(parsed.value, b"Multi-line\n value");
-        assert_eq!(parsed.get_value().unwrap(), "Multi-line value");
+        assert_eq!(parsed.get_value(), "Multi-line value");
 
         let (parsed, _) = parse_header(b"Key:  Multi\n  line\n value\n").unwrap();
         assert_eq!(parsed.key, b"Key");
         assert_eq!(parsed.value, b"Multi\n  line\n value");
-        assert_eq!(parsed.get_value().unwrap(), "Multi line value");
+        assert_eq!(parsed.get_value(), "Multi line value");
 
         let (parsed, _) = parse_header(b"Key: One\nKey2: Two").unwrap();
         assert_eq!(parsed.key, b"Key");
@@ -885,12 +893,12 @@ mod tests {
         let (parsed, _) = parse_header(b"Key: One\n\tOverhang").unwrap();
         assert_eq!(parsed.key, b"Key");
         assert_eq!(parsed.value, b"One\n\tOverhang");
-        assert_eq!(parsed.get_value().unwrap(), "One Overhang");
+        assert_eq!(parsed.get_value(), "One Overhang");
 
         let (parsed, _) = parse_header(b"SPAM: VIAGRA \xAE").unwrap();
         assert_eq!(parsed.key, b"SPAM");
         assert_eq!(parsed.value, b"VIAGRA \xAE");
-        assert_eq!(parsed.get_value().unwrap(), "VIAGRA \u{ae}");
+        assert_eq!(parsed.get_value(), "VIAGRA \u{ae}");
 
         parse_header(b" Leading: Space").unwrap_err();
         parse_header(b"Just a string").unwrap_err();
@@ -900,54 +908,54 @@ mod tests {
     #[test]
     fn parse_encoded_headers() {
         let (parsed, _) = parse_header(b"Subject: =?iso-8859-1?Q?=A1Hola,_se=F1or!?=").unwrap();
-        assert_eq!(parsed.get_key().unwrap(), "Subject");
-        assert_eq!(parsed.get_value().unwrap(), "\u{a1}Hola, se\u{f1}or!");
+        assert_eq!(parsed.get_key(), "Subject");
+        assert_eq!(parsed.get_value(), "\u{a1}Hola, se\u{f1}or!");
 
         let (parsed, _) = parse_header(
             b"Subject: =?iso-8859-1?Q?=A1Hola,?=\n \
                                         =?iso-8859-1?Q?_se=F1or!?=",
         )
         .unwrap();
-        assert_eq!(parsed.get_key().unwrap(), "Subject");
-        assert_eq!(parsed.get_value().unwrap(), "\u{a1}Hola, se\u{f1}or!");
+        assert_eq!(parsed.get_key(), "Subject");
+        assert_eq!(parsed.get_value(), "\u{a1}Hola, se\u{f1}or!");
 
         let (parsed, _) = parse_header(b"Euro: =?utf-8?Q?=E2=82=AC?=").unwrap();
-        assert_eq!(parsed.get_key().unwrap(), "Euro");
-        assert_eq!(parsed.get_value().unwrap(), "\u{20ac}");
+        assert_eq!(parsed.get_key(), "Euro");
+        assert_eq!(parsed.get_value(), "\u{20ac}");
 
         let (parsed, _) = parse_header(b"HelloWorld: =?utf-8?B?aGVsbG8gd29ybGQ=?=").unwrap();
-        assert_eq!(parsed.get_value().unwrap(), "hello world");
+        assert_eq!(parsed.get_value(), "hello world");
 
         let (parsed, _) = parse_header(b"Empty: =?utf-8?Q??=").unwrap();
-        assert_eq!(parsed.get_value().unwrap(), "");
+        assert_eq!(parsed.get_value(), "");
 
         let (parsed, _) = parse_header(b"Incomplete: =?").unwrap();
-        assert_eq!(parsed.get_value().unwrap(), "=?");
+        assert_eq!(parsed.get_value(), "=?");
 
         let (parsed, _) = parse_header(b"BadEncoding: =?garbage?Q??=").unwrap();
-        assert_eq!(parsed.get_value().unwrap(), "=?garbage?Q??=");
+        assert_eq!(parsed.get_value(), "=?garbage?Q??=");
 
         let (parsed, _) = parse_header(b"Invalid: =?utf-8?Q?=E2=AC?=").unwrap();
-        assert_eq!(parsed.get_value().unwrap(), "\u{fffd}");
+        assert_eq!(parsed.get_value(), "\u{fffd}");
 
         let (parsed, _) = parse_header(b"LineBreak: =?utf-8?Q?=E2=82\n =AC?=").unwrap();
-        assert_eq!(parsed.get_value().unwrap(), "=?utf-8?Q?=E2=82 =AC?=");
+        assert_eq!(parsed.get_value(), "=?utf-8?Q?=E2=82 =AC?=");
 
         let (parsed, _) = parse_header(b"NotSeparateWord: hello=?utf-8?Q?world?=").unwrap();
-        assert_eq!(parsed.get_value().unwrap(), "hello=?utf-8?Q?world?=");
+        assert_eq!(parsed.get_value(), "hello=?utf-8?Q?world?=");
 
         let (parsed, _) = parse_header(b"NotSeparateWord2: =?utf-8?Q?hello?=world").unwrap();
-        assert_eq!(parsed.get_value().unwrap(), "=?utf-8?Q?hello?=world");
+        assert_eq!(parsed.get_value(), "=?utf-8?Q?hello?=world");
 
         let (parsed, _) = parse_header(b"Key: \"=?utf-8?Q?value?=\"").unwrap();
-        assert_eq!(parsed.get_value().unwrap(), "\"value\"");
+        assert_eq!(parsed.get_value(), "\"value\"");
 
         let (parsed, _) = parse_header(b"Subject: =?utf-8?q?=5BOntario_Builder=5D_Understanding_home_shopping_=E2=80=93_a_q?=\n \
                                         =?utf-8?q?uick_survey?=")
             .unwrap();
-        assert_eq!(parsed.get_key().unwrap(), "Subject");
+        assert_eq!(parsed.get_key(), "Subject");
         assert_eq!(
-            parsed.get_value().unwrap(),
+            parsed.get_value(),
             "[Ontario Builder] Understanding home shopping \u{2013} a quick survey"
         );
 
@@ -957,7 +965,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            parsed.get_value().unwrap(),
+            parsed.get_value(),
             "[Ontario Builder] non-qp words and the subject continues"
         );
 
@@ -967,30 +975,30 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            parsed.get_value().unwrap(),
+            parsed.get_value(),
             "[Ontario Builder]  and the subject continues"
         );
 
         let (parsed, _) = parse_header(b"Subject: =?ISO-2022-JP?B?GyRCRnwbKEI=?=\n\t=?ISO-2022-JP?B?GyRCS1wbKEI=?=\n\t=?ISO-2022-JP?B?GyRCOGwbKEI=?=")
             .unwrap();
-        assert_eq!(parsed.get_key().unwrap(), "Subject");
-        assert_eq!(parsed.get_value().unwrap(), "\u{65E5}\u{672C}\u{8A9E}");
+        assert_eq!(parsed.get_key(), "Subject");
+        assert_eq!(parsed.get_value(), "\u{65E5}\u{672C}\u{8A9E}");
 
         let (parsed, _) = parse_header(b"Subject: =?ISO-2022-JP?Q?=1B\x24\x42\x46\x7C=1B\x28\x42?=\n\t=?ISO-2022-JP?Q?=1B\x24\x42\x4B\x5C=1B\x28\x42?=\n\t=?ISO-2022-JP?Q?=1B\x24\x42\x38\x6C=1B\x28\x42?=")
             .unwrap();
-        assert_eq!(parsed.get_key().unwrap(), "Subject");
-        assert_eq!(parsed.get_value().unwrap(), "\u{65E5}\u{672C}\u{8A9E}");
+        assert_eq!(parsed.get_key(), "Subject");
+        assert_eq!(parsed.get_value(), "\u{65E5}\u{672C}\u{8A9E}");
 
         let (parsed, _) = parse_header(b"Subject: =?UTF-7?Q?+JgM-?=").unwrap();
-        assert_eq!(parsed.get_key().unwrap(), "Subject");
-        assert_eq!(parsed.get_value().unwrap(), "\u{2603}");
+        assert_eq!(parsed.get_key(), "Subject");
+        assert_eq!(parsed.get_value(), "\u{2603}");
 
         let (parsed, _) =
             parse_header(b"Content-Type: image/jpeg; name=\"=?UTF-8?B?MDY2MTM5ODEuanBn?=\"")
                 .unwrap();
-        assert_eq!(parsed.get_key().unwrap(), "Content-Type");
+        assert_eq!(parsed.get_key(), "Content-Type");
         assert_eq!(
-            parsed.get_value().unwrap(),
+            parsed.get_value(),
             "image/jpeg; name=\"06613981.jpg\""
         );
 
@@ -998,9 +1006,9 @@ mod tests {
             b"From: =?UTF-8?Q?\"Motorola_Owners=E2=80=99_Forums\"_?=<forums@motorola.com>",
         )
         .unwrap();
-        assert_eq!(parsed.get_key().unwrap(), "From");
+        assert_eq!(parsed.get_key(), "From");
         assert_eq!(
-            parsed.get_value().unwrap(),
+            parsed.get_value(),
             "\"Motorola Owners\u{2019} Forums\" <forums@motorola.com>"
         );
     }
@@ -1008,13 +1016,13 @@ mod tests {
     #[test]
     fn encoded_words_and_spaces() {
         let (parsed, _) = parse_header(b"K: an =?utf-8?q?encoded?=\n word").unwrap();
-        assert_eq!(parsed.get_value().unwrap(), "an encoded word");
+        assert_eq!(parsed.get_value(), "an encoded word");
 
         let (parsed, _) = parse_header(b"K: =?utf-8?q?glue?= =?utf-8?q?these?= \n words").unwrap();
-        assert_eq!(parsed.get_value().unwrap(), "gluethese  words");
+        assert_eq!(parsed.get_value(), "gluethese  words");
 
         let (parsed, _) = parse_header(b"K: =?utf-8?q?glue?= \n =?utf-8?q?again?=").unwrap();
-        assert_eq!(parsed.get_value().unwrap(), "glueagain");
+        assert_eq!(parsed.get_value(), "glueagain");
     }
 
     #[test]
@@ -1075,35 +1083,35 @@ mod tests {
                 .unwrap();
         assert_eq!(parsed.len(), 4);
         assert_eq!(
-            parsed.get_first_value("Key").unwrap(),
+            parsed.get_first_value("Key"),
             Some("Value".to_string())
         );
         assert_eq!(
-            parsed.get_all_values("Key").unwrap(),
+            parsed.get_all_values("Key"),
             vec!["Value", "Value2", "Value3"]
         );
         assert_eq!(
-            parsed.get_first_value("AnotherKey").unwrap(),
+            parsed.get_first_value("AnotherKey"),
             Some("AnotherValue".to_string())
         );
         assert_eq!(
-            parsed.get_all_values("AnotherKey").unwrap(),
+            parsed.get_all_values("AnotherKey"),
             vec!["AnotherValue"]
         );
-        assert_eq!(parsed.get_first_value("NoKey").unwrap(), None);
+        assert_eq!(parsed.get_first_value("NoKey"), None);
         assert_eq!(
-            parsed.get_all_values("NoKey").unwrap(),
+            parsed.get_all_values("NoKey"),
             Vec::<String>::new()
         );
 
         let (parsed, _) = parse_headers(b"Key: value\r\nWith: CRLF\r\n\r\nBody").unwrap();
         assert_eq!(parsed.len(), 2);
         assert_eq!(
-            parsed.get_first_value("Key").unwrap(),
+            parsed.get_first_value("Key"),
             Some("value".to_string())
         );
         assert_eq!(
-            parsed.get_first_value("With").unwrap(),
+            parsed.get_first_value("With"),
             Some("CRLF".to_string())
         );
 
@@ -1162,8 +1170,8 @@ mod tests {
     fn test_parse_mail() {
         let mail = parse_mail(b"Key: value\r\n\r\nSome body stuffs").unwrap();
         assert_eq!(mail.headers.len(), 1);
-        assert_eq!(mail.headers[0].get_key().unwrap(), "Key");
-        assert_eq!(mail.headers[0].get_value().unwrap(), "value");
+        assert_eq!(mail.headers[0].get_key(), "Key");
+        assert_eq!(mail.headers[0].get_value(), "value");
         assert_eq!(mail.ctype.mimetype, "text/plain");
         assert_eq!(mail.ctype.charset, "us-ascii");
         assert_eq!(mail.ctype.params.get("boundary"), None);
@@ -1187,7 +1195,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(mail.headers.len(), 1);
-        assert_eq!(mail.headers[0].get_key().unwrap(), "Content-Type");
+        assert_eq!(mail.headers[0].get_key(), "Content-Type");
         assert_eq!(mail.ctype.mimetype, "multipart/alternative");
         assert_eq!(mail.ctype.charset, "us-ascii");
         assert_eq!(mail.ctype.params.get("boundary").unwrap(), "myboundary");
@@ -1250,7 +1258,7 @@ mod tests {
         let parsed =
             parse_mail("Content-Type: multipart/related; boundary=\"----=_\"\n".as_bytes())
                 .unwrap();
-        assert_eq!(parsed.headers[0].get_key().unwrap(), "Content-Type");
+        assert_eq!(parsed.headers[0].get_key(), "Content-Type");
         assert_eq!(parsed.get_body_raw().unwrap(), b"");
         assert_eq!(parsed.get_body().unwrap(), "");
     }
@@ -1292,7 +1300,7 @@ mod tests {
     #[test]
     fn test_default_content_encoding() {
         let mail = parse_mail(b"Content-Type: text/plain; charset=UTF-7\r\n\r\n+JgM-").unwrap();
-        let body = mail.get_body_encoded().unwrap();
+        let body = mail.get_body_encoded();
         match body {
             Body::SevenBit(body) => {
                 assert_eq!(body.get_raw(), b"+JgM-");
@@ -1305,7 +1313,7 @@ mod tests {
     #[test]
     fn test_7bit_content_encoding() {
         let mail = parse_mail(b"Content-Type: text/plain; charset=UTF-7\r\nContent-Transfer-Encoding: 7bit\r\n\r\n+JgM-").unwrap();
-        let body = mail.get_body_encoded().unwrap();
+        let body = mail.get_body_encoded();
         match body {
             Body::SevenBit(body) => {
                 assert_eq!(body.get_raw(), b"+JgM-");
@@ -1318,7 +1326,7 @@ mod tests {
     #[test]
     fn test_8bit_content_encoding() {
         let mail = parse_mail(b"Content-Type: text/plain; charset=UTF-7\r\nContent-Transfer-Encoding: 8bit\r\n\r\n+JgM-").unwrap();
-        let body = mail.get_body_encoded().unwrap();
+        let body = mail.get_body_encoded();
         match body {
             Body::EightBit(body) => {
                 assert_eq!(body.get_raw(), b"+JgM-");
@@ -1333,7 +1341,7 @@ mod tests {
         let mail = parse_mail(
             b"Content-Type: text/plain; charset=UTF-7\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n+JgM-",
         ).unwrap();
-        match mail.get_body_encoded().unwrap() {
+        match mail.get_body_encoded() {
             Body::QuotedPrintable(body) => {
                 assert_eq!(body.get_raw(), b"+JgM-");
                 assert_eq!(body.get_decoded().unwrap(), b"+JgM-");
@@ -1347,7 +1355,7 @@ mod tests {
     fn test_base64_content_encoding() {
         let mail =
             parse_mail(b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG 8gd\r\n29ybGQ=").unwrap();
-        match mail.get_body_encoded().unwrap() {
+        match mail.get_body_encoded() {
             Body::Base64(body) => {
                 assert_eq!(body.get_raw(), b"aGVsbG 8gd\r\n29ybGQ=");
                 assert_eq!(body.get_decoded().unwrap(), b"hello world");
@@ -1360,7 +1368,7 @@ mod tests {
     #[test]
     fn test_binary_content_encoding() {
         let mail = parse_mail(b"Content-Transfer-Encoding: binary\r\n\r\n######").unwrap();
-        let body = mail.get_body_encoded().unwrap();
+        let body = mail.get_body_encoded();
         match body {
             Body::Binary(body) => {
                 assert_eq!(body.get_raw(), b"######");
@@ -1377,7 +1385,7 @@ mod tests {
         let mail = parse_mail(&mail).unwrap();
 
         let subpart_0 = mail.subparts.get(0).unwrap();
-        match subpart_0.get_body_encoded().unwrap() {
+        match subpart_0.get_body_encoded() {
             Body::SevenBit(body) => {
                 assert_eq!(
                     body.get_as_string().unwrap().trim(),
@@ -1388,7 +1396,7 @@ mod tests {
         };
 
         let subpart_1 = mail.subparts.get(1).unwrap();
-        match subpart_1.get_body_encoded().unwrap() {
+        match subpart_1.get_body_encoded() {
             Body::Base64(body) => {
                 let pdf_filepath = "./tests/files/test_email_01_sample.pdf";
                 let original_pdf = std::fs::read(pdf_filepath)
@@ -1399,7 +1407,7 @@ mod tests {
         };
 
         let subpart_2 = mail.subparts.get(2).unwrap();
-        match subpart_2.get_body_encoded().unwrap() {
+        match subpart_2.get_body_encoded() {
             Body::Base64(body) => {
                 assert_eq!(
                     body.get_decoded_as_string().unwrap(),
@@ -1415,7 +1423,7 @@ mod tests {
         const INPUT: &'static str = "U3ViamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IW11bAAAAAAAAAAAamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IG11bAAAAAAAAAAAAAAAAABTTUFZdWJqZf86OiP/dCBTdWJqZWN0Ol8KRGF0ZTog/////////////////////wAAAAAAAAAAAHQgYnJmAHQgYnJmZXItRW5jeXBlOnY9NmU3OjA2OgAAAAAAAAAAAAAAADEAAAAAAP/8mAAAAAAAAAAA+f///wAAAAAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAPT0/PzEAAAEAAA==";
 
         if let Ok(parsed) = parse_mail(&base64::decode(INPUT).unwrap()) {
-            if let Ok(Some(date)) = parsed.headers.get_first_value("Date") {
+            if let Some(date) = parsed.headers.get_first_value("Date") {
                 let _ = dateparse(&date);
             }
         }
@@ -1425,7 +1433,7 @@ mod tests {
     fn test_fuzzer_testcase_2() {
         const INPUT: &'static str = "U3ViamVjdDogVGhpcyBpcyBhIHRlc3QgZW1haWwKQ29udGVudC1UeXBlOiBtdWx0aXBhcnQvYWx0ZXJuYXRpdmU7IGJvdW5kYXJ5PczMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMZm9vYmFyCkRhdGU6IFN1biwgMDIgT2MKCi1TdWJqZWMtZm9vYmFydDo=";
         if let Ok(parsed) = parse_mail(&base64::decode(INPUT).unwrap()) {
-            if let Ok(Some(date)) = parsed.headers.get_first_value("Date") {
+            if let Some(date) = parsed.headers.get_first_value("Date") {
                 let _ = dateparse(&date);
             }
         }

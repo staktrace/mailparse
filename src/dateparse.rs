@@ -1,3 +1,5 @@
+use crate::MailParseError;
+
 enum DateParseState {
     Date,
     Month,
@@ -73,7 +75,7 @@ fn seconds_to_date(year: i64, month: i64, day: i64) -> i64 {
 ///     use mailparse::dateparse;
 ///     assert_eq!(dateparse("Sun, 02 Oct 2016 07:06:22 -0700 (PDT)").unwrap(), 1475417182);
 /// ```
-pub fn dateparse(date: &str) -> Result<i64, &'static str> {
+pub fn dateparse(date: &str) -> Result<i64, MailParseError> {
     let mut result = 0;
     let mut month = 0;
     let mut day_of_month = 0;
@@ -104,7 +106,7 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                     "OCT" | "OCTOBER" => 9,
                     "NOV" | "NOVEMBER" => 10,
                     "DEC" | "DECEMBER" => 11,
-                    _ => return Err("Unrecognized month"),
+                    _ => return Err(MailParseError::Generic("Unrecognized month")),
                 };
                 state = DateParseState::Year;
                 continue;
@@ -113,9 +115,9 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                 let year = match tok.parse::<u32>() {
                     Ok(v) if v < 70 => 2000 + v,
                     Ok(v) if v < 100 => 1900 + v,
-                    Ok(v) if v < 1970 => return Err("Disallowed year"),
+                    Ok(v) if v < 1970 => return Err(MailParseError::Generic("Disallowed year")),
                     Ok(v) => v,
-                    Err(_) => return Err("Invalid year"),
+                    Err(_) => return Err(MailParseError::Generic("Invalid year")),
                 };
                 result =
                     seconds_to_date(i64::from(year), i64::from(month), i64::from(day_of_month));
@@ -125,7 +127,7 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
             DateParseState::Hour => {
                 let hour = match tok.parse::<u8>() {
                     Ok(v) => v,
-                    Err(_) => return Err("Invalid hour"),
+                    Err(_) => return Err(MailParseError::Generic("Invalid hour")),
                 };
                 result += 3600 * i64::from(hour);
                 state = DateParseState::Minute;
@@ -134,7 +136,7 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
             DateParseState::Minute => {
                 let minute = match tok.parse::<u8>() {
                     Ok(v) => v,
-                    Err(_) => return Err("Invalid minute"),
+                    Err(_) => return Err(MailParseError::Generic("Invalid minute")),
                 };
                 result += 60 * i64::from(minute);
                 state = DateParseState::Second;
@@ -143,7 +145,7 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
             DateParseState::Second => {
                 let second = match tok.parse::<u8>() {
                     Ok(v) => v,
-                    Err(_) => return Err("Invalid second"),
+                    Err(_) => return Err(MailParseError::Generic("Invalid second")),
                 };
                 result += i64::from(second);
                 state = DateParseState::Timezone;
@@ -166,7 +168,7 @@ pub fn dateparse(date: &str) -> Result<i64, &'static str> {
                             "M" => (1200, -1),
                             "N" => (100, 1),
                             "Y" => (1200, 1),
-                            _ => return Err("Invalid timezone"),
+                            _ => return Err(MailParseError::Generic("Invalid timezone")),
                         }
                     }
                 };
