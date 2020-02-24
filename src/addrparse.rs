@@ -266,9 +266,9 @@ pub fn addrparse(addrs: &str) -> Result<MailAddrList, &'static str> {
 ///
 /// # Examples
 /// ```
-///     use mailparse::{addrparse_header, parse_mail, MailAddr, SingleInfo};
+///     use mailparse::{addrparse_header, parse_mail, MailAddr, MailHeaderMap, SingleInfo};
 ///     let mail = parse_mail(b"From: John Doe <john@doe.com>\n\nBlah Blah").unwrap();
-///     match &addrparse_header(&mail.headers[0]).unwrap()[0] {
+///     match &addrparse_header(mail.headers.get_first_header("From").unwrap().unwrap()).unwrap()[0] {
 ///         MailAddr::Single(info) => {
 ///             assert_eq!(info.display_name, Some("John Doe".to_string()));
 ///             assert_eq!(info.addr, "john@doe.com".to_string());
