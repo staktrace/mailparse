@@ -3,6 +3,7 @@ extern crate charset;
 extern crate quoted_printable;
 
 use std::collections::BTreeMap;
+use std::borrow::Cow;
 use std::error;
 use std::fmt;
 use std::ops::Deref;
@@ -154,6 +155,12 @@ impl<'a> MailHeader<'a> {
     /// Get the name of the header. Note that header names are case-insensitive.
     pub fn get_key(&self) -> String {
         decode_latin1(self.key).into_owned()
+    }
+
+    /// Get the name of the header, borrowing if it's ASCII-only.
+    /// Note that header names are case-insensitive.
+    pub fn get_key_ref(&self) -> Cow<str> {
+        decode_latin1(self.key)
     }
 
     /// Get the value of the header. Any sequences of newlines characters followed
@@ -354,7 +361,7 @@ pub trait MailHeaderMap {
 impl<'a> MailHeaderMap for [MailHeader<'a>] {
     fn get_first_value(&self, key: &str) -> Option<String> {
         for x in self {
-            if x.get_key().eq_ignore_ascii_case(key) {
+            if x.get_key_ref().eq_ignore_ascii_case(key) {
                 return Some(x.get_value());
             }
         }
@@ -363,7 +370,7 @@ impl<'a> MailHeaderMap for [MailHeader<'a>] {
 
     fn get_first_header(&self, key: &str) -> Option<&MailHeader> {
         for x in self {
-            if x.get_key().eq_ignore_ascii_case(key) {
+            if x.get_key_ref().eq_ignore_ascii_case(key) {
                 return Some(x);
             }
         }
@@ -373,7 +380,7 @@ impl<'a> MailHeaderMap for [MailHeader<'a>] {
     fn get_all_values(&self, key: &str) -> Vec<String> {
         let mut values: Vec<String> = Vec::new();
         for x in self {
-            if x.get_key().eq_ignore_ascii_case(key) {
+            if x.get_key_ref().eq_ignore_ascii_case(key) {
                 values.push(x.get_value());
             }
         }
@@ -383,7 +390,7 @@ impl<'a> MailHeaderMap for [MailHeader<'a>] {
     fn get_all_headers(&self, key: &str) -> Vec<&MailHeader> {
         let mut headers: Vec<&MailHeader> = Vec::new();
         for x in self {
-            if x.get_key().eq_ignore_ascii_case(key) {
+            if x.get_key_ref().eq_ignore_ascii_case(key) {
                 headers.push(x);
             }
         }
@@ -860,6 +867,7 @@ mod tests {
         let (parsed, _) = parse_header(b"Key: Value").unwrap();
         assert_eq!(parsed.key, b"Key");
         assert_eq!(parsed.get_key(), "Key");
+        assert_eq!(parsed.get_key_ref(), "Key");
         assert_eq!(parsed.value, b"Value");
         assert_eq!(parsed.get_value(), "Value");
 
@@ -909,6 +917,7 @@ mod tests {
     fn parse_encoded_headers() {
         let (parsed, _) = parse_header(b"Subject: =?iso-8859-1?Q?=A1Hola,_se=F1or!?=").unwrap();
         assert_eq!(parsed.get_key(), "Subject");
+        assert_eq!(parsed.get_key_ref(), "Subject");
         assert_eq!(parsed.get_value(), "\u{a1}Hola, se\u{f1}or!");
 
         let (parsed, _) = parse_header(
@@ -917,10 +926,12 @@ mod tests {
         )
         .unwrap();
         assert_eq!(parsed.get_key(), "Subject");
+        assert_eq!(parsed.get_key_ref(), "Subject");
         assert_eq!(parsed.get_value(), "\u{a1}Hola, se\u{f1}or!");
 
         let (parsed, _) = parse_header(b"Euro: =?utf-8?Q?=E2=82=AC?=").unwrap();
         assert_eq!(parsed.get_key(), "Euro");
+        assert_eq!(parsed.get_key_ref(), "Euro");
         assert_eq!(parsed.get_value(), "\u{20ac}");
 
         let (parsed, _) = parse_header(b"HelloWorld: =?utf-8?B?aGVsbG8gd29ybGQ=?=").unwrap();
@@ -954,6 +965,7 @@ mod tests {
                                         =?utf-8?q?uick_survey?=")
             .unwrap();
         assert_eq!(parsed.get_key(), "Subject");
+        assert_eq!(parsed.get_key_ref(), "Subject");
         assert_eq!(
             parsed.get_value(),
             "[Ontario Builder] Understanding home shopping \u{2013} a quick survey"
@@ -982,21 +994,25 @@ mod tests {
         let (parsed, _) = parse_header(b"Subject: =?ISO-2022-JP?B?GyRCRnwbKEI=?=\n\t=?ISO-2022-JP?B?GyRCS1wbKEI=?=\n\t=?ISO-2022-JP?B?GyRCOGwbKEI=?=")
             .unwrap();
         assert_eq!(parsed.get_key(), "Subject");
+        assert_eq!(parsed.get_key_ref(), "Subject");
         assert_eq!(parsed.get_value(), "\u{65E5}\u{672C}\u{8A9E}");
 
         let (parsed, _) = parse_header(b"Subject: =?ISO-2022-JP?Q?=1B\x24\x42\x46\x7C=1B\x28\x42?=\n\t=?ISO-2022-JP?Q?=1B\x24\x42\x4B\x5C=1B\x28\x42?=\n\t=?ISO-2022-JP?Q?=1B\x24\x42\x38\x6C=1B\x28\x42?=")
             .unwrap();
         assert_eq!(parsed.get_key(), "Subject");
+        assert_eq!(parsed.get_key_ref(), "Subject");
         assert_eq!(parsed.get_value(), "\u{65E5}\u{672C}\u{8A9E}");
 
         let (parsed, _) = parse_header(b"Subject: =?UTF-7?Q?+JgM-?=").unwrap();
         assert_eq!(parsed.get_key(), "Subject");
+        assert_eq!(parsed.get_key_ref(), "Subject");
         assert_eq!(parsed.get_value(), "\u{2603}");
 
         let (parsed, _) =
             parse_header(b"Content-Type: image/jpeg; name=\"=?UTF-8?B?MDY2MTM5ODEuanBn?=\"")
                 .unwrap();
         assert_eq!(parsed.get_key(), "Content-Type");
+        assert_eq!(parsed.get_key_ref(), "Content-Type");
         assert_eq!(parsed.get_value(), "image/jpeg; name=\"06613981.jpg\"");
 
         let (parsed, _) = parse_header(
@@ -1004,6 +1020,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(parsed.get_key(), "From");
+        assert_eq!(parsed.get_key_ref(), "From");
         assert_eq!(
             parsed.get_value(),
             "\"Motorola Owners\u{2019} Forums\" <forums@motorola.com>"
@@ -1153,6 +1170,7 @@ mod tests {
         let mail = parse_mail(b"Key: value\r\n\r\nSome body stuffs").unwrap();
         assert_eq!(mail.headers.len(), 1);
         assert_eq!(mail.headers[0].get_key(), "Key");
+        assert_eq!(mail.headers[0].get_key_ref(), "Key");
         assert_eq!(mail.headers[0].get_value(), "value");
         assert_eq!(mail.ctype.mimetype, "text/plain");
         assert_eq!(mail.ctype.charset, "us-ascii");
@@ -1178,6 +1196,7 @@ mod tests {
         .unwrap();
         assert_eq!(mail.headers.len(), 1);
         assert_eq!(mail.headers[0].get_key(), "Content-Type");
+        assert_eq!(mail.headers[0].get_key_ref(), "Content-Type");
         assert_eq!(mail.ctype.mimetype, "multipart/alternative");
         assert_eq!(mail.ctype.charset, "us-ascii");
         assert_eq!(mail.ctype.params.get("boundary").unwrap(), "myboundary");
