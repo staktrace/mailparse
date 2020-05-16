@@ -187,7 +187,7 @@ enum HeaderTokenItem<'a> {
 struct HeaderTokenWalker<'a> {
     tokens: Vec<HeaderToken<'a>>,
     cur_token: usize,
-    cur_char: usize,
+    cur_char_offset: usize,
 }
 
 impl<'a> Iterator for HeaderTokenWalker<'a> {
@@ -200,12 +200,14 @@ impl<'a> Iterator for HeaderTokenWalker<'a> {
             }
             match &self.tokens[self.cur_token] {
                 HeaderToken::Text(s) => {
-                    let c = s.chars().nth(self.cur_char);
-                    if let Some(c) = c {
-                        self.cur_char += 1;
+                    let s = &s[self.cur_char_offset..];
+                    let mut chars = s.char_indices();
+                    let c = chars.next();
+                    if let Some((_, c)) = c {
+                        self.cur_char_offset += chars.next().map(|(o, _)| o).unwrap_or(s.len());
                         return Some(HeaderTokenItem::Char(c));
                     } else {
-                        self.cur_char = 0;
+                        self.cur_char_offset = 0;
                         self.cur_token += 1;
                         continue;
                     }
@@ -235,7 +237,7 @@ impl<'a> HeaderTokenWalker<'a> {
         Self {
             tokens,
             cur_token: 0,
-            cur_char: 0,
+            cur_char_offset: 0,
         }
     }
 }
