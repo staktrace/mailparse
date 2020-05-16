@@ -170,6 +170,11 @@ impl MailAddrList {
             None
         }
     }
+
+    /// Consumes the `MailAddrList`, returning the wrapped value.
+    pub fn into_inner(self) -> Vec<MailAddr> {
+        self.0
+    }
 }
 
 enum HeaderTokenItem<'a> {
