@@ -2,8 +2,8 @@ extern crate base64;
 extern crate charset;
 extern crate quoted_printable;
 
-use std::collections::BTreeMap;
 use std::borrow::Cow;
+use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
 use std::ops::Deref;
