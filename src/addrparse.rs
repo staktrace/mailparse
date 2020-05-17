@@ -92,7 +92,7 @@ enum AddrParseState {
     AfterBracketedAddr,
     Unquoted,
     NameWithEncodedWord,
-    TrailerComment,
+    Comment,
 }
 
 /// A simple wrapper around `Vec<MailAddr>`. This is primarily here so we can
@@ -307,6 +307,7 @@ fn addrparse_inner(
     let mut name = None;
     let mut addr = None;
     let mut post_quote_ws = None;
+    let mut comment_return = None;
 
     loop {
         match state {
@@ -490,7 +491,8 @@ fn addrparse_inner(
                             // Technically not valid, but a similar case occurs in real-world corpus, so handle it gracefully
                             state = AddrParseState::Initial;
                         } else if c == '(' {
-                            state = AddrParseState::TrailerComment;
+                            comment_return = Some(AddrParseState::AfterBracketedAddr);
+                            state = AddrParseState::Comment;
                         } else {
                             return Err(MailParseError::Generic(
                                 "Unexpected char found after bracketed address",
@@ -597,6 +599,9 @@ fn addrparse_inner(
                                     .collect(),
                             )));
                             addr = None;
+                        } else if c == '(' {
+                            comment_return = Some(AddrParseState::Unquoted);
+                            state = AddrParseState::Comment;
                         } else {
                             addr.as_mut().unwrap().push(c);
                         }
@@ -613,11 +618,11 @@ fn addrparse_inner(
                     }
                 }
             }
-            AddrParseState::TrailerComment => {
+            AddrParseState::Comment => {
                 match hti {
                     HeaderTokenItem::Char(c) => {
                         if c == ')' {
-                            state = AddrParseState::AfterBracketedAddr;
+                            state = comment_return.take().unwrap();
                         }
                     }
                     HeaderTokenItem::Whitespace(_) => {
@@ -648,7 +653,7 @@ fn addrparse_inner(
         | AddrParseState::EscapedChar
         | AddrParseState::AfterQuotedName
         | AddrParseState::BracketedAddr
-        | AddrParseState::TrailerComment
+        | AddrParseState::Comment
         | AddrParseState::NameWithEncodedWord => Err(MailParseError::Generic(
             "Address string unexpectedly terminated",
         )),
@@ -879,6 +884,14 @@ mod tests {
             addrparse("foo@bar.com;").unwrap(),
             MailAddrList(vec![MailAddr::Single(
                 SingleInfo::new(None, "foo@bar.com".to_string()).unwrap()
+            )])
+        );
+
+        // From https://github.com/deltachat/deltachat-core-rust/pull/1476#issuecomment-629681157
+        assert_eq!(
+            addrparse("mailer-daemon@hq5.merlinux.eu (mail delivery system)").unwrap(),
+            MailAddrList(vec![MailAddr::Single(
+                SingleInfo::new(None, "mailer-daemon@hq5.merlinux.eu".to_string()).unwrap()
             )])
         );
     }
