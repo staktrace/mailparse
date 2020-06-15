@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 extern crate base64;
 extern crate charset;
 extern crate quoted_printable;
