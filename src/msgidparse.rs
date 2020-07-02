@@ -64,3 +64,45 @@ pub fn msgidparse(ids: &str) -> Result<MessageIdList, MailParseError> {
     }
     Ok(MessageIdList(msgids))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_message_ids() {
+        assert_eq!(
+            msgidparse("").expect("Empty string"),
+            MessageIdList(Vec::new())
+        );
+        assert_eq!(
+            msgidparse("<msg_one@foo.com>").expect("Single reference"),
+            MessageIdList(vec!["msg_one@foo.com".to_string()])
+        );
+        assert_eq!(
+            msgidparse(" <msg_one@foo.com>").expect("Single reference, leading whitespace"),
+            MessageIdList(vec!["msg_one@foo.com".to_string()])
+        );
+        assert_eq!(
+            msgidparse("<msg_one@foo.com> ").expect("Single reference, trailing whitespace"),
+            MessageIdList(vec!["msg_one@foo.com".to_string()])
+        );
+        assert_eq!(
+            msgidparse("<msg_one@foo.com> <msg_two@bar.com>")
+                .expect("Multiple references separated by space"),
+            MessageIdList(vec![
+                "msg_one@foo.com".to_string(),
+                "msg_two@bar.com".to_string(),
+            ])
+        );
+        assert_eq!(
+            msgidparse("\n<msg_one@foo.com> <msg_two@bar.com>\t<msg_three@qux.com>\r ")
+                .expect("Multiple references separated by various whitespace"),
+            MessageIdList(vec![
+                "msg_one@foo.com".to_string(),
+                "msg_two@bar.com".to_string(),
+                "msg_three@qux.com".to_string(),
+            ])
+        );
+    }
+}
