@@ -286,7 +286,7 @@ pub fn addrparse(addrs: &str) -> Result<MailAddrList, MailParseError> {
 ///     };
 /// ```
 pub fn addrparse_header(header: &MailHeader) -> Result<MailAddrList, MailParseError> {
-    let chars = decode_latin1(header.value);
+    let chars = decode_latin1(&header.value);
     let v = crate::header::normalized_tokens(&chars);
     let mut w = HeaderTokenWalker::new(v);
     addrparse_inner(&mut w, false)

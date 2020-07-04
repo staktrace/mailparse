@@ -108,16 +108,16 @@ impl From<std::borrow::Cow<'static, str>> for MailParseError {
 /// input. There are additional accessor functions on this struct to extract
 /// the data as Rust strings.
 #[derive(Debug)]
-pub struct MailHeader<'a> {
-    key: &'a [u8],
-    value: &'a [u8],
+pub struct MailHeader {
+    key: Vec<u8>,
+    value: Vec<u8>,
 }
 
 pub(crate) fn find_from(line: &str, ix_start: usize, key: &str) -> Option<usize> {
     line[ix_start..].find(key).map(|v| ix_start + v)
 }
 
-fn find_from_u8(line: &[u8], ix_start: usize, key: &[u8]) -> Option<usize> {
+fn find_from_u8(line: &Vec<u8>, ix_start: usize, key: &[u8]) -> Option<usize> {
     assert!(!key.is_empty());
     assert!(ix_start < line.len());
     if line.len() < key.len() {
@@ -153,16 +153,16 @@ fn test_find_from_u8() {
     assert_eq!(find_from_u8(b"hello world", 10, b"d"), None);
 }
 
-impl<'a> MailHeader<'a> {
+impl MailHeader {
     /// Get the name of the header. Note that header names are case-insensitive.
     pub fn get_key(&self) -> String {
-        decode_latin1(self.key).into_owned()
+        decode_latin1(&self.key).into_owned()
     }
 
     /// Get the name of the header, borrowing if it's ASCII-only.
     /// Note that header names are case-insensitive.
     pub fn get_key_ref(&self) -> Cow<str> {
-        decode_latin1(self.key)
+        decode_latin1(&self.key)
     }
 
     /// Get the value of the header. Any sequences of newlines characters followed
@@ -181,7 +181,7 @@ impl<'a> MailHeader<'a> {
     pub fn get_value(&self) -> String {
         let mut result = String::new();
 
-        let chars = decode_latin1(self.value);
+        let chars = decode_latin1(&self.value);
         for tok in header::normalized_tokens(&chars) {
             match tok {
                 HeaderToken::Text(t) => {
@@ -300,8 +300,8 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
     match ix_key_end {
         Some(v) => Ok((
             MailHeader {
-                key: &raw_data[0..v],
-                value: &raw_data[ix_value_start..ix_value_end],
+                key: raw_data[0..v].to_vec(),
+                value: raw_data[ix_value_start..ix_value_end].to_vec(),
             },
             ix,
         )),
@@ -360,7 +360,7 @@ pub trait MailHeaderMap {
     fn get_all_headers(&self, key: &str) -> Vec<&MailHeader>;
 }
 
-impl<'a> MailHeaderMap for [MailHeader<'a>] {
+impl MailHeaderMap for [MailHeader] {
     fn get_first_value(&self, key: &str) -> Option<String> {
         for x in self {
             if x.get_key_ref().eq_ignore_ascii_case(key) {
@@ -606,19 +606,22 @@ pub fn parse_content_disposition(header: &str) -> ParsedContentDisposition {
 /// necessary to represent it properly. This struct accomplishes that by holding
 /// a vector of other ParsedMail structures for the subparts.
 #[derive(Debug)]
-pub struct ParsedMail<'a> {
+pub struct ParsedMail {
+    /// The actual buffer holding the complete mail
+    buffer: Vec<u8>,
+
     /// The headers for the message (or message subpart).
-    pub headers: Vec<MailHeader<'a>>,
+    pub headers: Vec<MailHeader>,
     /// The Content-Type information for the message (or message subpart).
     pub ctype: ParsedContentType,
     /// The raw bytes that make up the body of the message (or message subpart).
-    body: &'a [u8],
+    body: Vec<u8>,
     /// The subparts of this message or subpart. This vector is only non-empty
     /// if ctype.mimetype starts with "multipart/".
-    pub subparts: Vec<ParsedMail<'a>>,
+    pub subparts: Vec<ParsedMail>,
 }
 
-impl<'a> ParsedMail<'a> {
+impl ParsedMail {
     /// Get the body of the message as a Rust string. This function tries to
     /// unapply the Content-Transfer-Encoding if there is one, and then converts
     /// the result into a Rust UTF-8 string using the charset in the Content-Type
@@ -661,8 +664,8 @@ impl<'a> ParsedMail<'a> {
     pub fn get_body_raw(&self) -> Result<Vec<u8>, MailParseError> {
         match self.get_body_encoded() {
             Body::Base64(body) | Body::QuotedPrintable(body) => body.get_decoded(),
-            Body::SevenBit(body) | Body::EightBit(body) => Ok(Vec::<u8>::from(body.get_raw())),
-            Body::Binary(body) => Ok(Vec::<u8>::from(body.get_raw())),
+            Body::SevenBit(body) | Body::EightBit(body) => Ok(body.get_raw().clone()),
+            Body::Binary(body) => Ok(body.get_raw().clone()),
         }
     }
 
@@ -705,13 +708,13 @@ impl<'a> ParsedMail<'a> {
     ///         }
     ///     }
     /// ```
-    pub fn get_body_encoded(&'a self) -> Body<'a> {
+    pub fn get_body_encoded<'a>(&'a self) -> Body<'a> {
         let transfer_encoding = self
             .headers
             .get_first_value("Content-Transfer-Encoding")
             .map(|s| s.to_lowercase());
 
-        Body::new(self.body, &self.ctype, &transfer_encoding)
+        Body::new(self.body.clone(), &self.ctype, &transfer_encoding)
     }
 
     /// Returns a struct containing a parsed representation of the
@@ -766,40 +769,43 @@ impl<'a> ParsedMail<'a> {
 ///     assert!(parsed.subparts[1].get_body().unwrap().starts_with("<html>"));
 ///     assert_eq!(dateparse(parsed.headers.get_first_value("Date").unwrap().as_str()).unwrap(), 1475417182);
 /// ```
-pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
-    let (headers, ix_body) = parse_headers(raw_data)?;
+pub fn parse_mail(raw_data: Vec<u8>) -> Result<ParsedMail, MailParseError> {
+    let (headers, ix_body) = parse_headers(&raw_data)?;
     let ctype = headers
         .get_first_value("Content-Type")
         .map(|s| parse_content_type(&s))
         .unwrap_or_default();
 
+    let raw_data_len = raw_data.len();
+
     let mut result = ParsedMail {
         headers,
         ctype,
-        body: &raw_data[ix_body..],
+        body: raw_data[ix_body..].to_vec(),
         subparts: Vec::<ParsedMail>::new(),
+        buffer: raw_data,
     };
     if result.ctype.mimetype.starts_with("multipart/")
         && result.ctype.params.get("boundary").is_some()
-        && raw_data.len() > ix_body
+        && raw_data_len > ix_body
     {
         let boundary = String::from("--") + &result.ctype.params["boundary"];
-        if let Some(ix_body_end) = find_from_u8(raw_data, ix_body, boundary.as_bytes()) {
-            result.body = &raw_data[ix_body..ix_body_end];
+        if let Some(ix_body_end) = find_from_u8(&result.buffer, ix_body, boundary.as_bytes()) {
+            result.body = result.buffer[ix_body..ix_body_end].to_vec();
             let mut ix_boundary_end = ix_body_end + boundary.len();
             while let Some(ix_part_start) =
-                find_from_u8(raw_data, ix_boundary_end, b"\n").map(|v| v + 1)
+                find_from_u8(&result.buffer, ix_boundary_end, b"\n").map(|v| v + 1)
             {
                 // if there is no terminating boundary, assume the part end is the end of the email
-                let ix_part_end = find_from_u8(raw_data, ix_part_start, boundary.as_bytes())
-                    .unwrap_or_else(|| raw_data.len());
+                let ix_part_end = find_from_u8(&result.buffer, ix_part_start, boundary.as_bytes())
+                    .unwrap_or_else(|| raw_data_len);
 
                 result
                     .subparts
-                    .push(parse_mail(&raw_data[ix_part_start..ix_part_end])?);
+                    .push(parse_mail(result.buffer[ix_part_start..ix_part_end].to_vec())?);
                 ix_boundary_end = ix_part_end + boundary.len();
-                if ix_boundary_end + 2 > raw_data.len()
-                    || (raw_data[ix_boundary_end] == b'-' && raw_data[ix_boundary_end + 1] == b'-')
+                if ix_boundary_end + 2 > raw_data_len
+                    || (result.buffer[ix_boundary_end] == b'-' && result.buffer[ix_boundary_end + 1] == b'-')
                 {
                     break;
                 }

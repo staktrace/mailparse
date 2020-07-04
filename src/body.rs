@@ -16,33 +16,26 @@ pub enum Body<'a> {
 }
 
 impl<'a> Body<'a> {
-    pub fn new(
-        body: &'a [u8],
-        ctype: &'a ParsedContentType,
-        transfer_encoding: &Option<String>,
-    ) -> Body<'a> {
-        transfer_encoding
-            .as_ref()
-            .map(|encoding| match encoding.as_ref() {
-                "base64" => Body::Base64(EncodedBody {
-                    decoder: decode_base64,
-                    body,
-                    ctype,
-                }),
-                "quoted-printable" => Body::QuotedPrintable(EncodedBody {
-                    decoder: decode_quoted_printable,
-                    body,
-                    ctype,
-                }),
-                "7bit" => Body::SevenBit(TextBody { body, ctype }),
-                "8bit" => Body::EightBit(TextBody { body, ctype }),
-                "binary" => Body::Binary(BinaryBody { body, ctype }),
-                _ => Body::get_default(body, ctype),
-            })
-            .unwrap_or_else(|| Body::get_default(body, ctype))
+    pub fn new(body: Vec<u8>, ctype: &'a ParsedContentType, transfer_encoding: &Option<String>) -> Body<'a> {
+        match transfer_encoding.as_ref().map(AsRef::as_ref) {
+            Some("base64") => Body::Base64(EncodedBody {
+                decoder: decode_base64,
+                body,
+                ctype,
+            }),
+            Some("quoted-printable") => Body::QuotedPrintable(EncodedBody {
+                decoder: decode_quoted_printable,
+                body,
+                ctype,
+            }),
+            Some("7bit") => Body::SevenBit(TextBody { body, ctype }),
+            Some("8bit") => Body::EightBit(TextBody { body, ctype }),
+            Some("binary") => Body::Binary(BinaryBody { body, ctype }),
+            Some(_) | None => Body::get_default(body, ctype),
+        }
     }
 
-    fn get_default(body: &'a [u8], ctype: &'a ParsedContentType) -> Body<'a> {
+    fn get_default<'b>(body: Vec<u8>, ctype: &'b ParsedContentType) -> Body<'b> {
         Body::SevenBit(TextBody { body, ctype })
     }
 }
@@ -51,7 +44,7 @@ impl<'a> Body<'a> {
 pub struct EncodedBody<'a> {
     decoder: fn(&[u8]) -> Result<Vec<u8>, MailParseError>,
     ctype: &'a ParsedContentType,
-    body: &'a [u8],
+    body: Vec<u8>,
 }
 
 impl<'a> EncodedBody<'a> {
@@ -61,13 +54,13 @@ impl<'a> EncodedBody<'a> {
     }
 
     /// Get the raw body of the message exactly as it is written in the message (or message subpart).
-    pub fn get_raw(&self) -> &'a [u8] {
-        self.body
+    pub fn get_raw(&self) -> &Vec<u8> {
+        &self.body
     }
 
     /// Get the decoded body of the message (or message subpart).
     pub fn get_decoded(&self) -> Result<Vec<u8>, MailParseError> {
-        (self.decoder)(self.body)
+        (self.decoder)(&self.body)
     }
 
     /// Get the body of the message as a Rust string.
@@ -84,7 +77,7 @@ impl<'a> EncodedBody<'a> {
 /// Struct that holds the textual body representation of the message (or message subpart).
 pub struct TextBody<'a> {
     ctype: &'a ParsedContentType,
-    body: &'a [u8],
+    body: Vec<u8>,
 }
 
 impl<'a> TextBody<'a> {
@@ -94,8 +87,8 @@ impl<'a> TextBody<'a> {
     }
 
     /// Get the raw body of the message exactly as it is written in the message (or message subpart).
-    pub fn get_raw(&self) -> &'a [u8] {
-        self.body
+    pub fn get_raw(&self) -> &Vec<u8> {
+        &self.body
     }
 
     /// Get the body of the message as a Rust string.
@@ -103,14 +96,14 @@ impl<'a> TextBody<'a> {
     /// in the Content-Type
     /// (or "us-ascii" if the charset was missing or not recognized).
     pub fn get_as_string(&self) -> Result<String, MailParseError> {
-        get_body_as_string(self.body, &self.ctype)
+        get_body_as_string(&self.body, &self.ctype)
     }
 }
 
 /// Struct that holds a binary body representation of the message (or message subpart).
 pub struct BinaryBody<'a> {
     ctype: &'a ParsedContentType,
-    body: &'a [u8],
+    body: Vec<u8>,
 }
 
 impl<'a> BinaryBody<'a> {
@@ -120,8 +113,8 @@ impl<'a> BinaryBody<'a> {
     }
 
     /// Get the raw body of the message exactly as it is written in the message (or message subpart).
-    pub fn get_raw(&self) -> &'a [u8] {
-        self.body
+    pub fn get_raw(&self) -> &Vec<u8> {
+        &self.body
     }
 }
 
