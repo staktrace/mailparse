@@ -202,6 +202,31 @@ impl<'a> MailHeader<'a> {
 
         result
     }
+
+    /// Get the raw, unparsed value of the header key.
+    ///
+    /// # Examples
+    /// ```
+    ///     use mailparse::parse_header;
+    ///     let (parsed, _) = parse_header(b"SuBJect : =?iso-8859-1?Q?=A1Hola,_se=F1or!?=").unwrap();
+    ///     assert_eq!(parsed.get_key_raw(), "SuBJect ".as_bytes());
+    /// ```
+    pub fn get_key_raw(&self) -> &[u8] {
+        self.key
+    }
+
+    /// Get the raw, unparsed value of the header value.
+    ///
+    /// # Examples
+    /// ```
+    ///     use mailparse::parse_header;
+    ///     let (parsed, _) = parse_header(b"Subject: =?iso-8859-1?Q?=A1Hola,_se=F1or!?=").unwrap();
+    ///     assert_eq!(parsed.get_key(), "Subject");
+    ///     assert_eq!(parsed.get_value_raw(), "=?iso-8859-1?Q?=A1Hola,_se=F1or!?=".as_bytes());
+    /// ```
+    pub fn get_value_raw(&self) -> &[u8] {
+        self.value
+    }
 }
 
 #[derive(Debug)]
@@ -872,11 +897,13 @@ mod tests {
         assert_eq!(parsed.get_key_ref(), "Key");
         assert_eq!(parsed.value, b"Value");
         assert_eq!(parsed.get_value(), "Value");
+        assert_eq!(parsed.get_value_raw(), "Value".as_bytes());
 
         let (parsed, _) = parse_header(b"Key :  Value ").unwrap();
         assert_eq!(parsed.key, b"Key ");
         assert_eq!(parsed.value, b"Value ");
         assert_eq!(parsed.get_value(), "Value ");
+        assert_eq!(parsed.get_value_raw(), "Value ".as_bytes());
 
         let (parsed, _) = parse_header(b"Key:").unwrap();
         assert_eq!(parsed.key, b"Key");
@@ -890,11 +917,13 @@ mod tests {
         assert_eq!(parsed.key, b"Key");
         assert_eq!(parsed.value, b"Multi-line\n value");
         assert_eq!(parsed.get_value(), "Multi-line value");
+        assert_eq!(parsed.get_value_raw(), "Multi-line\n value".as_bytes());
 
         let (parsed, _) = parse_header(b"Key:  Multi\n  line\n value\n").unwrap();
         assert_eq!(parsed.key, b"Key");
         assert_eq!(parsed.value, b"Multi\n  line\n value");
         assert_eq!(parsed.get_value(), "Multi line value");
+        assert_eq!(parsed.get_value_raw(), "Multi\n  line\n value".as_bytes());
 
         let (parsed, _) = parse_header(b"Key: One\nKey2: Two").unwrap();
         assert_eq!(parsed.key, b"Key");
@@ -904,11 +933,13 @@ mod tests {
         assert_eq!(parsed.key, b"Key");
         assert_eq!(parsed.value, b"One\n\tOverhang");
         assert_eq!(parsed.get_value(), "One Overhang");
+        assert_eq!(parsed.get_value_raw(), "One\n\tOverhang".as_bytes());
 
         let (parsed, _) = parse_header(b"SPAM: VIAGRA \xAE").unwrap();
         assert_eq!(parsed.key, b"SPAM");
         assert_eq!(parsed.value, b"VIAGRA \xAE");
         assert_eq!(parsed.get_value(), "VIAGRA \u{ae}");
+        assert_eq!(parsed.get_value_raw(), b"VIAGRA \xAE");
 
         parse_header(b" Leading: Space").unwrap_err();
         parse_header(b"Just a string").unwrap_err();
@@ -921,6 +952,7 @@ mod tests {
         assert_eq!(parsed.get_key(), "Subject");
         assert_eq!(parsed.get_key_ref(), "Subject");
         assert_eq!(parsed.get_value(), "\u{a1}Hola, se\u{f1}or!");
+        assert_eq!(parsed.get_value_raw(), "=?iso-8859-1?Q?=A1Hola,_se=F1or!?=".as_bytes());
 
         let (parsed, _) = parse_header(
             b"Subject: =?iso-8859-1?Q?=A1Hola,?=\n \
@@ -930,23 +962,30 @@ mod tests {
         assert_eq!(parsed.get_key(), "Subject");
         assert_eq!(parsed.get_key_ref(), "Subject");
         assert_eq!(parsed.get_value(), "\u{a1}Hola, se\u{f1}or!");
+        assert_eq!(parsed.get_value_raw(), "=?iso-8859-1?Q?=A1Hola,?=\n \
+                                          =?iso-8859-1?Q?_se=F1or!?=".as_bytes());
 
         let (parsed, _) = parse_header(b"Euro: =?utf-8?Q?=E2=82=AC?=").unwrap();
         assert_eq!(parsed.get_key(), "Euro");
         assert_eq!(parsed.get_key_ref(), "Euro");
         assert_eq!(parsed.get_value(), "\u{20ac}");
+        assert_eq!(parsed.get_value_raw(), "=?utf-8?Q?=E2=82=AC?=".as_bytes());
 
         let (parsed, _) = parse_header(b"HelloWorld: =?utf-8?B?aGVsbG8gd29ybGQ=?=").unwrap();
         assert_eq!(parsed.get_value(), "hello world");
+        assert_eq!(parsed.get_value_raw(), "=?utf-8?B?aGVsbG8gd29ybGQ=?=".as_bytes());
 
         let (parsed, _) = parse_header(b"Empty: =?utf-8?Q??=").unwrap();
         assert_eq!(parsed.get_value(), "");
+        assert_eq!(parsed.get_value_raw(), "=?utf-8?Q??=".as_bytes());
 
         let (parsed, _) = parse_header(b"Incomplete: =?").unwrap();
         assert_eq!(parsed.get_value(), "=?");
+        assert_eq!(parsed.get_value_raw(), "=?".as_bytes());
 
         let (parsed, _) = parse_header(b"BadEncoding: =?garbage?Q??=").unwrap();
         assert_eq!(parsed.get_value(), "=?garbage?Q??=");
+        assert_eq!(parsed.get_value_raw(), "=?garbage?Q??=".as_bytes());
 
         let (parsed, _) = parse_header(b"Invalid: =?utf-8?Q?=E2=AC?=").unwrap();
         assert_eq!(parsed.get_value(), "\u{fffd}");
@@ -992,30 +1031,43 @@ mod tests {
             parsed.get_value(),
             "[Ontario Builder]  and the subject continues"
         );
+        assert_eq!(
+            parsed.get_value_raw(),
+            "=?utf-8?q?=5BOntario_Builder=5D?= \n \
+               and the subject continues".as_bytes()
+        );
 
         let (parsed, _) = parse_header(b"Subject: =?ISO-2022-JP?B?GyRCRnwbKEI=?=\n\t=?ISO-2022-JP?B?GyRCS1wbKEI=?=\n\t=?ISO-2022-JP?B?GyRCOGwbKEI=?=")
             .unwrap();
         assert_eq!(parsed.get_key(), "Subject");
         assert_eq!(parsed.get_key_ref(), "Subject");
+        assert_eq!(parsed.get_key_raw(), "Subject".as_bytes());
         assert_eq!(parsed.get_value(), "\u{65E5}\u{672C}\u{8A9E}");
+        assert_eq!(parsed.get_value_raw(), "=?ISO-2022-JP?B?GyRCRnwbKEI=?=\n\t=?ISO-2022-JP?B?GyRCS1wbKEI=?=\n\t=?ISO-2022-JP?B?GyRCOGwbKEI=?=".as_bytes());
 
         let (parsed, _) = parse_header(b"Subject: =?ISO-2022-JP?Q?=1B\x24\x42\x46\x7C=1B\x28\x42?=\n\t=?ISO-2022-JP?Q?=1B\x24\x42\x4B\x5C=1B\x28\x42?=\n\t=?ISO-2022-JP?Q?=1B\x24\x42\x38\x6C=1B\x28\x42?=")
             .unwrap();
         assert_eq!(parsed.get_key(), "Subject");
         assert_eq!(parsed.get_key_ref(), "Subject");
+        assert_eq!(parsed.get_key_raw(), "Subject".as_bytes());
         assert_eq!(parsed.get_value(), "\u{65E5}\u{672C}\u{8A9E}");
+        assert_eq!(parsed.get_value_raw(), "=?ISO-2022-JP?Q?=1B\x24\x42\x46\x7C=1B\x28\x42?=\n\t=?ISO-2022-JP?Q?=1B\x24\x42\x4B\x5C=1B\x28\x42?=\n\t=?ISO-2022-JP?Q?=1B\x24\x42\x38\x6C=1B\x28\x42?=".as_bytes());
 
         let (parsed, _) = parse_header(b"Subject: =?UTF-7?Q?+JgM-?=").unwrap();
         assert_eq!(parsed.get_key(), "Subject");
         assert_eq!(parsed.get_key_ref(), "Subject");
+        assert_eq!(parsed.get_key_raw(), "Subject".as_bytes());
         assert_eq!(parsed.get_value(), "\u{2603}");
+        assert_eq!(parsed.get_value_raw(), b"=?UTF-7?Q?+JgM-?=");
 
         let (parsed, _) =
             parse_header(b"Content-Type: image/jpeg; name=\"=?UTF-8?B?MDY2MTM5ODEuanBn?=\"")
                 .unwrap();
         assert_eq!(parsed.get_key(), "Content-Type");
         assert_eq!(parsed.get_key_ref(), "Content-Type");
+        assert_eq!(parsed.get_key_raw(), "Content-Type".as_bytes());
         assert_eq!(parsed.get_value(), "image/jpeg; name=\"06613981.jpg\"");
+        assert_eq!(parsed.get_value_raw(), "image/jpeg; name=\"=?UTF-8?B?MDY2MTM5ODEuanBn?=\"".as_bytes());
 
         let (parsed, _) = parse_header(
             b"From: =?UTF-8?Q?\"Motorola_Owners=E2=80=99_Forums\"_?=<forums@motorola.com>",
@@ -1023,6 +1075,7 @@ mod tests {
         .unwrap();
         assert_eq!(parsed.get_key(), "From");
         assert_eq!(parsed.get_key_ref(), "From");
+        assert_eq!(parsed.get_key_raw(), "From".as_bytes());
         assert_eq!(
             parsed.get_value(),
             "\"Motorola Owners\u{2019} Forums\" <forums@motorola.com>"
@@ -1033,12 +1086,15 @@ mod tests {
     fn encoded_words_and_spaces() {
         let (parsed, _) = parse_header(b"K: an =?utf-8?q?encoded?=\n word").unwrap();
         assert_eq!(parsed.get_value(), "an encoded word");
+        assert_eq!(parsed.get_value_raw(), "an =?utf-8?q?encoded?=\n word".as_bytes());
 
         let (parsed, _) = parse_header(b"K: =?utf-8?q?glue?= =?utf-8?q?these?= \n words").unwrap();
         assert_eq!(parsed.get_value(), "gluethese  words");
+        assert_eq!(parsed.get_value_raw(), "=?utf-8?q?glue?= =?utf-8?q?these?= \n words".as_bytes());
 
         let (parsed, _) = parse_header(b"K: =?utf-8?q?glue?= \n =?utf-8?q?again?=").unwrap();
         assert_eq!(parsed.get_value(), "glueagain");
+        assert_eq!(parsed.get_value_raw(), "=?utf-8?q?glue?= \n =?utf-8?q?again?=".as_bytes());
     }
 
     #[test]
