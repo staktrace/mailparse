@@ -632,6 +632,7 @@ pub fn parse_content_disposition(header: &str) -> ParsedContentDisposition {
 /// a vector of other ParsedMail structures for the subparts.
 #[derive(Debug)]
 pub struct ParsedMail<'a> {
+    raw_headers: &'a [u8],
     /// The headers for the message (or message subpart).
     pub headers: Vec<MailHeader<'a>>,
     /// The Content-Type information for the message (or message subpart).
@@ -667,6 +668,23 @@ impl<'a> ParsedMail<'a> {
                 "Message body of type binary body cannot be parsed into a string",
             )),
         }
+    }
+
+    /// Get the headers of the message as a Rust Vec<u8>.
+    ///
+    /// # Examples
+    /// ```
+    ///     use mailparse::parse_mail;
+    ///     let p = parse_mail(concat!(
+    ///             "Subject: =?iso-8859-1?Q?=A1Hola,_se=F1or!?=\n",
+    ///             "From: Test\n",
+    ///             "\n",
+    ///             "This is the body").as_bytes())
+    ///         .unwrap();
+    ///     assert_eq!(p.get_headers_encoded(), b"Subject: =?iso-8859-1?Q?=A1Hola,_se=F1or!?=\nFrom: Test\n\n".as_ref());
+    /// ```
+    pub fn get_headers_encoded(&self) -> &[u8] {
+        self.raw_headers
     }
 
     /// Get the body of the message as a Rust Vec<u8>. This function tries to
@@ -799,6 +817,7 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
         .unwrap_or_default();
 
     let mut result = ParsedMail {
+        raw_headers: &raw_data[0..ix_body],
         headers,
         ctype,
         body: &raw_data[ix_body..],
