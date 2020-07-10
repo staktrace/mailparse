@@ -16,6 +16,7 @@ mod addrparse;
 pub mod body;
 mod dateparse;
 mod header;
+pub mod headers;
 mod msgidparse;
 
 pub use crate::addrparse::{
@@ -24,6 +25,7 @@ pub use crate::addrparse::{
 use crate::body::Body;
 pub use crate::dateparse::dateparse;
 use crate::header::HeaderToken;
+use crate::headers::Headers;
 pub use crate::msgidparse::{msgidparse, MessageIdList};
 
 /// An error type that represents the different kinds of errors that may be
@@ -744,6 +746,12 @@ impl<'a> ParsedMail<'a> {
         Body::new(self.body_bytes, &self.ctype, &transfer_encoding)
     }
 
+    /// Returns a struct that wraps the headers for this message.
+    /// The struct provides utility methods to read the individual headers.
+    pub fn get_headers(&'a self) -> Headers<'a> {
+        Headers::new(&self.header_bytes, &self.headers)
+    }
+
     /// Returns a struct containing a parsed representation of the
     /// Content-Disposition header. The first header with this name
     /// is used, if there are multiple. See the `parse_content_disposition`
@@ -1255,6 +1263,7 @@ mod tests {
     #[test]
     fn test_parse_mail() {
         let mail = parse_mail(b"Key: value\r\n\r\nSome body stuffs").unwrap();
+        assert_eq!(mail.header_bytes, b"Key: value\r\n\r\n");
         assert_eq!(mail.headers.len(), 1);
         assert_eq!(mail.headers[0].get_key(), "Key");
         assert_eq!(mail.headers[0].get_key_ref(), "Key");
