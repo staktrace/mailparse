@@ -155,6 +155,7 @@ fn test_find_from_u8() {
 
 impl<'a> MailHeader<'a> {
     /// Get the name of the header. Note that header names are case-insensitive.
+    /// Prefer using get_key_ref where possible for better performance.
     pub fn get_key(&self) -> String {
         decode_latin1(self.key).into_owned()
     }
@@ -694,8 +695,10 @@ impl<'a> ParsedMail<'a> {
     }
 
     /// Get the body of the message.
-    /// This function returns original the body without attempting to
-    /// unapply the Content-Transfer-Encoding.
+    /// This function returns the original body without attempting to
+    /// unapply the Content-Transfer-Encoding. The returned object
+    /// contains information that allows the caller to control decoding
+    /// as desired.
     ///
     /// # Examples
     /// ```
