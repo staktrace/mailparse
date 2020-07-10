@@ -637,7 +637,7 @@ pub struct ParsedMail<'a> {
     /// The Content-Type information for the message (or message subpart).
     pub ctype: ParsedContentType,
     /// The raw bytes that make up the body of the message (or message subpart).
-    body: &'a [u8],
+    body_bytes: &'a [u8],
     /// The subparts of this message or subpart. This vector is only non-empty
     /// if ctype.mimetype starts with "multipart/".
     pub subparts: Vec<ParsedMail<'a>>,
@@ -736,7 +736,7 @@ impl<'a> ParsedMail<'a> {
             .get_first_value("Content-Transfer-Encoding")
             .map(|s| s.to_lowercase());
 
-        Body::new(self.body, &self.ctype, &transfer_encoding)
+        Body::new(self.body_bytes, &self.ctype, &transfer_encoding)
     }
 
     /// Returns a struct containing a parsed representation of the
@@ -801,7 +801,7 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
     let mut result = ParsedMail {
         headers,
         ctype,
-        body: &raw_data[ix_body..],
+        body_bytes: &raw_data[ix_body..],
         subparts: Vec::<ParsedMail>::new(),
     };
     if result.ctype.mimetype.starts_with("multipart/")
@@ -810,7 +810,7 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
     {
         let boundary = String::from("--") + &result.ctype.params["boundary"];
         if let Some(ix_body_end) = find_from_u8(raw_data, ix_body, boundary.as_bytes()) {
-            result.body = &raw_data[ix_body..ix_body_end];
+            result.body_bytes = &raw_data[ix_body..ix_body_end];
             let mut ix_boundary_end = ix_body_end + boundary.len();
             while let Some(ix_part_start) =
                 find_from_u8(raw_data, ix_boundary_end, b"\n").map(|v| v + 1)
@@ -1256,7 +1256,7 @@ mod tests {
         assert_eq!(mail.ctype.mimetype, "text/plain");
         assert_eq!(mail.ctype.charset, "us-ascii");
         assert_eq!(mail.ctype.params.get("boundary"), None);
-        assert_eq!(mail.body, b"Some body stuffs");
+        assert_eq!(mail.body_bytes, b"Some body stuffs");
         assert_eq!(mail.get_body_raw().unwrap(), b"Some body stuffs");
         assert_eq!(mail.get_body().unwrap(), "Some body stuffs");
         assert_eq!(mail.subparts.len(), 0);
