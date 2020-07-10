@@ -8,7 +8,6 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::error;
 use std::fmt;
-use std::ops::Deref;
 
 use charset::decode_latin1;
 
@@ -60,15 +59,6 @@ impl fmt::Display for MailParseError {
 }
 
 impl error::Error for MailParseError {
-    fn description(&self) -> &str {
-        match *self {
-            MailParseError::QuotedPrintableDecodeError(ref err) => err.description(),
-            MailParseError::Base64DecodeError(ref err) => err.description(),
-            MailParseError::EncodingError(ref err) => err.deref(),
-            _ => "An error occurred while attempting to parse the input",
-        }
-    }
-
     fn cause(&self) -> Option<&dyn error::Error> {
         match *self {
             MailParseError::QuotedPrintableDecodeError(ref err) => Some(err),
