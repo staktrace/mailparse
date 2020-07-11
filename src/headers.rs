@@ -1,4 +1,5 @@
 use crate::{MailHeader, MailHeaderMap};
+use std::slice;
 
 /// A struct that wrapps the header portion of a message and provides
 /// utility functions to look up specific headers.
@@ -27,6 +28,31 @@ impl<'a> Headers<'a> {
     ///     assert_eq!(mail.get_headers().get_raw_bytes(), b"SubJECT : foo\n\n");
     pub fn get_raw_bytes(&self) -> &'a [u8] {
         self.raw_bytes
+    }
+}
+
+/// Allows iterating over the individual `MailHeader` items in this block of
+/// headers.
+///
+/// # Examples
+/// ```
+///     use mailparse::{parse_mail, headers::Headers};
+///     let mail = parse_mail(concat!(
+///             "Subject: foo\n",
+///             "Another header: bar\n",
+///             "\n",
+///             "Body starts here").as_bytes())
+///         .unwrap();
+///     let mut iter = mail.get_headers().into_iter();
+///     assert_eq!(iter.next().unwrap().get_key(), "Subject");
+///     assert_eq!(iter.next().unwrap().get_key(), "Another header");
+/// ```
+impl<'a> IntoIterator for Headers<'a> {
+    type Item = &'a MailHeader<'a>;
+    type IntoIter = slice::Iter<'a, MailHeader<'a>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.headers.into_iter()
     }
 }
 
