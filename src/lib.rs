@@ -642,7 +642,13 @@ impl<'a> ParsedMail<'a> {
     /// Get the body of the message as a Rust string. This function tries to
     /// unapply the Content-Transfer-Encoding if there is one, and then converts
     /// the result into a Rust UTF-8 string using the charset in the Content-Type
-    /// (or "us-ascii" if the charset was missing or not recognized).
+    /// (or "us-ascii" if the charset was missing or not recognized). Note that
+    /// in some cases the body may be binary data that doesn't make sense as a
+    /// Rust string - it is up to the caller to handle those cases gracefully.
+    /// These cases may occur in particular when the body is of a "binary"
+    /// Content-Transfer-Encoding (i.e. where `get_body_encoded()` returns a
+    /// `Body::Binary` variant) but may also occur in other cases because of the
+    /// messiness of the real world and non-compliant mail implementations.
     ///
     /// # Examples
     /// ```
@@ -658,9 +664,7 @@ impl<'a> ParsedMail<'a> {
         match self.get_body_encoded() {
             Body::Base64(body) | Body::QuotedPrintable(body) => body.get_decoded_as_string(),
             Body::SevenBit(body) | Body::EightBit(body) => body.get_as_string(),
-            Body::Binary(_) => Err(MailParseError::Generic(
-                "Message body of type binary body cannot be parsed into a string",
-            )),
+            Body::Binary(body) => body.get_as_string(),
         }
     }
 

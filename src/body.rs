@@ -123,6 +123,16 @@ impl<'a> BinaryBody<'a> {
     pub fn get_raw(&self) -> &'a [u8] {
         self.body
     }
+
+    /// Get the body of the message as a Rust string. This function attempts
+    /// to convert the body into a Rust UTF-8 string using the charset in the
+    /// Content-Type header (or "us-ascii" as default). However, this may not
+    /// always work for "binary" data. The API is provided anyway for
+    /// convenient handling of real-world emails that may provide textual data
+    /// with a binary transfer encoding, but use this at your own risk!
+    pub fn get_as_string(&self) -> Result<String, MailParseError> {
+        get_body_as_string(self.body, &self.ctype)
+    }
 }
 
 fn decode_base64(body: &[u8]) -> Result<Vec<u8>, MailParseError> {
