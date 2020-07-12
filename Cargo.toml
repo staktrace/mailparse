@@ -11,7 +11,7 @@ repository = "https://github.com/staktrace/mailparse"
 readme = "README.md"
 keywords = ["parser", "email", "rfc822", "mime", "maildir"]
 categories = ["email", "parsing"]
-exclude = [".gitattributes"]
+exclude = [".gitattributes", "examples/**"]
 
 [badges]
 travis-ci = { repository = "staktrace/mailparse" }
