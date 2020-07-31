@@ -1063,4 +1063,28 @@ mod tests {
             )])
         );
     }
+
+    #[test]
+    fn parse_second_encoded() {
+        let (parsed, _) = crate::parse_header(
+            b"To: foo <foo@example.org>,=?UTF-8?B?Zm9v8J+Qm2Jhcg==?= <bar@example.org>",
+        )
+        .unwrap();
+        assert_eq!(
+            addrparse_header(&parsed).unwrap(),
+            MailAddrList(vec![
+                MailAddr::Single(
+                    SingleInfo::new(Some("foo".to_string()), "foo@example.org".to_string())
+                        .unwrap()
+                ),
+                MailAddr::Single(
+                    SingleInfo::new(
+                        Some("foo\u{1f41b}bar".to_string()),
+                        "bar@example.org".to_string()
+                    )
+                    .unwrap()
+                )
+            ])
+        );
+    }
 }
