@@ -17,7 +17,7 @@ This function takes the raw message data, including headers and body, and return
 There are other public functions that allow parsing smaller parts of the message as well; refer to the [full documentation](https://docs.rs/mailparse/).
 
 The library is designed to process real-world email data such as might be obtained by using the FETCH command on an IMAP server, or in a Maildir.
-As such, this library should successfully handle any valid MIME-formatted message, although it may not follow all the strict requirements in the various specifications that cover the format (predominantly IETF RFC 822 and IETF RFC 2045).
+As such, this library should successfully handle any valid MIME-formatted message, although it may not follow all the strict requirements in the various specifications that cover the format (predominantly IETF RFCs 822, 2045, 2047, 2822, and 5322).
 As an example, this library accepts raw message data which uses \n (ASCII LF) as line delimiters rather than the RFC-mandated \r\n (ASCII CRLF) line delimiters.
 
 Example usage
