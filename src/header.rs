@@ -24,7 +24,15 @@ pub enum HeaderToken<'a> {
 
 fn is_boundary(line: &str, ix: Option<usize>) -> bool {
     ix.and_then(|v| line.chars().nth(v))
-        .map(|c| c.is_whitespace() || c == '"' || c == '(' || c == ')' || c == '<' || c == '>' || c == ',')
+        .map(|c| {
+            c.is_whitespace()
+                || c == '"'
+                || c == '('
+                || c == ')'
+                || c == '<'
+                || c == '>'
+                || c == ','
+        })
         .unwrap_or(true)
 }
 
