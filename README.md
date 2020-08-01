@@ -58,3 +58,8 @@ Example usage
 Documentation
 ---
 See the rustdoc at [docs.rs](https://docs.rs/mailparse/).
+
+Support mailparse
+---
+If you want to support development of `mailparse`, please do so by donating your money, time, and/or energy to fighting climate change.
+A quick and easy way is to send a donation to [Replant.ca Environmental](http://www.replant-environmental.ca/donate.html), where every dollar gets a tree planted!
