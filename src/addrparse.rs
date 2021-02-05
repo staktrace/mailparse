@@ -364,10 +364,8 @@ fn addrparse_inner(
                 HeaderTokenItem::Newline(ws) => {
                     name.as_mut().unwrap().push_str(&ws);
                 }
-                HeaderTokenItem::DecodedWord(_) => {
-                    return Err(MailParseError::Generic(
-                        "Unexpected encoded word found inside a quoted name",
-                    ));
+                HeaderTokenItem::DecodedWord(word) => {
+                    name.as_mut().unwrap().push_str(&word);
                 }
             },
             AddrParseState::EscapedChar => match hti {
@@ -1058,6 +1056,24 @@ mod tests {
                 SingleInfo::new(
                     Some("Имя, Фамилия".to_string()),
                     "foobar@example.com".to_string()
+                )
+                .unwrap()
+            )])
+        );
+    }
+
+    #[test]
+    fn parse_quoted_encoded() {
+        let (parsed, _) = crate::parse_header(
+            b"From: \"=?utf-8?q?G=C3=B6tz?= C\" <g@c.de>",
+        )
+        .unwrap();
+        assert_eq!(
+            addrparse_header(&parsed).unwrap(),
+            MailAddrList(vec![MailAddr::Single(
+                SingleInfo::new(
+                    Some("Götz C".to_string()),
+                    "g@c.de".to_string()
                 )
                 .unwrap()
             )])
