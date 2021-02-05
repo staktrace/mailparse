@@ -1064,18 +1064,12 @@ mod tests {
 
     #[test]
     fn parse_quoted_encoded() {
-        let (parsed, _) = crate::parse_header(
-            b"From: \"=?utf-8?q?G=C3=B6tz?= C\" <g@c.de>",
-        )
-        .unwrap();
+        let (parsed, _) =
+            crate::parse_header(b"From: \"=?utf-8?q?G=C3=B6tz?= C\" <g@c.de>").unwrap();
         assert_eq!(
             addrparse_header(&parsed).unwrap(),
             MailAddrList(vec![MailAddr::Single(
-                SingleInfo::new(
-                    Some("Götz C".to_string()),
-                    "g@c.de".to_string()
-                )
-                .unwrap()
+                SingleInfo::new(Some("Götz C".to_string()), "g@c.de".to_string()).unwrap()
             )])
         );
     }
