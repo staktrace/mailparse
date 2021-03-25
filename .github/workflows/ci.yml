@@ -18,7 +18,7 @@ jobs:
       - name: Run code audit
         run: |
           cargo install cargo-audit
-          cargo audit fix
+          cargo audit
       - name: Check style
         run: |
           rustup toolchain install nightly
