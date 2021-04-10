@@ -282,7 +282,16 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
                     ix_key_end = Some(ix);
                     state = HeaderParseState::PreValue;
                 } else if c == b'\n' {
-                    return Err(MailParseError::Generic("Unexpected newline in header key"));
+                    // Technically this is invalid. We'll handle it gracefully
+                    // since it does appear to happen in the wild and other
+                    // MTAs deal with it. Our handling is to just treat everything
+                    // encountered so far on this line as the header key, and
+                    // leave the value empty.
+                    ix_key_end = Some(ix);
+                    ix_value_start = ix;
+                    ix_value_end = ix;
+                    ix += 1;
+                    break;
                 }
             }
             HeaderParseState::PreValue => {
@@ -324,8 +333,16 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
             ix,
         )),
 
-        None => Err(MailParseError::Generic(
-            "Unable to determine end of the header key component",
+        None => Ok((
+            // Technically this is invalid. We'll handle it gracefully
+            // since we handle the analogous situation above. Our handling
+            // is to just treat everything encountered on this line as
+            // the header key, and leave the value empty.
+            MailHeader {
+                key: &raw_data[0..ix],
+                value: &raw_data[ix..ix],
+            },
+            ix,
         )),
     }
 }
@@ -884,19 +901,6 @@ fn parse_param_content(content: &str) -> ParamContent {
 mod tests {
     use super::*;
 
-    macro_rules! assert_match {
-        ( $x:expr, $p:pat ) => {
-            match $x {
-                $p => (),
-                _ => panic!(
-                    "Expression {} does not match pattern {}",
-                    $x,
-                    stringify!($p)
-                ),
-            }
-        };
-    }
-
     #[test]
     fn parse_basic_header() {
         let (parsed, _) = parse_header(b"Key: Value").unwrap();
@@ -950,8 +954,18 @@ mod tests {
         assert_eq!(parsed.get_value_raw(), b"VIAGRA \xAE");
 
         parse_header(b" Leading: Space").unwrap_err();
-        parse_header(b"Just a string").unwrap_err();
-        parse_header(b"Key\nBroken: Value").unwrap_err();
+
+        let (parsed, _) = parse_header(b"Just a string").unwrap();
+        assert_eq!(parsed.key, b"Just a string");
+        assert_eq!(parsed.value, b"");
+        assert_eq!(parsed.get_value(), "");
+        assert_eq!(parsed.get_value_raw(), b"");
+
+        let (parsed, _) = parse_header(b"Key\nBroken: Value").unwrap();
+        assert_eq!(parsed.key, b"Key");
+        assert_eq!(parsed.value, b"");
+        assert_eq!(parsed.get_value(), "");
+        assert_eq!(parsed.get_value_raw(), b"");
     }
 
     #[test]
@@ -1203,14 +1217,16 @@ mod tests {
         assert_eq!(parsed.get_first_value("Key"), Some("value".to_string()));
         assert_eq!(parsed.get_first_value("With"), Some("CRLF".to_string()));
 
-        assert_match!(
-            parse_headers(b"Bad\nKey").unwrap_err(),
-            MailParseError::Generic(_)
-        );
-        assert_match!(
-            parse_headers(b"K:V\nBad\nKey").unwrap_err(),
-            MailParseError::Generic(_)
-        );
+        let (parsed, _) = parse_headers(b"Bad\nKey\n").unwrap();
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed.get_first_value("Bad"), Some("".to_string()));
+        assert_eq!(parsed.get_first_value("Key"), Some("".to_string()));
+
+        let (parsed, _) = parse_headers(b"K:V\nBad\nKey").unwrap();
+        assert_eq!(parsed.len(), 3);
+        assert_eq!(parsed.get_first_value("K"), Some("V".to_string()));
+        assert_eq!(parsed.get_first_value("Bad"), Some("".to_string()));
+        assert_eq!(parsed.get_first_value("Key"), Some("".to_string()));
     }
 
     #[test]
@@ -1528,5 +1544,14 @@ mod tests {
                 let _ = dateparse(&date);
             }
         }
+    }
+
+    #[test]
+    fn test_header_split() {
+        let mail = parse_mail(
+            b"Content-Type: text/plain;\r\ncharset=\"utf-8\"\r\nContent-Transfer-Encoding: 8bit\r\n\r\n",
+        ).unwrap();
+        assert_eq!(mail.ctype.mimetype, "text/plain");
+        assert_eq!(mail.ctype.charset, "us-ascii");
     }
 }
