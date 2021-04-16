@@ -99,10 +99,19 @@ impl From<std::borrow::Cow<'static, str>> for MailParseError {
 /// lifetime of this struct must be contained within the lifetime of the raw
 /// input. There are additional accessor functions on this struct to extract
 /// the data as Rust strings.
-#[derive(Debug)]
 pub struct MailHeader<'a> {
     key: &'a [u8],
     value: &'a [u8],
+}
+
+/// Custom Debug trait for better formatting and printing of MailHeader items.
+impl<'a> fmt::Debug for MailHeader<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MailHeader")
+            .field("key", &String::from_utf8_lossy(&self.key))
+            .field("value", &String::from_utf8_lossy(&self.value))
+            .finish()
+    }
 }
 
 pub(crate) fn find_from(line: &str, ix_start: usize, key: &str) -> Option<usize> {
