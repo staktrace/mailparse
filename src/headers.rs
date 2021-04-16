@@ -1,4 +1,5 @@
 use crate::{MailHeader, MailHeaderMap};
+use std::fmt;
 use std::slice;
 
 /// A struct that wrapps the header portion of a message and provides
@@ -53,6 +54,30 @@ impl<'a> IntoIterator for Headers<'a> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.headers.into_iter()
+    }
+}
+
+/// Allows formatting and printing the `Headers` struct items.
+///
+/// # Examples
+/// ```
+///     use mailparse::parse_mail;
+///     let mail = parse_mail(concat!(
+///             "Subject: foo\n",
+///             "Another header: bar\n",
+///             "\n",
+///             "Body starts here").as_bytes())
+///         .unwrap();
+///     let mut headers = mail.get_headers();
+///     assert_eq!(format!("{:?}", headers), "Headers { \
+///                headers: [MailHeader { key: \"Subject\", value: \"foo\" }, \
+///                MailHeader { key: \"Another header\", value: \"bar\" }] }");
+/// ```
+impl<'a> fmt::Debug for Headers<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Headers")
+            .field("headers", &self.headers)
+            .finish()
     }
 }
 
