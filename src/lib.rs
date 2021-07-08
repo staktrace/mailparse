@@ -975,6 +975,18 @@ mod tests {
         assert_eq!(parsed.value, b"");
         assert_eq!(parsed.get_value(), "");
         assert_eq!(parsed.get_value_raw(), b"");
+
+        let (parsed, _) = parse_header(b"Key: With CRLF\r\n").unwrap();
+        assert_eq!(parsed.key, b"Key");
+        assert_eq!(parsed.get_value(), "With CRLF");
+        // .value and .get_value_raw() will have the trailing \r but that's kind of an
+        // implementation detail so we're not going to assert it here.
+
+        let (parsed, _) = parse_header(b"Key:\r\n Value after linebreak").unwrap();
+        assert_eq!(parsed.key, b"Key");
+        assert_eq!(parsed.get_value(), " Value after linebreak");
+        // .value and .get_value_raw() will have the leading \r\n but that's kind of an
+        // implementation detail so we're not going to assert it here.
     }
 
     #[test]
