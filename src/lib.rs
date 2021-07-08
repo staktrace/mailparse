@@ -887,7 +887,7 @@ fn parse_param_content(content: &str) -> ParamContent {
     let mut tokens = content.split(';');
     // There must be at least one token produced by split, even if it's empty.
     let value = tokens.next().unwrap().trim();
-    let map = tokens
+    let mut map: BTreeMap<String, String> = tokens
         .filter_map(|kv| {
             kv.find('=').map(|idx| {
                 let key = kv[0..idx].trim().to_lowercase();
@@ -899,6 +899,24 @@ fn parse_param_content(content: &str) -> ParamContent {
             })
         })
         .collect();
+    // Unwrap parameter value continuations, as described in RFC 2184, Section 3.
+    let unwrap_key_list: Vec<String> = map
+        .keys()
+        .filter_map(|k| k.strip_suffix("*0"))
+        .map(String::from)
+        // Skip wrapped keys where there is already an unwrapped equivalent in the map
+        .filter(|k| !map.contains_key(k))
+        .collect();
+    for unwrap_key in unwrap_key_list {
+        let mut unwrapped_value = String::new();
+        let mut index = 0;
+        while let Some(wrapped_value_part) = map.remove(&format!("{}*{}", &unwrap_key, index)) {
+            index = index + 1;
+            unwrapped_value.push_str(&wrapped_value_part);
+        }
+        let old_value = map.insert(unwrap_key, unwrapped_value);
+        assert!(old_value.is_none());
+    }
 
     ParamContent {
         value: value.into(),
@@ -1432,6 +1450,21 @@ mod tests {
     fn test_dont_panic_for_value_with_new_lines() {
         let parsed = parse_param_content(r#"application/octet-stream; name=""#);
         assert_eq!(parsed.params["name"], "\"");
+    }
+
+    #[test]
+    fn test_parameter_value_continuations() {
+        let parsed = parse_param_content("attachment;\n\tfilename*0=\"X\";\n\tfilename*1=\"Y.pdf\"");
+        assert_eq!(parsed.value, "attachment");
+        assert_eq!(parsed.params["filename"], "XY.pdf");
+        assert_eq!(parsed.params.contains_key("filename*0"), false);
+        assert_eq!(parsed.params.contains_key("filename*1"), false);
+
+        let parsed = parse_param_content("attachment;\n\tfilename=XX.pdf;\n\tfilename*0=\"X\";\n\tfilename*1=\"Y.pdf\"");
+        assert_eq!(parsed.value, "attachment");
+        assert_eq!(parsed.params["filename"], "XX.pdf");
+        assert_eq!(parsed.params["filename*0"], "X");
+        assert_eq!(parsed.params["filename*1"], "Y.pdf");
     }
 
     #[test]
