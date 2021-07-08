@@ -1430,7 +1430,7 @@ mod tests {
 
     #[test]
     fn test_dont_panic_for_value_with_new_lines() {
-        let parsed = parse_param_content(r#"Content-Type: application/octet-stream; name=""#);
+        let parsed = parse_param_content(r#"application/octet-stream; name=""#);
         assert_eq!(parsed.params["name"], "\"");
     }
 
