@@ -5,11 +5,11 @@ extern crate charset;
 extern crate quoted_printable;
 
 use std::borrow::Cow;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::error;
 use std::fmt;
 
-use charset::decode_latin1;
+use charset::{Charset, decode_latin1};
 
 mod addrparse;
 pub mod body;
@@ -881,8 +881,10 @@ struct ParamContent {
 /// it does not handle quoted parameter values containing the
 /// semicolon (';') character. It also produces a BTreeMap,
 /// which implicitly does not support multiple parameters with
-/// the same key. The format for parameterized header values
-/// doesn't appear to be strongly specified anywhere.
+/// the same key. Also, the parameter values may contain language
+/// information in a format specified by RFC 2184 which is thrown
+/// away. The format for parameterized header values doesn't
+/// appear to be strongly specified anywhere.
 fn parse_param_content(content: &str) -> ParamContent {
     let mut tokens = content.split(';');
     // There must be at least one token produced by split, even if it's empty.
@@ -899,6 +901,33 @@ fn parse_param_content(content: &str) -> ParamContent {
             })
         })
         .collect();
+
+    // Decode charset encoding, as described in RFC 2184, Section 4.
+    let decode_key_list: Vec<String> = map
+        .keys()
+        .filter_map(|k| k.strip_suffix("*"))
+        .map(String::from)
+        // Skip encoded keys where there is already an equivalent decoded key in the map
+        .filter(|k| !map.contains_key(k))
+        .collect();
+    let encodings = compute_parameter_encodings(&map, &decode_key_list);
+    // Note that when we get here, we might still have entries in `encodings` for continuation segments
+    // that didn't have a *0 segment at all. These shouldn't exist per spec so we can do whatever we want,
+    // as long as we don't panic.
+    for (k, (e, strip)) in encodings {
+        if let Some(charset) = Charset::for_label_no_replacement(e.as_bytes()) {
+            let key = format!("{}*", k);
+            let percent_encoded_value = map.remove(&key).unwrap();
+            let encoded_value = if strip {
+                percent_decode(percent_encoded_value.splitn(3, '\'').nth(2).unwrap_or(""))
+            } else {
+                percent_decode(&percent_encoded_value)
+            };
+            let decoded_value = charset.decode_without_bom_handling(&encoded_value).0;
+            map.insert(k, decoded_value.to_string());
+        }
+    }
+
     // Unwrap parameter value continuations, as described in RFC 2184, Section 3.
     let unwrap_key_list: Vec<String> = map
         .keys()
@@ -921,6 +950,88 @@ fn parse_param_content(content: &str) -> ParamContent {
     ParamContent {
         value: value.into(),
         params: map,
+    }
+}
+
+/// In the returned map, the key is one of the entries from the decode_key_list,
+/// (i.e. the parameter key with the trailing '*' stripped). The value is a tuple
+/// containing the encoding (or empty string for no encoding found) and a flag
+/// that indicates if the encoding needs to be stripped from the value. This is
+/// set to true for non-continuation parameter values.
+fn compute_parameter_encodings(map: &BTreeMap<String, String>, decode_key_list: &Vec<String>) -> HashMap<String, (String, bool)> {
+    // To handle section 4.1 (combining encodings with continuations), we first
+    // compute the encoding for each parameter value or parameter value segment
+    // that is encoded. For continuation segments the encoding from the *0 segment
+    // overwrites the continuation segment's encoding, if there is one.
+    let mut encodings: HashMap<String, (String, bool)> = HashMap::new();
+    for decode_key in decode_key_list {
+        if let Some(unwrap_key) = decode_key.strip_suffix("*0") {
+            // Per spec, there should always be an encoding. If it's missing, handle that case gracefully
+            // by setting it to an empty string that we handle specially later.
+            let encoding = map.get(&format!("{}*", decode_key)).unwrap().split('\'').next().unwrap_or("");
+            let continuation_prefix = format!("{}*", unwrap_key);
+            for continuation_key in decode_key_list {
+                if continuation_key.starts_with(&continuation_prefix) {
+                    // This may (intentionally) overwite encodings previously found for the
+                    // continuation segments (which are bogus). In those cases, the flag
+                    // in the tuple should get updated from true to false.
+                    encodings.insert(continuation_key.clone(), (encoding.to_string(), continuation_key == decode_key));
+                }
+            }
+        } else if !encodings.contains_key(decode_key) {
+            let encoding = map.get(&format!("{}*", decode_key)).unwrap().split('\'').next().unwrap_or("").to_string();
+            let old_value = encodings.insert(decode_key.clone(), (encoding, true));
+            assert!(old_value.is_none());
+        }
+        // else this is a continuation segment and the encoding has already been populated
+        // by the initial *0 segment, so we can ignore it.
+    }
+    encodings
+}
+
+fn percent_decode(encoded: &str) -> Vec<u8> {
+    let mut decoded = Vec::with_capacity(encoded.len());
+    let mut bytes = encoded.bytes();
+    let mut next = bytes.next();
+    while next.is_some() {
+        let b = next.unwrap();
+        if b != b'%' {
+            decoded.push(b);
+            next = bytes.next();
+            continue;
+        }
+
+        let top = match bytes.next() {
+            Some(n) if n.is_ascii_hexdigit() => n,
+            n @ _ => {
+                decoded.push(b);
+                next = n;
+                continue;
+            }
+        };
+        let bottom = match bytes.next() {
+            Some(n) if n.is_ascii_hexdigit() => n,
+            n @ _ => {
+                decoded.push(b);
+                decoded.push(top);
+                next = n;
+                continue;
+            }
+        };
+        let decoded_byte = (hex_to_nybble(top) << 4) | hex_to_nybble(bottom);
+        decoded.push(decoded_byte);
+
+        next = bytes.next();
+    }
+    decoded
+}
+
+fn hex_to_nybble(byte: u8) -> u8 {
+    match byte {
+        b'0'..=b'9' => byte - b'0',
+        b'a'..=b'f' => byte - b'a' + 10,
+        b'A'..=b'F' => byte - b'A' + 10,
+        _ => panic!("Not a hex character!"),
     }
 }
 
@@ -1465,6 +1576,72 @@ mod tests {
         assert_eq!(parsed.params["filename"], "XX.pdf");
         assert_eq!(parsed.params["filename*0"], "X");
         assert_eq!(parsed.params["filename*1"], "Y.pdf");
+
+        let parsed = parse_param_content("attachment; filename*1=\"Y.pdf\"");
+        assert_eq!(parsed.params["filename*1"], "Y.pdf");
+        assert_eq!(parsed.params.contains_key("filename"), false);
+    }
+
+    #[test]
+    fn test_parameter_encodings() {
+        let parsed = parse_param_content("attachment;\n\tfilename*0*=us-ascii''%28X%29%20801%20-%20X;\n\tfilename*1*=%20%E2%80%93%20X%20;\n\tfilename*2*=X%20X%2Epdf");
+        // Note this is a real-world case from mutt, but it's wrong. The original filename had an en dash \u{2013} but mutt
+        // declared us-ascii as the encoding instead of utf-8 for some reason.
+        assert_eq!(parsed.params["filename"], "(X) 801 - X \u{00E2}\u{20AC}\u{201C} X X X.pdf");
+        assert_eq!(parsed.params.contains_key("filename*0*"), false);
+        assert_eq!(parsed.params.contains_key("filename*0"), false);
+        assert_eq!(parsed.params.contains_key("filename*1*"), false);
+        assert_eq!(parsed.params.contains_key("filename*1"), false);
+        assert_eq!(parsed.params.contains_key("filename*2*"), false);
+        assert_eq!(parsed.params.contains_key("filename*2"), false);
+
+        // Here is the corrected version.
+        let parsed = parse_param_content("attachment;\n\tfilename*0*=utf-8''%28X%29%20801%20-%20X;\n\tfilename*1*=%20%E2%80%93%20X%20;\n\tfilename*2*=X%20X%2Epdf");
+        assert_eq!(parsed.params["filename"], "(X) 801 - X \u{2013} X X X.pdf");
+        assert_eq!(parsed.params.contains_key("filename*0*"), false);
+        assert_eq!(parsed.params.contains_key("filename*0"), false);
+        assert_eq!(parsed.params.contains_key("filename*1*"), false);
+        assert_eq!(parsed.params.contains_key("filename*1"), false);
+        assert_eq!(parsed.params.contains_key("filename*2*"), false);
+        assert_eq!(parsed.params.contains_key("filename*2"), false);
+        let parsed = parse_param_content("attachment; filename*=utf-8'en'%e2%80%A1.bin");
+        assert_eq!(parsed.params["filename"], "\u{2021}.bin");
+        assert_eq!(parsed.params.contains_key("filename*"), false);
+
+        let parsed = parse_param_content("attachment; filename*='foo'%e2%80%A1.bin");
+        assert_eq!(parsed.params["filename*"], "'foo'%e2%80%A1.bin");
+        assert_eq!(parsed.params.contains_key("filename"), false);
+
+        let parsed = parse_param_content("attachment; filename*=nonexistent'foo'%e2%80%a1.bin");
+        assert_eq!(parsed.params["filename*"], "nonexistent'foo'%e2%80%a1.bin");
+        assert_eq!(parsed.params.contains_key("filename"), false);
+
+        let parsed = parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*1*=%e2%80%A1.bin");
+        assert_eq!(parsed.params["filename"], "\u{2021}\u{2021}.bin");
+        assert_eq!(parsed.params.contains_key("filename*0*"), false);
+        assert_eq!(parsed.params.contains_key("filename*0"), false);
+        assert_eq!(parsed.params.contains_key("filename*1*"), false);
+        assert_eq!(parsed.params.contains_key("filename*1"), false);
+
+        let parsed = parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*1=%20.bin");
+        assert_eq!(parsed.params["filename"], "\u{2021}%20.bin");
+        assert_eq!(parsed.params.contains_key("filename*0*"), false);
+        assert_eq!(parsed.params.contains_key("filename*0"), false);
+        assert_eq!(parsed.params.contains_key("filename*1*"), false);
+        assert_eq!(parsed.params.contains_key("filename*1"), false);
+
+        let parsed = parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*2*=%20.bin");
+        assert_eq!(parsed.params["filename"], "\u{2021}");
+        assert_eq!(parsed.params["filename*2"], " .bin");
+        assert_eq!(parsed.params.contains_key("filename*0*"), false);
+        assert_eq!(parsed.params.contains_key("filename*0"), false);
+        assert_eq!(parsed.params.contains_key("filename*2*"), false);
+
+        let parsed = parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*0=foo.bin");
+        assert_eq!(parsed.params["filename"], "foo.bin");
+        assert_eq!(parsed.params["filename*0*"], "utf-8'en'%e2%80%a1");
+        assert_eq!(parsed.params.contains_key("filename*0"), false);
+
     }
 
     #[test]
@@ -1616,5 +1793,10 @@ mod tests {
         ).unwrap();
         assert_eq!(mail.ctype.mimetype, "text/plain");
         assert_eq!(mail.ctype.charset, "us-ascii");
+    }
+
+    #[test]
+    fn test_percent_decoder() {
+        assert_eq!(percent_decode("hi %0d%0A%%2A%zz%"), b"hi \r\n%*%zz%");
     }
 }
