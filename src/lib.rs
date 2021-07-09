@@ -314,7 +314,7 @@ pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseErr
             HeaderParseState::Value => {
                 if c == b'\n' {
                     state = HeaderParseState::ValueNewline;
-                } else {
+                } else if c != b'\r' {
                     ix_value_end = ix + 1;
                 }
             }
@@ -978,15 +978,24 @@ mod tests {
 
         let (parsed, _) = parse_header(b"Key: With CRLF\r\n").unwrap();
         assert_eq!(parsed.key, b"Key");
+        assert_eq!(parsed.value, b"With CRLF");
         assert_eq!(parsed.get_value(), "With CRLF");
-        // .value and .get_value_raw() will have the trailing \r but that's kind of an
-        // implementation detail so we're not going to assert it here.
+        assert_eq!(parsed.get_value_raw(), b"With CRLF");
+
+        let (parsed, _) = parse_header(b"Key: With spurious CRs\r\r\r\n").unwrap();
+        assert_eq!(parsed.value, b"With spurious CRs");
+        assert_eq!(parsed.get_value(), "With spurious CRs");
+        assert_eq!(parsed.get_value_raw(), b"With spurious CRs");
+
+        let (parsed, _) = parse_header(b"Key: With \r mixed CR\r\n").unwrap();
+        assert_eq!(parsed.value, b"With \r mixed CR");
+        assert_eq!(parsed.get_value(), "With \r mixed CR");
+        assert_eq!(parsed.get_value_raw(), b"With \r mixed CR");
 
         let (parsed, _) = parse_header(b"Key:\r\n Value after linebreak").unwrap();
-        assert_eq!(parsed.key, b"Key");
+        assert_eq!(parsed.value, b"\r\n Value after linebreak");
         assert_eq!(parsed.get_value(), " Value after linebreak");
-        // .value and .get_value_raw() will have the leading \r\n but that's kind of an
-        // implementation detail so we're not going to assert it here.
+        assert_eq!(parsed.get_value_raw(), b"\r\n Value after linebreak");
     }
 
     #[test]
