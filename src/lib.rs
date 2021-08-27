@@ -520,6 +520,16 @@ impl Default for ParsedContentType {
     }
 }
 
+impl ParsedContentType {
+    fn default_conditional(in_multipart_digest: bool) -> Self {
+        let mut default = Self::default();
+        if in_multipart_digest {
+            default.mimetype = "message/rfc822".to_string();
+        }
+        default
+    }
+}
+
 /// Helper method to parse a header value as a Content-Type header. Note that
 /// the returned object's `params` map will contain a charset key if a charset
 /// was explicitly specified in the header; otherwise the `params` map will not
@@ -825,11 +835,15 @@ impl<'a> ParsedMail<'a> {
 ///     assert_eq!(dateparse(parsed.headers.get_first_value("Date").unwrap().as_str()).unwrap(), 1475417182);
 /// ```
 pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
+    parse_mail_recursive(raw_data, false)
+}
+
+fn parse_mail_recursive(raw_data: &[u8], in_multipart_digest: bool) -> Result<ParsedMail, MailParseError> {
     let (headers, ix_body) = parse_headers(raw_data)?;
     let ctype = headers
         .get_first_value("Content-Type")
         .map(|s| parse_content_type(&s))
-        .unwrap_or_default();
+        .unwrap_or_else(|| ParsedContentType::default_conditional(in_multipart_digest));
 
     let mut result = ParsedMail {
         header_bytes: &raw_data[0..ix_body],
@@ -842,6 +856,7 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
         && result.ctype.params.get("boundary").is_some()
         && raw_data.len() > ix_body
     {
+        let in_multipart_digest = result.ctype.mimetype == "multipart/digest";
         let boundary = String::from("--") + &result.ctype.params["boundary"];
         if let Some(ix_body_end) = find_from_u8(raw_data, ix_body, boundary.as_bytes()) {
             result.body_bytes = &raw_data[ix_body..ix_body_end];
@@ -855,7 +870,7 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
 
                 result
                     .subparts
-                    .push(parse_mail(&raw_data[ix_part_start..ix_part_end])?);
+                    .push(parse_mail_recursive(&raw_data[ix_part_start..ix_part_end], in_multipart_digest)?);
                 ix_boundary_end = ix_part_end + boundary.len();
                 if ix_boundary_end + 2 > raw_data.len()
                     || (raw_data[ix_boundary_end] == b'-' && raw_data[ix_boundary_end + 1] == b'-')
@@ -1798,5 +1813,79 @@ mod tests {
     #[test]
     fn test_percent_decoder() {
         assert_eq!(percent_decode("hi %0d%0A%%2A%zz%"), b"hi \r\n%*%zz%");
+    }
+
+    #[test]
+    fn test_default_content_type_in_multipart_digest() {
+        // Per https://datatracker.ietf.org/doc/html/rfc2046#section-5.1.5
+        let mail = parse_mail(
+            concat!(
+                "Content-Type: multipart/digest; boundary=myboundary\r\n\r\n",
+                "--myboundary\r\n\r\n",
+                "blah blah blah\r\n\r\n",
+                "--myboundary--\r\n"
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+        assert_eq!(mail.headers.len(), 1);
+        assert_eq!(mail.ctype.mimetype, "multipart/digest");
+        assert_eq!(mail.subparts[0].headers.len(), 0);
+        assert_eq!(mail.subparts[0].ctype.mimetype, "message/rfc822");
+
+
+        let mail = parse_mail(
+            concat!(
+                "Content-Type: multipart/whatever; boundary=myboundary\n",
+                "\n",
+                "--myboundary\n",
+                "\n",
+                "blah blah blah\n",
+                "--myboundary\n",
+                "Content-Type: multipart/digest; boundary=nestedboundary\n",
+                "\n",
+                "--nestedboundary\n",
+                "\n",
+                "nested default part\n",
+                "--nestedboundary\n",
+                "Content-Type: text/html\n",
+                "\n",
+                "nested html part\n",
+                "--nestedboundary\n",
+                "Content-Type: multipart/insidedigest; boundary=insideboundary\n",
+                "\n",
+                "--insideboundary\n",
+                "\n",
+                "inside part\n",
+                "--insideboundary--\n",
+                "--nestedboundary--\n",
+                "--myboundary--\n"
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+        assert_eq!(mail.headers.len(), 1);
+        assert_eq!(mail.ctype.mimetype, "multipart/whatever");
+
+        assert_eq!(mail.subparts[0].headers.len(), 0);
+        assert_eq!(mail.subparts[0].ctype.mimetype, "text/plain");
+        assert_eq!(mail.subparts[0].get_body_raw().unwrap(), b"blah blah blah\n");
+
+        assert_eq!(mail.subparts[1].ctype.mimetype, "multipart/digest");
+
+        assert_eq!(mail.subparts[1].subparts[0].headers.len(), 0);
+        assert_eq!(mail.subparts[1].subparts[0].ctype.mimetype, "message/rfc822");
+        assert_eq!(mail.subparts[1].subparts[0].get_body_raw().unwrap(), b"nested default part\n");
+
+        assert_eq!(mail.subparts[1].subparts[1].headers.len(), 1);
+        assert_eq!(mail.subparts[1].subparts[1].ctype.mimetype, "text/html");
+        assert_eq!(mail.subparts[1].subparts[1].get_body_raw().unwrap(), b"nested html part\n");
+
+        assert_eq!(mail.subparts[1].subparts[2].headers.len(), 1);
+        assert_eq!(mail.subparts[1].subparts[2].ctype.mimetype, "multipart/insidedigest");
+
+        assert_eq!(mail.subparts[1].subparts[2].subparts[0].headers.len(), 0);
+        assert_eq!(mail.subparts[1].subparts[2].subparts[0].ctype.mimetype, "text/plain");
+        assert_eq!(mail.subparts[1].subparts[2].subparts[0].get_body_raw().unwrap(), b"inside part\n");
     }
 }
