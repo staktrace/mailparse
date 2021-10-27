@@ -3,7 +3,7 @@ name: Lints
 on: [push, pull_request]
 
 jobs:
-  test:
+  formatting:
     name: Check formatting
     runs-on: ubuntu-latest
     steps:
