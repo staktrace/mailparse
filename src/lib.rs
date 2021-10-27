@@ -9,7 +9,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::error;
 use std::fmt;
 
-use charset::{Charset, decode_latin1};
+use charset::{decode_latin1, Charset};
 
 mod addrparse;
 pub mod body;
@@ -838,7 +838,10 @@ pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
     parse_mail_recursive(raw_data, false)
 }
 
-fn parse_mail_recursive(raw_data: &[u8], in_multipart_digest: bool) -> Result<ParsedMail, MailParseError> {
+fn parse_mail_recursive(
+    raw_data: &[u8],
+    in_multipart_digest: bool,
+) -> Result<ParsedMail, MailParseError> {
     let (headers, ix_body) = parse_headers(raw_data)?;
     let ctype = headers
         .get_first_value("Content-Type")
@@ -868,9 +871,10 @@ fn parse_mail_recursive(raw_data: &[u8], in_multipart_digest: bool) -> Result<Pa
                 let ix_part_end = find_from_u8(raw_data, ix_part_start, boundary.as_bytes())
                     .unwrap_or_else(|| raw_data.len());
 
-                result
-                    .subparts
-                    .push(parse_mail_recursive(&raw_data[ix_part_start..ix_part_end], in_multipart_digest)?);
+                result.subparts.push(parse_mail_recursive(
+                    &raw_data[ix_part_start..ix_part_end],
+                    in_multipart_digest,
+                )?);
                 ix_boundary_end = ix_part_end + boundary.len();
                 if ix_boundary_end + 2 > raw_data.len()
                     || (raw_data[ix_boundary_end] == b'-' && raw_data[ix_boundary_end + 1] == b'-')
@@ -973,7 +977,10 @@ fn parse_param_content(content: &str) -> ParamContent {
 /// containing the encoding (or empty string for no encoding found) and a flag
 /// that indicates if the encoding needs to be stripped from the value. This is
 /// set to true for non-continuation parameter values.
-fn compute_parameter_encodings(map: &BTreeMap<String, String>, decode_key_list: &Vec<String>) -> HashMap<String, (String, bool)> {
+fn compute_parameter_encodings(
+    map: &BTreeMap<String, String>,
+    decode_key_list: &Vec<String>,
+) -> HashMap<String, (String, bool)> {
     // To handle section 4.1 (combining encodings with continuations), we first
     // compute the encoding for each parameter value or parameter value segment
     // that is encoded. For continuation segments the encoding from the *0 segment
@@ -983,18 +990,32 @@ fn compute_parameter_encodings(map: &BTreeMap<String, String>, decode_key_list: 
         if let Some(unwrap_key) = decode_key.strip_suffix("*0") {
             // Per spec, there should always be an encoding. If it's missing, handle that case gracefully
             // by setting it to an empty string that we handle specially later.
-            let encoding = map.get(&format!("{}*", decode_key)).unwrap().split('\'').next().unwrap_or("");
+            let encoding = map
+                .get(&format!("{}*", decode_key))
+                .unwrap()
+                .split('\'')
+                .next()
+                .unwrap_or("");
             let continuation_prefix = format!("{}*", unwrap_key);
             for continuation_key in decode_key_list {
                 if continuation_key.starts_with(&continuation_prefix) {
                     // This may (intentionally) overwite encodings previously found for the
                     // continuation segments (which are bogus). In those cases, the flag
                     // in the tuple should get updated from true to false.
-                    encodings.insert(continuation_key.clone(), (encoding.to_string(), continuation_key == decode_key));
+                    encodings.insert(
+                        continuation_key.clone(),
+                        (encoding.to_string(), continuation_key == decode_key),
+                    );
                 }
             }
         } else if !encodings.contains_key(decode_key) {
-            let encoding = map.get(&format!("{}*", decode_key)).unwrap().split('\'').next().unwrap_or("").to_string();
+            let encoding = map
+                .get(&format!("{}*", decode_key))
+                .unwrap()
+                .split('\'')
+                .next()
+                .unwrap_or("")
+                .to_string();
             let old_value = encodings.insert(decode_key.clone(), (encoding, true));
             assert!(old_value.is_none());
         }
@@ -1580,13 +1601,16 @@ mod tests {
 
     #[test]
     fn test_parameter_value_continuations() {
-        let parsed = parse_param_content("attachment;\n\tfilename*0=\"X\";\n\tfilename*1=\"Y.pdf\"");
+        let parsed =
+            parse_param_content("attachment;\n\tfilename*0=\"X\";\n\tfilename*1=\"Y.pdf\"");
         assert_eq!(parsed.value, "attachment");
         assert_eq!(parsed.params["filename"], "XY.pdf");
         assert_eq!(parsed.params.contains_key("filename*0"), false);
         assert_eq!(parsed.params.contains_key("filename*1"), false);
 
-        let parsed = parse_param_content("attachment;\n\tfilename=XX.pdf;\n\tfilename*0=\"X\";\n\tfilename*1=\"Y.pdf\"");
+        let parsed = parse_param_content(
+            "attachment;\n\tfilename=XX.pdf;\n\tfilename*0=\"X\";\n\tfilename*1=\"Y.pdf\"",
+        );
         assert_eq!(parsed.value, "attachment");
         assert_eq!(parsed.params["filename"], "XX.pdf");
         assert_eq!(parsed.params["filename*0"], "X");
@@ -1602,7 +1626,10 @@ mod tests {
         let parsed = parse_param_content("attachment;\n\tfilename*0*=us-ascii''%28X%29%20801%20-%20X;\n\tfilename*1*=%20%E2%80%93%20X%20;\n\tfilename*2*=X%20X%2Epdf");
         // Note this is a real-world case from mutt, but it's wrong. The original filename had an en dash \u{2013} but mutt
         // declared us-ascii as the encoding instead of utf-8 for some reason.
-        assert_eq!(parsed.params["filename"], "(X) 801 - X \u{00E2}\u{20AC}\u{201C} X X X.pdf");
+        assert_eq!(
+            parsed.params["filename"],
+            "(X) 801 - X \u{00E2}\u{20AC}\u{201C} X X X.pdf"
+        );
         assert_eq!(parsed.params.contains_key("filename*0*"), false);
         assert_eq!(parsed.params.contains_key("filename*0"), false);
         assert_eq!(parsed.params.contains_key("filename*1*"), false);
@@ -1631,32 +1658,36 @@ mod tests {
         assert_eq!(parsed.params["filename*"], "nonexistent'foo'%e2%80%a1.bin");
         assert_eq!(parsed.params.contains_key("filename"), false);
 
-        let parsed = parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*1*=%e2%80%A1.bin");
+        let parsed = parse_param_content(
+            "attachment; filename*0*=utf-8'en'%e2%80%a1; filename*1*=%e2%80%A1.bin",
+        );
         assert_eq!(parsed.params["filename"], "\u{2021}\u{2021}.bin");
         assert_eq!(parsed.params.contains_key("filename*0*"), false);
         assert_eq!(parsed.params.contains_key("filename*0"), false);
         assert_eq!(parsed.params.contains_key("filename*1*"), false);
         assert_eq!(parsed.params.contains_key("filename*1"), false);
 
-        let parsed = parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*1=%20.bin");
+        let parsed =
+            parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*1=%20.bin");
         assert_eq!(parsed.params["filename"], "\u{2021}%20.bin");
         assert_eq!(parsed.params.contains_key("filename*0*"), false);
         assert_eq!(parsed.params.contains_key("filename*0"), false);
         assert_eq!(parsed.params.contains_key("filename*1*"), false);
         assert_eq!(parsed.params.contains_key("filename*1"), false);
 
-        let parsed = parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*2*=%20.bin");
+        let parsed =
+            parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*2*=%20.bin");
         assert_eq!(parsed.params["filename"], "\u{2021}");
         assert_eq!(parsed.params["filename*2"], " .bin");
         assert_eq!(parsed.params.contains_key("filename*0*"), false);
         assert_eq!(parsed.params.contains_key("filename*0"), false);
         assert_eq!(parsed.params.contains_key("filename*2*"), false);
 
-        let parsed = parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*0=foo.bin");
+        let parsed =
+            parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*0=foo.bin");
         assert_eq!(parsed.params["filename"], "foo.bin");
         assert_eq!(parsed.params["filename*0*"], "utf-8'en'%e2%80%a1");
         assert_eq!(parsed.params.contains_key("filename*0"), false);
-
     }
 
     #[test]
@@ -1833,7 +1864,6 @@ mod tests {
         assert_eq!(mail.subparts[0].headers.len(), 0);
         assert_eq!(mail.subparts[0].ctype.mimetype, "message/rfc822");
 
-
         let mail = parse_mail(
             concat!(
                 "Content-Type: multipart/whatever; boundary=myboundary\n",
@@ -1869,23 +1899,46 @@ mod tests {
 
         assert_eq!(mail.subparts[0].headers.len(), 0);
         assert_eq!(mail.subparts[0].ctype.mimetype, "text/plain");
-        assert_eq!(mail.subparts[0].get_body_raw().unwrap(), b"blah blah blah\n");
+        assert_eq!(
+            mail.subparts[0].get_body_raw().unwrap(),
+            b"blah blah blah\n"
+        );
 
         assert_eq!(mail.subparts[1].ctype.mimetype, "multipart/digest");
 
         assert_eq!(mail.subparts[1].subparts[0].headers.len(), 0);
-        assert_eq!(mail.subparts[1].subparts[0].ctype.mimetype, "message/rfc822");
-        assert_eq!(mail.subparts[1].subparts[0].get_body_raw().unwrap(), b"nested default part\n");
+        assert_eq!(
+            mail.subparts[1].subparts[0].ctype.mimetype,
+            "message/rfc822"
+        );
+        assert_eq!(
+            mail.subparts[1].subparts[0].get_body_raw().unwrap(),
+            b"nested default part\n"
+        );
 
         assert_eq!(mail.subparts[1].subparts[1].headers.len(), 1);
         assert_eq!(mail.subparts[1].subparts[1].ctype.mimetype, "text/html");
-        assert_eq!(mail.subparts[1].subparts[1].get_body_raw().unwrap(), b"nested html part\n");
+        assert_eq!(
+            mail.subparts[1].subparts[1].get_body_raw().unwrap(),
+            b"nested html part\n"
+        );
 
         assert_eq!(mail.subparts[1].subparts[2].headers.len(), 1);
-        assert_eq!(mail.subparts[1].subparts[2].ctype.mimetype, "multipart/insidedigest");
+        assert_eq!(
+            mail.subparts[1].subparts[2].ctype.mimetype,
+            "multipart/insidedigest"
+        );
 
         assert_eq!(mail.subparts[1].subparts[2].subparts[0].headers.len(), 0);
-        assert_eq!(mail.subparts[1].subparts[2].subparts[0].ctype.mimetype, "text/plain");
-        assert_eq!(mail.subparts[1].subparts[2].subparts[0].get_body_raw().unwrap(), b"inside part\n");
+        assert_eq!(
+            mail.subparts[1].subparts[2].subparts[0].ctype.mimetype,
+            "text/plain"
+        );
+        assert_eq!(
+            mail.subparts[1].subparts[2].subparts[0]
+                .get_body_raw()
+                .unwrap(),
+            b"inside part\n"
+        );
     }
 }
