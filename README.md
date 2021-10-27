@@ -1,6 +1,6 @@
 mailparse
 ===
-[![Build Status](https://travis-ci.org/staktrace/mailparse.svg?branch=master)](https://travis-ci.org/staktrace/mailparse)
+![Build Status](https://github.com/staktrace/mailparse/actions/workflows/test.yml/badge.svg)
 [![Crate](https://img.shields.io/crates/v/mailparse.svg)](https://crates.io/crates/mailparse)
 
 A simple parser for MIME email messages.

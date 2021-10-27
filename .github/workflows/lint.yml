@@ -1,0 +1,15 @@
+name: Lints
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: Check formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get latest stable Rust
+        run: rustup toolchain install stable --profile default
+      - name: Check out source
+        uses: actions/checkout@v2
+      - name: Check formatting
+        run: cargo fmt -v -- --check

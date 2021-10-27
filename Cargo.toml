@@ -14,7 +14,6 @@ categories = ["email", "parsing"]
 exclude = [".gitattributes", "examples/**"]
 
 [badges]
-travis-ci = { repository = "staktrace/mailparse" }
 maintenance = { status = "passively-maintained" }
 
 [dependencies]

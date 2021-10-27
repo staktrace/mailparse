@@ -1,0 +1,35 @@
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  stable:
+    name: Run tests on stable rust
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get latest stable Rust
+        run: rustup toolchain install stable --profile minimal
+      - name: Check out source
+        uses: actions/checkout@v2
+      - name: Run tests
+        run: cargo test --all
+  beta:
+    name: Run tests on beta rust
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get latest beta Rust
+        run: rustup toolchain install beta --profile minimal
+      - name: Check out source
+        uses: actions/checkout@v2
+      - name: Run tests
+        run: cargo test --all
+  nightly:
+    name: Run tests on nightly rust
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get latest nightly Rust
+        run: rustup toolchain install nightly --profile minimal
+      - name: Check out source
+        uses: actions/checkout@v2
+      - name: Run tests
+        run: cargo test --all
