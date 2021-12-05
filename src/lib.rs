@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
-extern crate data_encoding;
 extern crate charset;
+extern crate data_encoding;
 extern crate quoted_printable;
 
 use std::borrow::Cow;
@@ -1760,8 +1760,10 @@ mod tests {
 
     #[test]
     fn test_base64_content_encoding_multiple_strings() {
-        let mail =
-            parse_mail(b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG 8gd\r\n29ybGQ=\r\nZm9vCg==").unwrap();
+        let mail = parse_mail(
+            b"Content-Transfer-Encoding: base64\r\n\r\naGVsbG 8gd\r\n29ybGQ=\r\nZm9vCg==",
+        )
+        .unwrap();
         match mail.get_body_encoded() {
             Body::Base64(body) => {
                 assert_eq!(body.get_raw(), b"aGVsbG 8gd\r\n29ybGQ=\r\nZm9vCg==");
@@ -1771,7 +1773,6 @@ mod tests {
             _ => assert!(false),
         };
     }
-
 
     #[test]
     fn test_binary_content_encoding() {
