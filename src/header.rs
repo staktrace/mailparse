@@ -45,7 +45,7 @@ fn decode_word(encoded: &str) -> Option<String> {
     let input = &encoded[ix_delim2 + 1..];
 
     let decoded = match transfer_coding {
-        "B" | "b" => base64::decode(input.as_bytes()).ok()?,
+        "B" | "b" => data_encoding::BASE64_MIME.decode(input.as_bytes()).ok()?,
         "Q" | "q" => {
             // The quoted_printable module does a trim_end on the input, so if
             // that affects the output we should save and restore the trailing

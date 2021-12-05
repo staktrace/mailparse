@@ -17,6 +17,6 @@ exclude = [".gitattributes", ".gitignore", ".github/**", "examples/**"]
 maintenance = { status = "passively-maintained" }
 
 [dependencies]
-base64 = "0.13"
+data-encoding = "2.3.2"
 quoted_printable = "0.4.3"
 charset = "0.1.1"

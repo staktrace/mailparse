@@ -141,7 +141,7 @@ fn decode_base64(body: &[u8]) -> Result<Vec<u8>, MailParseError> {
         .filter(|c| !c.is_ascii_whitespace())
         .cloned()
         .collect::<Vec<u8>>();
-    Ok(base64::decode(&cleaned)?)
+    Ok(data_encoding::BASE64_MIME.decode(&cleaned)?)
 }
 
 fn decode_quoted_printable(body: &[u8]) -> Result<Vec<u8>, MailParseError> {
