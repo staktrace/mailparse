@@ -661,6 +661,8 @@ pub fn parse_content_disposition(header: &str) -> ParsedContentDisposition {
 /// a vector of other ParsedMail structures for the subparts.
 #[derive(Debug)]
 pub struct ParsedMail<'a> {
+    /// The raw bytes that make up this message (or subpart).
+    pub raw_bytes: &'a [u8],
     /// The raw bytes that make up the header block for this message (or subpart).
     header_bytes: &'a [u8],
     /// The headers for the message (or message subpart).
@@ -849,6 +851,7 @@ fn parse_mail_recursive(
         .unwrap_or_else(|| ParsedContentType::default_conditional(in_multipart_digest));
 
     let mut result = ParsedMail {
+        raw_bytes: raw_data,
         header_bytes: &raw_data[0..ix_body],
         headers,
         ctype,
