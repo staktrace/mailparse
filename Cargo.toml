@@ -20,3 +20,6 @@ maintenance = { status = "passively-maintained" }
 data-encoding = "2.3.2"
 quoted_printable = "0.4.3"
 charset = "0.1.1"
+
+[dev-dependencies]
+ouroboros = "0.14.0"
