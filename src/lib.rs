@@ -154,6 +154,30 @@ fn test_find_from_u8() {
     assert_eq!(find_from_u8(b"hello world", 10, b"d"), None);
 }
 
+// Like find_from_u8, but additionally filters such that `key` is at the start
+// of a line (preceded by `\n`) or at the start of the search space.
+fn find_from_u8_line_prefix(line: &[u8], ix_start: usize, key: &[u8]) -> Option<usize> {
+    let mut start = ix_start;
+    while let Some(ix) = find_from_u8(line, start, key) {
+        if ix == ix_start || line[ix - 1] == b'\n' {
+            return Some(ix);
+        }
+        start = ix + 1;
+    }
+    None
+}
+
+#[test]
+fn test_find_from_u8_line_prefix() {
+    assert_eq!(find_from_u8_line_prefix(b"hello world", 0, b"he"), Some(0));
+    assert_eq!(find_from_u8_line_prefix(b"hello\nhello", 0, b"he"), Some(0));
+    assert_eq!(find_from_u8_line_prefix(b"hello\nhello", 1, b"he"), Some(6));
+    assert_eq!(find_from_u8_line_prefix(b"hello world", 0, b"wo"), None);
+    assert_eq!(find_from_u8_line_prefix(b"hello\nworld", 0, b"wo"), Some(6));
+    assert_eq!(find_from_u8_line_prefix(b"hello\nworld", 6, b"wo"), Some(6));
+    assert_eq!(find_from_u8_line_prefix(b"hello\nworld", 7, b"wo"), None);
+}
+
 impl<'a> MailHeader<'a> {
     /// Get the name of the header. Note that header names are case-insensitive.
     /// Prefer using get_key_ref where possible for better performance.
@@ -864,15 +888,17 @@ fn parse_mail_recursive(
     {
         let in_multipart_digest = result.ctype.mimetype == "multipart/digest";
         let boundary = String::from("--") + &result.ctype.params["boundary"];
-        if let Some(ix_body_end) = find_from_u8(raw_data, ix_body, boundary.as_bytes()) {
+        if let Some(ix_body_end) = find_from_u8_line_prefix(raw_data, ix_body, boundary.as_bytes())
+        {
             result.body_bytes = &raw_data[ix_body..ix_body_end];
             let mut ix_boundary_end = ix_body_end + boundary.len();
             while let Some(ix_part_start) =
                 find_from_u8(raw_data, ix_boundary_end, b"\n").map(|v| v + 1)
             {
                 // if there is no terminating boundary, assume the part end is the end of the email
-                let ix_part_end = find_from_u8(raw_data, ix_part_start, boundary.as_bytes())
-                    .unwrap_or_else(|| raw_data.len());
+                let ix_part_end =
+                    find_from_u8_line_prefix(raw_data, ix_part_start, boundary.as_bytes())
+                        .unwrap_or_else(|| raw_data.len());
 
                 result.subparts.push(parse_mail_recursive(
                     &raw_data[ix_part_start..ix_part_end],
@@ -1959,5 +1985,55 @@ mod tests {
                 .unwrap(),
             b"inside part\n"
         );
+    }
+
+    #[test]
+    fn boundary_is_suffix_of_another_boundary() {
+        // From https://github.com/staktrace/mailparse/issues/100
+        let mail = parse_mail(
+            concat!(
+                "Content-Type: multipart/mixed; boundary=\"section_boundary\"\n",
+                "\n",
+                "--section_boundary\n",
+                "Content-Type: multipart/alternative; boundary=\"--section_boundary\"\n",
+                "\n",
+                "----section_boundary\n",
+                "Content-Type: text/html;\n",
+                "\n",
+                "<em>Good evening!</em>\n",
+                "----section_boundary\n",
+                "Content-Type: text/plain;\n",
+                "\n",
+                "Good evening!\n",
+                "----section_boundary\n",
+                "--section_boundary\n"
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+
+        assert_eq!(mail.headers.len(), 1);
+        assert_eq!(mail.ctype.mimetype, "multipart/mixed");
+        assert_eq!(mail.subparts.len(), 1);
+
+        assert_eq!(mail.subparts[0].headers.len(), 1);
+        assert_eq!(mail.subparts[0].ctype.mimetype, "multipart/alternative");
+        assert_eq!(mail.subparts[0].subparts.len(), 2);
+
+        assert_eq!(mail.subparts[0].subparts[0].headers.len(), 1);
+        assert_eq!(mail.subparts[0].subparts[0].ctype.mimetype, "text/html");
+        assert_eq!(
+            mail.subparts[0].subparts[0].get_body_raw().unwrap(),
+            b"<em>Good evening!</em>\n"
+        );
+        assert_eq!(mail.subparts[0].subparts[0].subparts.len(), 0);
+
+        assert_eq!(mail.subparts[0].subparts[1].headers.len(), 1);
+        assert_eq!(mail.subparts[0].subparts[1].ctype.mimetype, "text/plain");
+        assert_eq!(
+            mail.subparts[0].subparts[1].get_body_raw().unwrap(),
+            b"Good evening!\n"
+        );
+        assert_eq!(mail.subparts[0].subparts[1].subparts.len(), 0);
     }
 }
