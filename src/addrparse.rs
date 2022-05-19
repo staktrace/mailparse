@@ -1,7 +1,5 @@
 use std::fmt;
 
-use charset::decode_latin1;
-
 use crate::header::HeaderToken;
 use crate::{MailHeader, MailParseError};
 
@@ -286,8 +284,8 @@ pub fn addrparse(addrs: &str) -> Result<MailAddrList, MailParseError> {
 ///     };
 /// ```
 pub fn addrparse_header(header: &MailHeader) -> Result<MailAddrList, MailParseError> {
-    let chars = decode_latin1(header.value);
-    let v = crate::header::normalized_tokens(&chars);
+    let chars = super::decode_utf8(header.value)?;
+    let v = crate::header::normalized_tokens(chars);
     let mut w = HeaderTokenWalker::new(v);
     addrparse_inner(&mut w, false)
 }
@@ -1102,5 +1100,25 @@ mod tests {
                 )
             ])
         );
+    }
+
+    #[test]
+    fn parse_utf8() {
+        let (parsed, _) = crate::parse_header("From: \"Götz C\" <g@c.de>".as_bytes()).unwrap();
+        assert_eq!(
+            addrparse_header(&parsed).unwrap(),
+            MailAddrList(vec![MailAddr::Single(
+                SingleInfo::new(Some("Götz C".to_string()), "g@c.de".to_string()).unwrap()
+            )])
+        );
+    }
+
+    #[test]
+    fn parse_utf8_error() {
+        let (parsed, _) = crate::parse_header(b"From: \"Oops\xff\xff\" <g@c.de>").unwrap();
+        assert!(matches!(
+            addrparse_header(&parsed).unwrap_err(),
+            MailParseError::EncodingError(_)
+        ));
     }
 }

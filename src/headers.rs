@@ -1,4 +1,4 @@
-use crate::{MailHeader, MailHeaderMap};
+use crate::{MailHeader, MailHeaderMap, Result};
 use std::fmt;
 use std::slice;
 
@@ -45,8 +45,8 @@ impl<'a> Headers<'a> {
 ///             "Body starts here").as_bytes())
 ///         .unwrap();
 ///     let mut iter = mail.get_headers().into_iter();
-///     assert_eq!(iter.next().unwrap().get_key(), "Subject");
-///     assert_eq!(iter.next().unwrap().get_key(), "Another header");
+///     assert_eq!(iter.next().unwrap().get_key().unwrap(), "Subject");
+///     assert_eq!(iter.next().unwrap().get_key().unwrap(), "Another header");
 /// ```
 impl<'a> IntoIterator for Headers<'a> {
     type Item = &'a MailHeader<'a>;
@@ -90,9 +90,9 @@ impl<'a> MailHeaderMap for Headers<'a> {
     ///             "\n",
     ///             "This is a test message").as_bytes())
     ///         .unwrap();
-    ///     assert_eq!(mail.get_headers().get_first_value("Subject"), Some("Test".to_string()));
+    ///     assert_eq!(mail.get_headers().get_first_value("Subject").unwrap().unwrap(), "Test");
     /// ```
-    fn get_first_value(&self, key: &str) -> Option<String> {
+    fn get_first_value(&self, key: &str) -> Option<Result<String>> {
         self.headers.get_first_value(key)
     }
 
@@ -107,10 +107,14 @@ impl<'a> MailHeaderMap for Headers<'a> {
     ///             "Key: Value1\n",
     ///             "Key: Value2").as_bytes())
     ///         .unwrap();
-    ///     assert_eq!(mail.get_headers().get_all_values("Key"),
-    ///         vec!["Value1".to_string(), "Value2".to_string()]);
+    ///     assert_eq!(
+    ///         mail.get_headers().get_all_values("Key")
+    ///         .into_iter()
+    ///         .collect::<Result<Vec<_>, _>>()
+    ///         .unwrap(),
+    ///         vec!["Value1", "Value2"]);
     /// ```
-    fn get_all_values(&self, key: &str) -> Vec<String> {
+    fn get_all_values(&self, key: &str) -> Vec<Result<String>> {
         self.headers.get_all_values(key)
     }
 

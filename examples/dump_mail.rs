@@ -9,21 +9,20 @@ use mailparse::MailHeaderMap;
 fn dump(pfx: &str, pm: &mailparse::ParsedMail) {
     println!(">> Headers from {} <<", pfx);
     for h in &pm.headers {
-        println!("  [{}] => [{}]", h.get_key(), h.get_value());
+        println!(
+            "  [{}] => [{}]",
+            h.get_key().unwrap(),
+            h.get_value().unwrap()
+        );
     }
+
     println!(">> Addresses from {} <<", pfx);
-    pm.headers
-        .get_first_value("From")
-        .map(|a| println!("{:?}", mailparse::addrparse(&a).unwrap()));
-    pm.headers
-        .get_first_value("To")
-        .map(|a| println!("{:?}", mailparse::addrparse(&a).unwrap()));
-    pm.headers
-        .get_first_value("Cc")
-        .map(|a| println!("{:?}", mailparse::addrparse(&a).unwrap()));
-    pm.headers
-        .get_first_value("Bcc")
-        .map(|a| println!("{:?}", mailparse::addrparse(&a).unwrap()));
+    for address_header in ["From", "To", "Cc", "Bcc"] {
+        if let Some(Ok(addresses)) = pm.headers.get_first_value(address_header) {
+            println!("{:?}", mailparse::addrparse(&addresses).unwrap());
+        }
+    }
+
     println!(">> Body from {} <<", pfx);
     if pm.ctype.mimetype.starts_with("text/") {
         println!("  [{}]", pm.get_body().unwrap());
@@ -34,11 +33,12 @@ fn dump(pfx: &str, pm: &mailparse::ParsedMail) {
             pm.get_body().unwrap().len()
         );
     }
+
     let mut c = 1;
     for s in &pm.subparts {
         println!(">> Subpart {} <<", c);
         dump("subpart", s);
-        c = c + 1;
+        c += 1;
     }
 }
 
