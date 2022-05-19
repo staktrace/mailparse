@@ -1,7 +1,5 @@
 use std::fmt;
 
-use charset::decode_latin1;
-
 use crate::header::HeaderToken;
 use crate::{MailHeader, MailParseError};
 
@@ -286,7 +284,7 @@ pub fn addrparse(addrs: &str) -> Result<MailAddrList, MailParseError> {
 ///     };
 /// ```
 pub fn addrparse_header(header: &MailHeader) -> Result<MailAddrList, MailParseError> {
-    let chars = decode_latin1(header.value);
+    let chars = header.decode_utf8_or_latin1();
     let v = crate::header::normalized_tokens(&chars);
     let mut w = HeaderTokenWalker::new(v);
     addrparse_inner(&mut w, false)
