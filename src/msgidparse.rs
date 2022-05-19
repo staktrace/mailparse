@@ -57,7 +57,7 @@ pub fn msgidparse(ids: &str) -> Result<MessageIdList, MailParseError> {
     // The remaining section of the header, not yet chomped
     let mut remaining = ids.trim_start();
     // While we have some value of the header remaining
-    while remaining.len() > 0 {
+    while !remaining.is_empty() {
         // The next character should be the start of a Message ID
         if !remaining.starts_with('<') {
             return Err(MailParseError::Generic("Message IDs must start with <"));
@@ -65,11 +65,11 @@ pub fn msgidparse(ids: &str) -> Result<MessageIdList, MailParseError> {
         // The ID ends at the next '>'
         let end_index = remaining
             .find('>')
-            .ok_or_else(|| MailParseError::Generic("Message IDs must end with >"))?;
+            .ok_or(MailParseError::Generic("Message IDs must end with >"))?;
         msgids.push(remaining[1..end_index].to_string());
 
         // Chomp the part of the string we just processed, and any trailing whitespace
-        remaining = &remaining[end_index + 1..].trim_start();
+        remaining = remaining[end_index + 1..].trim_start();
     }
     Ok(MessageIdList(msgids))
 }

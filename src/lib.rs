@@ -108,8 +108,8 @@ pub struct MailHeader<'a> {
 impl<'a> fmt::Debug for MailHeader<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("MailHeader")
-            .field("key", &String::from_utf8_lossy(&self.key))
-            .field("value", &String::from_utf8_lossy(&self.value))
+            .field("key", &String::from_utf8_lossy(self.key))
+            .field("value", &String::from_utf8_lossy(self.value))
             .finish()
     }
 }
@@ -207,8 +207,8 @@ impl<'a> MailHeader<'a> {
     pub fn get_value(&self) -> String {
         let mut result = String::new();
 
-        let chars = decode_latin1(self.value);
-        for tok in header::normalized_tokens(&chars) {
+        let chars = decode_utf8(self.value)?;
+        for tok in header::normalized_tokens(chars) {
             match tok {
                 HeaderToken::Text(t) => {
                     result.push_str(t);
@@ -771,7 +771,7 @@ impl<'a> ParsedMail<'a> {
     ///             assert_eq!(body.get_decoded().unwrap(), b"hello world");
     ///             assert_eq!(body.get_decoded_as_string().unwrap(), "hello world");
     ///         },
-    ///         _ => assert!(false),
+    ///         _ => panic!(),
     ///     };
     ///
     ///
@@ -805,7 +805,7 @@ impl<'a> ParsedMail<'a> {
     /// Returns a struct that wraps the headers for this message.
     /// The struct provides utility methods to read the individual headers.
     pub fn get_headers(&'a self) -> Headers<'a> {
-        Headers::new(&self.header_bytes, &self.headers)
+        Headers::new(self.header_bytes, &self.headers)
     }
 
     /// Returns a struct containing a parsed representation of the
@@ -814,12 +814,10 @@ impl<'a> ParsedMail<'a> {
     /// method documentation for more details on the semantics of the
     /// returned object.
     pub fn get_content_disposition(&self) -> ParsedContentDisposition {
-        let disposition = self
-            .headers
+        self.headers
             .get_first_value("Content-Disposition")
             .map(|s| parse_content_disposition(&s))
-            .unwrap_or_default();
-        disposition
+            .unwrap_or_default()
     }
 }
 
@@ -898,7 +896,7 @@ fn parse_mail_recursive(
                 // if there is no terminating boundary, assume the part end is the end of the email
                 let ix_part_end =
                     find_from_u8_line_prefix(raw_data, ix_part_start, boundary.as_bytes())
-                        .unwrap_or_else(|| raw_data.len());
+                        .unwrap_or(raw_data.len());
 
                 result.subparts.push(parse_mail_recursive(
                     &raw_data[ix_part_start..ix_part_end],
@@ -953,7 +951,7 @@ fn parse_param_content(content: &str) -> ParamContent {
     // Decode charset encoding, as described in RFC 2184, Section 4.
     let decode_key_list: Vec<String> = map
         .keys()
-        .filter_map(|k| k.strip_suffix("*"))
+        .filter_map(|k| k.strip_suffix('*'))
         .map(String::from)
         // Skip encoded keys where there is already an equivalent decoded key in the map
         .filter(|k| !map.contains_key(k))
@@ -988,7 +986,7 @@ fn parse_param_content(content: &str) -> ParamContent {
         let mut unwrapped_value = String::new();
         let mut index = 0;
         while let Some(wrapped_value_part) = map.remove(&format!("{}*{}", &unwrap_key, index)) {
-            index = index + 1;
+            index += 1;
             unwrapped_value.push_str(&wrapped_value_part);
         }
         let old_value = map.insert(unwrap_key, unwrapped_value);
@@ -1068,7 +1066,7 @@ fn percent_decode(encoded: &str) -> Vec<u8> {
 
         let top = match bytes.next() {
             Some(n) if n.is_ascii_hexdigit() => n,
-            n @ _ => {
+            n => {
                 decoded.push(b);
                 next = n;
                 continue;
@@ -1076,7 +1074,7 @@ fn percent_decode(encoded: &str) -> Vec<u8> {
         };
         let bottom = match bytes.next() {
             Some(n) if n.is_ascii_hexdigit() => n,
-            n @ _ => {
+            n => {
                 decoded.push(b);
                 decoded.push(top);
                 next = n;
@@ -1634,8 +1632,8 @@ mod tests {
             parse_param_content("attachment;\n\tfilename*0=\"X\";\n\tfilename*1=\"Y.pdf\"");
         assert_eq!(parsed.value, "attachment");
         assert_eq!(parsed.params["filename"], "XY.pdf");
-        assert_eq!(parsed.params.contains_key("filename*0"), false);
-        assert_eq!(parsed.params.contains_key("filename*1"), false);
+        assert!(!parsed.params.contains_key("filename*0"));
+        assert!(!parsed.params.contains_key("filename*1"));
 
         let parsed = parse_param_content(
             "attachment;\n\tfilename=XX.pdf;\n\tfilename*0=\"X\";\n\tfilename*1=\"Y.pdf\"",
@@ -1647,7 +1645,7 @@ mod tests {
 
         let parsed = parse_param_content("attachment; filename*1=\"Y.pdf\"");
         assert_eq!(parsed.params["filename*1"], "Y.pdf");
-        assert_eq!(parsed.params.contains_key("filename"), false);
+        assert!(!parsed.params.contains_key("filename"));
     }
 
     #[test]
@@ -1659,64 +1657,64 @@ mod tests {
             parsed.params["filename"],
             "(X) 801 - X \u{00E2}\u{20AC}\u{201C} X X X.pdf"
         );
-        assert_eq!(parsed.params.contains_key("filename*0*"), false);
-        assert_eq!(parsed.params.contains_key("filename*0"), false);
-        assert_eq!(parsed.params.contains_key("filename*1*"), false);
-        assert_eq!(parsed.params.contains_key("filename*1"), false);
-        assert_eq!(parsed.params.contains_key("filename*2*"), false);
-        assert_eq!(parsed.params.contains_key("filename*2"), false);
+        assert!(!parsed.params.contains_key("filename*0*"));
+        assert!(!parsed.params.contains_key("filename*0"));
+        assert!(!parsed.params.contains_key("filename*1*"));
+        assert!(!parsed.params.contains_key("filename*1"));
+        assert!(!parsed.params.contains_key("filename*2*"));
+        assert!(!parsed.params.contains_key("filename*2"));
 
         // Here is the corrected version.
         let parsed = parse_param_content("attachment;\n\tfilename*0*=utf-8''%28X%29%20801%20-%20X;\n\tfilename*1*=%20%E2%80%93%20X%20;\n\tfilename*2*=X%20X%2Epdf");
         assert_eq!(parsed.params["filename"], "(X) 801 - X \u{2013} X X X.pdf");
-        assert_eq!(parsed.params.contains_key("filename*0*"), false);
-        assert_eq!(parsed.params.contains_key("filename*0"), false);
-        assert_eq!(parsed.params.contains_key("filename*1*"), false);
-        assert_eq!(parsed.params.contains_key("filename*1"), false);
-        assert_eq!(parsed.params.contains_key("filename*2*"), false);
-        assert_eq!(parsed.params.contains_key("filename*2"), false);
+        assert!(!parsed.params.contains_key("filename*0*"));
+        assert!(!parsed.params.contains_key("filename*0"));
+        assert!(!parsed.params.contains_key("filename*1*"));
+        assert!(!parsed.params.contains_key("filename*1"));
+        assert!(!parsed.params.contains_key("filename*2*"));
+        assert!(!parsed.params.contains_key("filename*2"));
         let parsed = parse_param_content("attachment; filename*=utf-8'en'%e2%80%A1.bin");
         assert_eq!(parsed.params["filename"], "\u{2021}.bin");
-        assert_eq!(parsed.params.contains_key("filename*"), false);
+        assert!(!parsed.params.contains_key("filename*"));
 
         let parsed = parse_param_content("attachment; filename*='foo'%e2%80%A1.bin");
         assert_eq!(parsed.params["filename*"], "'foo'%e2%80%A1.bin");
-        assert_eq!(parsed.params.contains_key("filename"), false);
+        assert!(!parsed.params.contains_key("filename"));
 
         let parsed = parse_param_content("attachment; filename*=nonexistent'foo'%e2%80%a1.bin");
         assert_eq!(parsed.params["filename*"], "nonexistent'foo'%e2%80%a1.bin");
-        assert_eq!(parsed.params.contains_key("filename"), false);
+        assert!(!parsed.params.contains_key("filename"));
 
         let parsed = parse_param_content(
             "attachment; filename*0*=utf-8'en'%e2%80%a1; filename*1*=%e2%80%A1.bin",
         );
         assert_eq!(parsed.params["filename"], "\u{2021}\u{2021}.bin");
-        assert_eq!(parsed.params.contains_key("filename*0*"), false);
-        assert_eq!(parsed.params.contains_key("filename*0"), false);
-        assert_eq!(parsed.params.contains_key("filename*1*"), false);
-        assert_eq!(parsed.params.contains_key("filename*1"), false);
+        assert!(!parsed.params.contains_key("filename*0*"));
+        assert!(!parsed.params.contains_key("filename*0"));
+        assert!(!parsed.params.contains_key("filename*1*"));
+        assert!(!parsed.params.contains_key("filename*1"));
 
         let parsed =
             parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*1=%20.bin");
         assert_eq!(parsed.params["filename"], "\u{2021}%20.bin");
-        assert_eq!(parsed.params.contains_key("filename*0*"), false);
-        assert_eq!(parsed.params.contains_key("filename*0"), false);
-        assert_eq!(parsed.params.contains_key("filename*1*"), false);
-        assert_eq!(parsed.params.contains_key("filename*1"), false);
+        assert!(!parsed.params.contains_key("filename*0*"));
+        assert!(!parsed.params.contains_key("filename*0"));
+        assert!(!parsed.params.contains_key("filename*1*"));
+        assert!(!parsed.params.contains_key("filename*1"));
 
         let parsed =
             parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*2*=%20.bin");
         assert_eq!(parsed.params["filename"], "\u{2021}");
         assert_eq!(parsed.params["filename*2"], " .bin");
-        assert_eq!(parsed.params.contains_key("filename*0*"), false);
-        assert_eq!(parsed.params.contains_key("filename*0"), false);
-        assert_eq!(parsed.params.contains_key("filename*2*"), false);
+        assert!(!parsed.params.contains_key("filename*0*"));
+        assert!(!parsed.params.contains_key("filename*0"));
+        assert!(!parsed.params.contains_key("filename*2*"));
 
         let parsed =
             parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*0=foo.bin");
         assert_eq!(parsed.params["filename"], "foo.bin");
         assert_eq!(parsed.params["filename*0*"], "utf-8'en'%e2%80%a1");
-        assert_eq!(parsed.params.contains_key("filename*0"), false);
+        assert!(!parsed.params.contains_key("filename*0"));
     }
 
     #[test]
@@ -1728,7 +1726,7 @@ mod tests {
                 assert_eq!(body.get_raw(), b"+JgM-");
                 assert_eq!(body.get_as_string().unwrap(), "\u{2603}");
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
     }
 
@@ -1741,7 +1739,7 @@ mod tests {
                 assert_eq!(body.get_raw(), b"+JgM-");
                 assert_eq!(body.get_as_string().unwrap(), "\u{2603}");
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
     }
 
@@ -1754,7 +1752,7 @@ mod tests {
                 assert_eq!(body.get_raw(), b"+JgM-");
                 assert_eq!(body.get_as_string().unwrap(), "\u{2603}");
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
     }
 
@@ -1769,7 +1767,7 @@ mod tests {
                 assert_eq!(body.get_decoded().unwrap(), b"+JgM-");
                 assert_eq!(body.get_decoded_as_string().unwrap(), "\u{2603}");
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
     }
 
@@ -1783,7 +1781,7 @@ mod tests {
                 assert_eq!(body.get_decoded().unwrap(), b"hello world");
                 assert_eq!(body.get_decoded_as_string().unwrap(), "hello world");
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
     }
 
@@ -1799,7 +1797,7 @@ mod tests {
                 assert_eq!(body.get_decoded().unwrap(), b"hello worldfoo\n");
                 assert_eq!(body.get_decoded_as_string().unwrap(), "hello worldfoo\n");
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
     }
 
@@ -1811,7 +1809,7 @@ mod tests {
             Body::Binary(body) => {
                 assert_eq!(body.get_raw(), b"######");
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
     }
 
@@ -1819,7 +1817,7 @@ mod tests {
     fn test_body_content_encoding_with_multipart() {
         let mail_filepath = "./tests/files/test_email_01.txt";
         let mail = std::fs::read(mail_filepath)
-            .expect(&format!("Unable to open the file [{}]", mail_filepath));
+            .unwrap_or_else(|_| panic!("Unable to open the file [{}]", mail_filepath));
         let mail = parse_mail(&mail).unwrap();
 
         let subpart_0 = mail.subparts.get(0).unwrap();
@@ -1830,7 +1828,7 @@ mod tests {
                     "<html>Test with attachments</html>"
                 );
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
 
         let subpart_1 = mail.subparts.get(1).unwrap();
@@ -1838,10 +1836,10 @@ mod tests {
             Body::Base64(body) => {
                 let pdf_filepath = "./tests/files/test_email_01_sample.pdf";
                 let original_pdf = std::fs::read(pdf_filepath)
-                    .expect(&format!("Unable to open the file [{}]", pdf_filepath));
+                    .unwrap_or_else(|_| panic!("Unable to open the file [{}]", pdf_filepath));
                 assert_eq!(body.get_decoded().unwrap(), original_pdf);
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
 
         let subpart_2 = mail.subparts.get(2).unwrap();
@@ -1852,13 +1850,13 @@ mod tests {
                     "txt file context for email collector\n1234567890987654321\n"
                 );
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
     }
 
     #[test]
     fn test_fuzzer_testcase() {
-        const INPUT: &'static str = "U3ViamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IW11bAAAAAAAAAAAamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IG11bAAAAAAAAAAAAAAAAABTTUFZdWJqZf86OiP/dCBTdWJqZWN0Ol8KRGF0ZTog/////////////////////wAAAAAAAAAAAHQgYnJmAHQgYnJmZXItRW5jeXBlOnY9NmU3OjA2OgAAAAAAAAAAAAAAADEAAAAAAP/8mAAAAAAAAAAA+f///wAAAAAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAPT0/PzEAAAEAAA==";
+        const INPUT: &str = "U3ViamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IW11bAAAAAAAAAAAamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IG11bAAAAAAAAAAAAAAAAABTTUFZdWJqZf86OiP/dCBTdWJqZWN0Ol8KRGF0ZTog/////////////////////wAAAAAAAAAAAHQgYnJmAHQgYnJmZXItRW5jeXBlOnY9NmU3OjA2OgAAAAAAAAAAAAAAADEAAAAAAP/8mAAAAAAAAAAA+f///wAAAAAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAPT0/PzEAAAEAAA==";
 
         if let Ok(parsed) = parse_mail(&data_encoding::BASE64.decode(INPUT.as_bytes()).unwrap()) {
             if let Some(date) = parsed.headers.get_first_value("Date") {
@@ -1869,7 +1867,7 @@ mod tests {
 
     #[test]
     fn test_fuzzer_testcase_2() {
-        const INPUT: &'static str = "U3ViamVjdDogVGhpcyBpcyBhIHRlc3QgZW1haWwKQ29udGVudC1UeXBlOiBtdWx0aXBhcnQvYWx0ZXJuYXRpdmU7IGJvdW5kYXJ5PczMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMZm9vYmFyCkRhdGU6IFN1biwgMDIgT2MKCi1TdWJqZWMtZm9vYmFydDo=";
+        const INPUT: &str = "U3ViamVjdDogVGhpcyBpcyBhIHRlc3QgZW1haWwKQ29udGVudC1UeXBlOiBtdWx0aXBhcnQvYWx0ZXJuYXRpdmU7IGJvdW5kYXJ5PczMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMZm9vYmFyCkRhdGU6IFN1biwgMDIgT2MKCi1TdWJqZWMtZm9vYmFydDo=";
         if let Ok(parsed) = parse_mail(&data_encoding::BASE64.decode(INPUT.as_bytes()).unwrap()) {
             if let Some(date) = parsed.headers.get_first_value("Date") {
                 let _ = dateparse(&date);

@@ -53,7 +53,7 @@ impl<'a> IntoIterator for Headers<'a> {
     type IntoIter = slice::Iter<'a, MailHeader<'a>>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.headers.into_iter()
+        self.headers.iter()
     }
 }
 
