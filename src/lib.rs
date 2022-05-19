@@ -207,7 +207,13 @@ impl<'a> MailHeader<'a> {
     pub fn get_value(&self) -> String {
         let mut result = String::new();
 
-        let chars = decode_latin1(self.value);
+        // RFC 6532 says that header values can be UTF-8. Let's try that first, and
+        // fall back to latin1 if that fails, for better backwards-compatibility with
+        // older versions of this library that didn't try UTF-8.
+        let chars = match std::str::from_utf8(self.value) {
+            Ok(s) => Cow::Borrowed(s),
+            Err(_) => decode_latin1(self.value),
+        };
         for tok in header::normalized_tokens(&chars) {
             match tok {
                 HeaderToken::Text(t) => {
