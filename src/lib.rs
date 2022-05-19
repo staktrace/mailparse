@@ -191,6 +191,16 @@ impl<'a> MailHeader<'a> {
         decode_latin1(self.key)
     }
 
+    pub(crate) fn decode_utf8_or_latin1(&'a self) -> Cow<'a, str> {
+        // RFC 6532 says that header values can be UTF-8. Let's try that first, and
+        // fall back to latin1 if that fails, for better backwards-compatibility with
+        // older versions of this library that didn't try UTF-8.
+        match std::str::from_utf8(self.value) {
+            Ok(s) => Cow::Borrowed(s),
+            Err(_) => decode_latin1(self.value),
+        }
+    }
+
     /// Get the value of the header. Any sequences of newlines characters followed
     /// by whitespace are collapsed into a single space. In effect, header values
     /// wrapped across multiple lines are compacted back into one line, while
@@ -207,13 +217,7 @@ impl<'a> MailHeader<'a> {
     pub fn get_value(&self) -> String {
         let mut result = String::new();
 
-        // RFC 6532 says that header values can be UTF-8. Let's try that first, and
-        // fall back to latin1 if that fails, for better backwards-compatibility with
-        // older versions of this library that didn't try UTF-8.
-        let chars = match std::str::from_utf8(self.value) {
-            Ok(s) => Cow::Borrowed(s),
-            Err(_) => decode_latin1(self.value),
-        };
+        let chars = self.decode_utf8_or_latin1();
         for tok in header::normalized_tokens(&chars) {
             match tok {
                 HeaderToken::Text(t) => {
