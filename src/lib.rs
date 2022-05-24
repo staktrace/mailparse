@@ -206,6 +206,12 @@ impl<'a> MailHeader<'a> {
     /// wrapped across multiple lines are compacted back into one line, while
     /// discarding the extra whitespace required by the MIME format. Additionally,
     /// any quoted-printable words in the value are decoded.
+    /// Note that this function attempts to decode the header value bytes as UTF-8
+    /// first, and falls back to Latin-1 if the UTF-8 decoding fails. This attempts
+    /// to be compliant with both RFC 6532 as well as older versions of this library.
+    /// To avoid the Latin-1 fallback decoding, which may end up returning "garbage",
+    /// prefer using the get_value_utf8 function instead, which will fail and return
+    /// an error instead of falling back to Latin-1.
     ///
     /// # Examples
     /// ```
@@ -215,9 +221,13 @@ impl<'a> MailHeader<'a> {
     ///     assert_eq!(parsed.get_value(), "\u{a1}Hola, se\u{f1}or!");
     /// ```
     pub fn get_value(&self) -> String {
+        let chars = self.decode_utf8_or_latin1();
+        self.normalize_header(chars)
+    }
+
+    fn normalize_header(&'a self, chars: Cow<'a, str>) -> String {
         let mut result = String::new();
 
-        let chars = self.decode_utf8_or_latin1();
         for tok in header::normalized_tokens(&chars) {
             match tok {
                 HeaderToken::Text(t) => {
@@ -237,6 +247,29 @@ impl<'a> MailHeader<'a> {
         }
 
         result
+    }
+
+    /// Get the value of the header. Any sequences of newlines characters followed
+    /// by whitespace are collapsed into a single space. In effect, header values
+    /// wrapped across multiple lines are compacted back into one line, while
+    /// discarding the extra whitespace required by the MIME format. Additionally,
+    /// any quoted-printable words in the value are decoded. As per RFC 6532, this
+    /// function assumes the raw header value is encoded as UTF-8, and does that
+    /// decoding prior to tokenization and other processing. An EncodingError is
+    /// returned if the raw header value cannot be decoded as UTF-8.
+    ///
+    /// # Examples
+    /// ```
+    ///     use mailparse::parse_header;
+    ///     let (parsed, _) = parse_header(b"Subject: \xC2\xA1Hola, se\xC3\xB1or!").unwrap();
+    ///     assert_eq!(parsed.get_key(), "Subject");
+    ///     assert_eq!(parsed.get_value(), "\u{a1}Hola, se\u{f1}or!");
+    /// ```
+    pub fn get_value_utf8(&self) -> Result<String, MailParseError> {
+        let chars = std::str::from_utf8(self.value).map_err(|_| {
+            MailParseError::EncodingError(Cow::Borrowed("Invalid UTF-8 in header value"))
+        })?;
+        Ok(self.normalize_header(Cow::Borrowed(chars)))
     }
 
     /// Get the raw, unparsed value of the header key.
