@@ -864,6 +864,76 @@ impl<'a> ParsedMail<'a> {
             .unwrap_or_default();
         disposition
     }
+
+    /// Returns a depth-first pre-order traversal of the subparts of
+    /// this ParsedMail instance. The first item returned will be this
+    /// ParsedMail itself.
+    pub fn parts(&'a self) -> PartsIterator<'a> {
+        PartsIterator {
+            root: &self,
+            stack: Vec::new(),
+            first: true,
+        }
+    }
+}
+
+pub struct PartsIterator<'a> {
+    root: &'a ParsedMail<'a>,
+    stack: Vec<usize>,
+    first: bool,
+}
+
+impl<'a> PartsIterator<'a> {
+    fn find_target(&self) -> &'a ParsedMail<'a> {
+        let mut mail = self.root;
+        for ix in &self.stack {
+            mail = &mail.subparts[*ix];
+        }
+        mail
+    }
+}
+
+impl<'a> Iterator for PartsIterator<'a> {
+    type Item = &'a ParsedMail<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut mail = self.find_target();
+        // here `mail` should be what was returned last time (or self.root
+        // on the first iteration).
+
+        // On the first iteration, return the root.
+        if self.first {
+            self.first = false;
+            return Some(mail);
+        }
+
+        // First try to go deeper if possible
+        if !mail.subparts.is_empty() {
+            self.stack.push(0);
+            mail = &mail.subparts[0];
+            return Some(mail);
+        }
+
+        while !self.stack.is_empty() {
+            // Can't go deeper, go to next sibling if there is one
+            let sibling_ix = self.stack.pop().unwrap() + 1;
+            mail = self.find_target();
+            if sibling_ix < mail.subparts.len() {
+                self.stack.push(sibling_ix);
+                mail = &mail.subparts[sibling_ix];
+                return Some(mail);
+            }
+
+            // No next sibling on this level, loop upwards to next available sibling
+        }
+
+        // Nothing found, bail out. Set first back to true
+        // so that we return the entire sequence over again if
+        // for whatever reason the caller keeps trying to
+        // iterate.
+        self.first = true;
+        None
+    }
 }
 
 /// The main mail-parsing entry point.
@@ -1982,52 +2052,40 @@ mod tests {
             .as_bytes(),
         )
         .unwrap();
-        assert_eq!(mail.headers.len(), 1);
-        assert_eq!(mail.ctype.mimetype, "multipart/whatever");
+        let mut parts = mail.parts();
+        let mut part = parts.next().unwrap(); // mail
 
-        assert_eq!(mail.subparts[0].headers.len(), 0);
-        assert_eq!(mail.subparts[0].ctype.mimetype, "text/plain");
-        assert_eq!(
-            mail.subparts[0].get_body_raw().unwrap(),
-            b"blah blah blah\n"
-        );
+        assert_eq!(part.headers.len(), 1);
+        assert_eq!(part.ctype.mimetype, "multipart/whatever");
 
-        assert_eq!(mail.subparts[1].ctype.mimetype, "multipart/digest");
+        part = parts.next().unwrap(); // mail.subparts[0]
+        assert_eq!(part.headers.len(), 0);
+        assert_eq!(part.ctype.mimetype, "text/plain");
+        assert_eq!(part.get_body_raw().unwrap(), b"blah blah blah\n");
 
-        assert_eq!(mail.subparts[1].subparts[0].headers.len(), 0);
-        assert_eq!(
-            mail.subparts[1].subparts[0].ctype.mimetype,
-            "message/rfc822"
-        );
-        assert_eq!(
-            mail.subparts[1].subparts[0].get_body_raw().unwrap(),
-            b"nested default part\n"
-        );
+        part = parts.next().unwrap(); // mail.subparts[1]
+        assert_eq!(part.ctype.mimetype, "multipart/digest");
 
-        assert_eq!(mail.subparts[1].subparts[1].headers.len(), 1);
-        assert_eq!(mail.subparts[1].subparts[1].ctype.mimetype, "text/html");
-        assert_eq!(
-            mail.subparts[1].subparts[1].get_body_raw().unwrap(),
-            b"nested html part\n"
-        );
+        part = parts.next().unwrap(); // mail.subparts[1].subparts[0]
+        assert_eq!(part.headers.len(), 0);
+        assert_eq!(part.ctype.mimetype, "message/rfc822");
+        assert_eq!(part.get_body_raw().unwrap(), b"nested default part\n");
 
-        assert_eq!(mail.subparts[1].subparts[2].headers.len(), 1);
-        assert_eq!(
-            mail.subparts[1].subparts[2].ctype.mimetype,
-            "multipart/insidedigest"
-        );
+        part = parts.next().unwrap(); // mail.subparts[1].subparts[1]
+        assert_eq!(part.headers.len(), 1);
+        assert_eq!(part.ctype.mimetype, "text/html");
+        assert_eq!(part.get_body_raw().unwrap(), b"nested html part\n");
 
-        assert_eq!(mail.subparts[1].subparts[2].subparts[0].headers.len(), 0);
-        assert_eq!(
-            mail.subparts[1].subparts[2].subparts[0].ctype.mimetype,
-            "text/plain"
-        );
-        assert_eq!(
-            mail.subparts[1].subparts[2].subparts[0]
-                .get_body_raw()
-                .unwrap(),
-            b"inside part\n"
-        );
+        part = parts.next().unwrap(); // mail.subparts[1].subparts[2]
+        assert_eq!(part.headers.len(), 1);
+        assert_eq!(part.ctype.mimetype, "multipart/insidedigest");
+
+        part = parts.next().unwrap(); // mail.subparts[1].subparts[2].subparts[0]
+        assert_eq!(part.headers.len(), 0);
+        assert_eq!(part.ctype.mimetype, "text/plain");
+        assert_eq!(part.get_body_raw().unwrap(), b"inside part\n");
+
+        assert!(parts.next().is_none());
     }
 
     #[test]
@@ -2055,28 +2113,76 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(mail.headers.len(), 1);
-        assert_eq!(mail.ctype.mimetype, "multipart/mixed");
-        assert_eq!(mail.subparts.len(), 1);
+        let mut parts = mail.parts();
+        let mut part = parts.next().unwrap(); // mail
 
-        assert_eq!(mail.subparts[0].headers.len(), 1);
-        assert_eq!(mail.subparts[0].ctype.mimetype, "multipart/alternative");
-        assert_eq!(mail.subparts[0].subparts.len(), 2);
+        assert_eq!(part.headers.len(), 1);
+        assert_eq!(part.ctype.mimetype, "multipart/mixed");
+        assert_eq!(part.subparts.len(), 1);
 
-        assert_eq!(mail.subparts[0].subparts[0].headers.len(), 1);
-        assert_eq!(mail.subparts[0].subparts[0].ctype.mimetype, "text/html");
+        part = parts.next().unwrap(); // mail.subparts[0]
+        assert_eq!(part.headers.len(), 1);
+        assert_eq!(part.ctype.mimetype, "multipart/alternative");
+        assert_eq!(part.subparts.len(), 2);
+
+        part = parts.next().unwrap(); // mail.subparts[0].subparts[0]
+        assert_eq!(part.headers.len(), 1);
+        assert_eq!(part.ctype.mimetype, "text/html");
+        assert_eq!(part.get_body_raw().unwrap(), b"<em>Good evening!</em>\n");
+        assert_eq!(part.subparts.len(), 0);
+
+        part = parts.next().unwrap(); // mail.subparts[0].subparts[1]
+        assert_eq!(part.headers.len(), 1);
+        assert_eq!(part.ctype.mimetype, "text/plain");
+        assert_eq!(part.get_body_raw().unwrap(), b"Good evening!\n");
+        assert_eq!(part.subparts.len(), 0);
+
+        assert!(parts.next().is_none());
+    }
+
+    #[test]
+    fn test_parts_iterator() {
+        let mail = parse_mail(
+            concat!(
+                "Content-Type: multipart/mixed; boundary=\"top_boundary\"\n",
+                "\n",
+                "--top_boundary\n",
+                "Content-Type: multipart/alternative; boundary=\"internal_boundary\"\n",
+                "\n",
+                "--internal_boundary\n",
+                "Content-Type: text/html;\n",
+                "\n",
+                "<em>Good evening!</em>\n",
+                "--internal_boundary\n",
+                "Content-Type: text/plain;\n",
+                "\n",
+                "Good evening!\n",
+                "--internal_boundary\n",
+                "--top_boundary\n",
+                "Content-Type: text/unknown;\n",
+                "\n",
+                "You read this?\n",
+                "--top_boundary\n"
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+
+        let mut parts = mail.parts();
+        assert_eq!(parts.next().unwrap().ctype.mimetype, "multipart/mixed");
         assert_eq!(
-            mail.subparts[0].subparts[0].get_body_raw().unwrap(),
-            b"<em>Good evening!</em>\n"
+            parts.next().unwrap().ctype.mimetype,
+            "multipart/alternative"
         );
-        assert_eq!(mail.subparts[0].subparts[0].subparts.len(), 0);
+        assert_eq!(parts.next().unwrap().ctype.mimetype, "text/html");
+        assert_eq!(parts.next().unwrap().ctype.mimetype, "text/plain");
+        assert_eq!(parts.next().unwrap().ctype.mimetype, "text/unknown");
+        assert!(parts.next().is_none());
 
-        assert_eq!(mail.subparts[0].subparts[1].headers.len(), 1);
-        assert_eq!(mail.subparts[0].subparts[1].ctype.mimetype, "text/plain");
-        assert_eq!(
-            mail.subparts[0].subparts[1].get_body_raw().unwrap(),
-            b"Good evening!\n"
-        );
-        assert_eq!(mail.subparts[0].subparts[1].subparts.len(), 0);
+        let mail = parse_mail(concat!("Content-Type: text/plain\n").as_bytes()).unwrap();
+
+        let mut parts = mail.parts();
+        assert_eq!(parts.next().unwrap().ctype.mimetype, "text/plain");
+        assert!(parts.next().is_none());
     }
 }
