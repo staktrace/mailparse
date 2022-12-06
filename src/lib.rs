@@ -870,69 +870,30 @@ impl<'a> ParsedMail<'a> {
     /// ParsedMail itself.
     pub fn parts(&'a self) -> PartsIterator<'a> {
         PartsIterator {
-            root: &self,
-            stack: Vec::new(),
-            first: true,
+            parts: vec![&self],
+            index: 0,
         }
     }
 }
 
 pub struct PartsIterator<'a> {
-    root: &'a ParsedMail<'a>,
-    stack: Vec<usize>,
-    first: bool,
-}
-
-impl<'a> PartsIterator<'a> {
-    fn find_target(&self) -> &'a ParsedMail<'a> {
-        let mut mail = self.root;
-        for ix in &self.stack {
-            mail = &mail.subparts[*ix];
-        }
-        mail
-    }
+    parts: Vec<&'a ParsedMail<'a>>,
+    index: usize,
 }
 
 impl<'a> Iterator for PartsIterator<'a> {
     type Item = &'a ParsedMail<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let mut mail = self.find_target();
-        // here `mail` should be what was returned last time (or self.root
-        // on the first iteration).
-
-        // On the first iteration, return the root.
-        if self.first {
-            self.first = false;
-            return Some(mail);
+        if self.index >= self.parts.len() {
+            return None;
         }
 
-        // First try to go deeper if possible
-        if !mail.subparts.is_empty() {
-            self.stack.push(0);
-            mail = &mail.subparts[0];
-            return Some(mail);
-        }
-
-        while !self.stack.is_empty() {
-            // Can't go deeper, go to next sibling if there is one
-            let sibling_ix = self.stack.pop().unwrap() + 1;
-            mail = self.find_target();
-            if sibling_ix < mail.subparts.len() {
-                self.stack.push(sibling_ix);
-                mail = &mail.subparts[sibling_ix];
-                return Some(mail);
-            }
-
-            // No next sibling on this level, loop upwards to next available sibling
-        }
-
-        // Nothing found, bail out. Set first back to true
-        // so that we return the entire sequence over again if
-        // for whatever reason the caller keeps trying to
-        // iterate.
-        self.first = true;
-        None
+        let cur = self.parts[self.index];
+        self.index += 1;
+        self.parts
+            .splice(self.index..self.index, cur.subparts.iter());
+        Some(cur)
     }
 }
 
