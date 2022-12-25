@@ -224,5 +224,8 @@ mod tests {
 
         // Day cannot be zero.
         assert!(dateparse("Wed, 0 Jan 1970 00:00:00 +0000").is_err());
+
+        // Regression test for integer overflow on invalid timezone.
+        assert!(dateparse("Thu, 1 Jan 1970 00:00:00 +2147483647").is_err());
     }
 }
