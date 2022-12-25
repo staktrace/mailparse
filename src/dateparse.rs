@@ -156,6 +156,7 @@ pub fn dateparse(date: &str) -> Result<i64, MailParseError> {
             }
             DateParseState::Timezone => {
                 let (tz, tz_sign) = match tok.parse::<i32>() {
+                    Ok(v) if v < -2400 || v > 2400 => return Err(MailParseError::Generic("Invalid timezone")),
                     Ok(v) if v < 0 => (-v, -1),
                     Ok(v) => (v, 1),
                     Err(_) => {
