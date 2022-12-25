@@ -87,6 +87,9 @@ pub fn dateparse(date: &str) -> Result<i64, MailParseError> {
         match state {
             DateParseState::Date => {
                 if let Ok(v) = tok.parse::<u8>() {
+                    if v < 1 || v > 31 {
+                        return Err(MailParseError::Generic("Invalid day"));
+                    }
                     day_of_month = v;
                     state = DateParseState::Month;
                 };
@@ -218,5 +221,8 @@ mod tests {
             dateparse("Fri, 30 Nov 2012 20:57:23 GMT").unwrap(),
             1354309043
         );
+
+        // Day cannot be zero.
+        assert!(dateparse("Wed, 0 Jan 1970 00:00:00 +0000").is_err());
     }
 }
