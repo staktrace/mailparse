@@ -87,7 +87,7 @@ pub fn dateparse(date: &str) -> Result<i64, MailParseError> {
         match state {
             DateParseState::Date => {
                 if let Ok(v) = tok.parse::<u8>() {
-                    if v < 1 || v > 31 {
+                    if !(1..=31).contains(&v) {
                         return Err(MailParseError::Generic("Invalid day"));
                     }
                     day_of_month = v;
@@ -156,7 +156,7 @@ pub fn dateparse(date: &str) -> Result<i64, MailParseError> {
             }
             DateParseState::Timezone => {
                 let (tz, tz_sign) = match tok.parse::<i32>() {
-                    Ok(v) if v < -2400 || v > 2400 => {
+                    Ok(v) if !(-2400..=2400).contains(&v) => {
                         return Err(MailParseError::Generic("Invalid timezone"))
                     }
                     Ok(v) if v < 0 => (-v, -1),

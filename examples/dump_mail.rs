@@ -38,7 +38,7 @@ fn dump(pfx: &str, pm: &mailparse::ParsedMail) {
     for s in &pm.subparts {
         println!(">> Subpart {} <<", c);
         dump("subpart", s);
-        c = c + 1;
+        c += 1;
     }
 }
 
