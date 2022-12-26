@@ -77,7 +77,7 @@ impl<'a> EncodedBody<'a> {
     /// This operation returns a valid result only if the decoded body
     /// has a text format.
     pub fn get_decoded_as_string(&self) -> Result<String, MailParseError> {
-        get_body_as_string(&self.get_decoded()?, &self.ctype)
+        get_body_as_string(&self.get_decoded()?, self.ctype)
     }
 }
 
@@ -103,7 +103,7 @@ impl<'a> TextBody<'a> {
     /// in the Content-Type
     /// (or "us-ascii" if the charset was missing or not recognized).
     pub fn get_as_string(&self) -> Result<String, MailParseError> {
-        get_body_as_string(self.body, &self.ctype)
+        get_body_as_string(self.body, self.ctype)
     }
 }
 
@@ -131,7 +131,7 @@ impl<'a> BinaryBody<'a> {
     /// convenient handling of real-world emails that may provide textual data
     /// with a binary transfer encoding, but use this at your own risk!
     pub fn get_as_string(&self) -> Result<String, MailParseError> {
-        get_body_as_string(self.body, &self.ctype)
+        get_body_as_string(self.body, self.ctype)
     }
 }
 

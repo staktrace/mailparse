@@ -16,7 +16,7 @@ impl SingleInfo {
         if addr.contains('@') {
             Ok(SingleInfo {
                 display_name: name,
-                addr: addr,
+                addr,
             })
         } else {
             Err(MailParseError::Generic(
@@ -48,7 +48,7 @@ impl GroupInfo {
     fn new(name: String, addrs: Vec<SingleInfo>) -> Self {
         GroupInfo {
             group_name: name,
-            addrs: addrs,
+            addrs,
         }
     }
 }
@@ -422,10 +422,14 @@ fn addrparse_inner(
                             // I think technically not valid, but this occurs in real-world corpus, so
                             // handle gracefully
                             if c == '"' {
-                                post_quote_ws.map(|ws| name.as_mut().unwrap().push_str(&ws));
+                                if let Some(ws) = post_quote_ws {
+                                    name.as_mut().unwrap().push_str(&ws)
+                                }
                                 state = AddrParseState::QuotedName;
                             } else {
-                                post_quote_ws.map(|ws| name.as_mut().unwrap().push_str(&ws));
+                                if let Some(ws) = post_quote_ws {
+                                    name.as_mut().unwrap().push_str(&ws)
+                                }
                                 name.as_mut().unwrap().push(c);
                             }
                             post_quote_ws = None;
@@ -444,7 +448,9 @@ fn addrparse_inner(
                         post_quote_ws.as_mut().unwrap().push_str(&ws);
                     }
                     HeaderTokenItem::DecodedWord(word) => {
-                        post_quote_ws.map(|ws| name.as_mut().unwrap().push_str(&ws));
+                        if let Some(ws) = post_quote_ws {
+                            name.as_mut().unwrap().push_str(&ws)
+                        }
                         name.as_mut().unwrap().push_str(&word);
                         post_quote_ws = None;
                     }

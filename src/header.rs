@@ -50,9 +50,9 @@ fn decode_word(encoded: &str) -> Option<String> {
             // The quoted_printable module does a trim_end on the input, so if
             // that affects the output we should save and restore the trailing
             // whitespace
-            let to_decode = input.replace("_", " ");
+            let to_decode = input.replace('_', " ");
             let trimmed = to_decode.trim_end();
-            let mut d = quoted_printable::decode(&trimmed, quoted_printable::ParseMode::Robust);
+            let mut d = quoted_printable::decode(trimmed, quoted_printable::ParseMode::Robust);
             if d.is_ok() && to_decode.len() != trimmed.len() {
                 d.as_mut()
                     .unwrap()
@@ -72,7 +72,7 @@ fn decode_word(encoded: &str) -> Option<String> {
 /// generate `HeaderToken::Newline` tokens.
 fn tokenize_header_line(line: &str) -> Vec<HeaderToken> {
     fn maybe_whitespace(text: &str) -> HeaderToken {
-        if text.trim_end().len() == 0 {
+        if text.trim_end().is_empty() {
             HeaderToken::Whitespace(text)
         } else {
             HeaderToken::Text(text)
@@ -215,7 +215,7 @@ fn normalize_header_whitespace(tokens: Vec<HeaderToken>) -> Vec<HeaderToken> {
 }
 
 pub fn normalized_tokens(raw_value: &str) -> Vec<HeaderToken> {
-    normalize_header_whitespace(tokenize_header(&raw_value))
+    normalize_header_whitespace(tokenize_header(raw_value))
 }
 
 #[cfg(test)]

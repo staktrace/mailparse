@@ -15,7 +15,7 @@ struct OwnedMail {
 fn make_owned_mail(mail_bytes: Vec<u8>) -> OwnedMail {
     OwnedMailBuilder {
         raw_bytes: mail_bytes,
-        parsed_builder: |b: &Vec<u8>| parse_mail(&b).unwrap(),
+        parsed_builder: |b: &Vec<u8>| parse_mail(b).unwrap(),
     }
     .build()
 }

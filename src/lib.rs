@@ -108,8 +108,8 @@ pub struct MailHeader<'a> {
 impl<'a> fmt::Debug for MailHeader<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("MailHeader")
-            .field("key", &String::from_utf8_lossy(&self.key))
-            .field("value", &String::from_utf8_lossy(&self.value))
+            .field("key", &String::from_utf8_lossy(self.key))
+            .field("value", &String::from_utf8_lossy(self.value))
             .finish()
     }
 }
@@ -482,12 +482,8 @@ impl<'a> MailHeaderMap for [MailHeader<'a>] {
     }
 
     fn get_first_header(&self, key: &str) -> Option<&MailHeader> {
-        for x in self {
-            if x.get_key_ref().eq_ignore_ascii_case(key) {
-                return Some(x);
-            }
-        }
-        None
+        self.iter()
+            .find(|&x| x.get_key_ref().eq_ignore_ascii_case(key))
     }
 
     fn get_all_values(&self, key: &str) -> Vec<String> {
@@ -848,7 +844,7 @@ impl<'a> ParsedMail<'a> {
     /// Returns a struct that wraps the headers for this message.
     /// The struct provides utility methods to read the individual headers.
     pub fn get_headers(&'a self) -> Headers<'a> {
-        Headers::new(&self.header_bytes, &self.headers)
+        Headers::new(self.header_bytes, &self.headers)
     }
 
     /// Returns a struct containing a parsed representation of the
@@ -857,12 +853,10 @@ impl<'a> ParsedMail<'a> {
     /// method documentation for more details on the semantics of the
     /// returned object.
     pub fn get_content_disposition(&self) -> ParsedContentDisposition {
-        let disposition = self
-            .headers
+        self.headers
             .get_first_value("Content-Disposition")
             .map(|s| parse_content_disposition(&s))
-            .unwrap_or_default();
-        disposition
+            .unwrap_or_default()
     }
 
     /// Returns a depth-first pre-order traversal of the subparts of
@@ -870,7 +864,7 @@ impl<'a> ParsedMail<'a> {
     /// ParsedMail itself.
     pub fn parts(&'a self) -> PartsIterator<'a> {
         PartsIterator {
-            parts: vec![&self],
+            parts: vec![self],
             index: 0,
         }
     }
@@ -972,7 +966,7 @@ fn parse_mail_recursive(
                 // if there is no terminating boundary, assume the part end is the end of the email
                 let ix_part_end =
                     find_from_u8_line_prefix(raw_data, ix_part_start, boundary.as_bytes())
-                        .unwrap_or_else(|| raw_data.len());
+                        .unwrap_or(raw_data.len());
 
                 result.subparts.push(parse_mail_recursive(
                     &raw_data[ix_part_start..ix_part_end],
@@ -1027,7 +1021,7 @@ fn parse_param_content(content: &str) -> ParamContent {
     // Decode charset encoding, as described in RFC 2184, Section 4.
     let decode_key_list: Vec<String> = map
         .keys()
-        .filter_map(|k| k.strip_suffix("*"))
+        .filter_map(|k| k.strip_suffix('*'))
         .map(String::from)
         // Skip encoded keys where there is already an equivalent decoded key in the map
         .filter(|k| !map.contains_key(k))
@@ -1062,7 +1056,7 @@ fn parse_param_content(content: &str) -> ParamContent {
         let mut unwrapped_value = String::new();
         let mut index = 0;
         while let Some(wrapped_value_part) = map.remove(&format!("{}*{}", &unwrap_key, index)) {
-            index = index + 1;
+            index += 1;
             unwrapped_value.push_str(&wrapped_value_part);
         }
         let old_value = map.insert(unwrap_key, unwrapped_value);
@@ -1142,7 +1136,7 @@ fn percent_decode(encoded: &str) -> Vec<u8> {
 
         let top = match bytes.next() {
             Some(n) if n.is_ascii_hexdigit() => n,
-            n @ _ => {
+            n => {
                 decoded.push(b);
                 next = n;
                 continue;
@@ -1150,7 +1144,7 @@ fn percent_decode(encoded: &str) -> Vec<u8> {
         };
         let bottom = match bytes.next() {
             Some(n) if n.is_ascii_hexdigit() => n,
-            n @ _ => {
+            n => {
                 decoded.push(b);
                 decoded.push(top);
                 next = n;
@@ -1932,7 +1926,7 @@ mod tests {
 
     #[test]
     fn test_fuzzer_testcase() {
-        const INPUT: &'static str = "U3ViamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IW11bAAAAAAAAAAAamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IG11bAAAAAAAAAAAAAAAAABTTUFZdWJqZf86OiP/dCBTdWJqZWN0Ol8KRGF0ZTog/////////////////////wAAAAAAAAAAAHQgYnJmAHQgYnJmZXItRW5jeXBlOnY9NmU3OjA2OgAAAAAAAAAAAAAAADEAAAAAAP/8mAAAAAAAAAAA+f///wAAAAAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAPT0/PzEAAAEAAA==";
+        const INPUT: &str = "U3ViamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IW11bAAAAAAAAAAAamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IG11bAAAAAAAAAAAAAAAAABTTUFZdWJqZf86OiP/dCBTdWJqZWN0Ol8KRGF0ZTog/////////////////////wAAAAAAAAAAAHQgYnJmAHQgYnJmZXItRW5jeXBlOnY9NmU3OjA2OgAAAAAAAAAAAAAAADEAAAAAAP/8mAAAAAAAAAAA+f///wAAAAAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAPT0/PzEAAAEAAA==";
 
         if let Ok(parsed) = parse_mail(&data_encoding::BASE64.decode(INPUT.as_bytes()).unwrap()) {
             if let Some(date) = parsed.headers.get_first_value("Date") {
@@ -1943,7 +1937,7 @@ mod tests {
 
     #[test]
     fn test_fuzzer_testcase_2() {
-        const INPUT: &'static str = "U3ViamVjdDogVGhpcyBpcyBhIHRlc3QgZW1haWwKQ29udGVudC1UeXBlOiBtdWx0aXBhcnQvYWx0ZXJuYXRpdmU7IGJvdW5kYXJ5PczMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMZm9vYmFyCkRhdGU6IFN1biwgMDIgT2MKCi1TdWJqZWMtZm9vYmFydDo=";
+        const INPUT: &str = "U3ViamVjdDogVGhpcyBpcyBhIHRlc3QgZW1haWwKQ29udGVudC1UeXBlOiBtdWx0aXBhcnQvYWx0ZXJuYXRpdmU7IGJvdW5kYXJ5PczMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMZm9vYmFyCkRhdGU6IFN1biwgMDIgT2MKCi1TdWJqZWMtZm9vYmFydDo=";
         if let Ok(parsed) = parse_mail(&data_encoding::BASE64.decode(INPUT.as_bytes()).unwrap()) {
             if let Some(date) = parsed.headers.get_first_value("Date") {
                 let _ = dateparse(&date);
