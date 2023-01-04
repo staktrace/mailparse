@@ -38,3 +38,13 @@ jobs:
         uses: actions/checkout@v2
       - name: Run tests
         run: cargo test --all
+  msrv:
+    name: Run tests on mininum supported rust version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get minimum supported Rust
+        run: rustup toolchain install 1.51.0 --profile minimal
+      - name: Check out source
+        uses: actions/checkout@v2
+      - name: Run tests
+        run: cargo test --all
