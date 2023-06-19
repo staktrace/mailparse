@@ -22,4 +22,4 @@ quoted_printable = "0.4.8"
 charset = "0.1.3"
 
 [dev-dependencies]
-ouroboros = "0.14.0"
+ouroboros = "0.17.0"
