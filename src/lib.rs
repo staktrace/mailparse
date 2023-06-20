@@ -922,7 +922,7 @@ impl<'a> Iterator for PartsIterator<'a> {
 ///         Some("This is a test email".to_string()));
 ///     assert_eq!(parsed.subparts.len(), 2);
 ///     assert_eq!(parsed.subparts[0].get_body().unwrap(),
-///         "This is the plaintext version, in utf-8. Proof by Euro: \u{20AC}");
+///         "This is the plaintext version, in utf-8. Proof by Euro: \u{20AC}\r\n");
 ///     assert_eq!(parsed.subparts[1].headers[1].get_value(), "base64");
 ///     assert_eq!(parsed.subparts[1].ctype.mimetype, "text/html");
 ///     assert!(parsed.subparts[1].get_body().unwrap().starts_with("<html>"));
