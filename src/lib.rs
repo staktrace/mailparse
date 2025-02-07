@@ -922,7 +922,7 @@ impl<'a> Iterator for PartsIterator<'a> {
 ///         Some("This is a test email".to_string()));
 ///     assert_eq!(parsed.subparts.len(), 2);
 ///     assert_eq!(parsed.subparts[0].get_body().unwrap(),
-///         "This is the plaintext version, in utf-8. Proof by Euro: \u{20AC}\r\n");
+///         "This is the plaintext version, in utf-8. Proof by Euro: \u{20AC}");
 ///     assert_eq!(parsed.subparts[1].headers[1].get_value(), "base64");
 ///     assert_eq!(parsed.subparts[1].ctype.mimetype, "text/html");
 ///     assert!(parsed.subparts[1].get_body().unwrap().starts_with("<html>"));
@@ -968,8 +968,17 @@ fn parse_mail_recursive(
                     find_from_u8_line_prefix(raw_data, ix_part_start, boundary.as_bytes())
                         .unwrap_or(raw_data.len());
 
+                let mut true_ix_part_end = ix_part_end;
+                if true_ix_part_end > 0 && raw_data.get(true_ix_part_end - 1) == Some(b'\n').as_ref() {
+                    true_ix_part_end -= 1;
+
+                    if true_ix_part_end > 0 && raw_data.get(true_ix_part_end - 1) == Some(b'\r').as_ref() {
+                        true_ix_part_end -= 1;
+                    }
+                }
+
                 result.subparts.push(parse_mail_recursive(
-                    &raw_data[ix_part_start..ix_part_end],
+                    &raw_data[ix_part_start..true_ix_part_end],
                     in_multipart_digest,
                 )?);
                 ix_boundary_end = ix_part_end + boundary.len();
@@ -1648,8 +1657,8 @@ mod tests {
             .as_bytes(),
         )
         .unwrap();
-        assert_eq!(mail.subparts[0].get_body().unwrap(), "part0\r\n");
-        assert_eq!(mail.subparts[1].get_body().unwrap(), "part1\r\n");
+        assert_eq!(mail.subparts[0].get_body().unwrap(), "part0");
+        assert_eq!(mail.subparts[1].get_body().unwrap(), "part1");
     }
 
     #[test]
@@ -2016,7 +2025,7 @@ mod tests {
         part = parts.next().unwrap(); // mail.subparts[0]
         assert_eq!(part.headers.len(), 0);
         assert_eq!(part.ctype.mimetype, "text/plain");
-        assert_eq!(part.get_body_raw().unwrap(), b"blah blah blah\n");
+        assert_eq!(part.get_body_raw().unwrap(), b"blah blah blah");
 
         part = parts.next().unwrap(); // mail.subparts[1]
         assert_eq!(part.ctype.mimetype, "multipart/digest");
@@ -2024,12 +2033,12 @@ mod tests {
         part = parts.next().unwrap(); // mail.subparts[1].subparts[0]
         assert_eq!(part.headers.len(), 0);
         assert_eq!(part.ctype.mimetype, "message/rfc822");
-        assert_eq!(part.get_body_raw().unwrap(), b"nested default part\n");
+        assert_eq!(part.get_body_raw().unwrap(), b"nested default part");
 
         part = parts.next().unwrap(); // mail.subparts[1].subparts[1]
         assert_eq!(part.headers.len(), 1);
         assert_eq!(part.ctype.mimetype, "text/html");
-        assert_eq!(part.get_body_raw().unwrap(), b"nested html part\n");
+        assert_eq!(part.get_body_raw().unwrap(), b"nested html part");
 
         part = parts.next().unwrap(); // mail.subparts[1].subparts[2]
         assert_eq!(part.headers.len(), 1);
@@ -2038,7 +2047,7 @@ mod tests {
         part = parts.next().unwrap(); // mail.subparts[1].subparts[2].subparts[0]
         assert_eq!(part.headers.len(), 0);
         assert_eq!(part.ctype.mimetype, "text/plain");
-        assert_eq!(part.get_body_raw().unwrap(), b"inside part\n");
+        assert_eq!(part.get_body_raw().unwrap(), b"inside part");
 
         assert!(parts.next().is_none());
     }
@@ -2083,13 +2092,13 @@ mod tests {
         part = parts.next().unwrap(); // mail.subparts[0].subparts[0]
         assert_eq!(part.headers.len(), 1);
         assert_eq!(part.ctype.mimetype, "text/html");
-        assert_eq!(part.get_body_raw().unwrap(), b"<em>Good evening!</em>\n");
+        assert_eq!(part.get_body_raw().unwrap(), b"<em>Good evening!</em>");
         assert_eq!(part.subparts.len(), 0);
 
         part = parts.next().unwrap(); // mail.subparts[0].subparts[1]
         assert_eq!(part.headers.len(), 1);
         assert_eq!(part.ctype.mimetype, "text/plain");
-        assert_eq!(part.get_body_raw().unwrap(), b"Good evening!\n");
+        assert_eq!(part.get_body_raw().unwrap(), b"Good evening!");
         assert_eq!(part.subparts.len(), 0);
 
         assert!(parts.next().is_none());
