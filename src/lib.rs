@@ -126,7 +126,7 @@ fn find_from_u8(line: &[u8], ix_start: usize, key: &[u8]) -> Option<usize> {
     }
     let ix_end = line.len() - key.len();
     if ix_start <= ix_end {
-        for i in ix_start..ix_end {
+        for i in ix_start..=ix_end {
             if line[i] == key[0] {
                 let mut success = true;
                 for j in 1..key.len() {
@@ -151,7 +151,8 @@ fn test_find_from_u8() {
     assert_eq!(find_from_u8(b"hello world", 4, b"o"), Some(4));
     assert_eq!(find_from_u8(b"hello world", 5, b"o"), Some(7));
     assert_eq!(find_from_u8(b"hello world", 8, b"o"), None);
-    assert_eq!(find_from_u8(b"hello world", 10, b"d"), None);
+    assert_eq!(find_from_u8(b"hello world", 10, b"d"), Some(10));
+    assert_eq!(find_from_u8(b"hello world", 0, b"world"), Some(6));
 }
 
 // Like find_from_u8, but additionally filters such that `key` is at the start
@@ -176,6 +177,10 @@ fn test_find_from_u8_line_prefix() {
     assert_eq!(find_from_u8_line_prefix(b"hello\nworld", 0, b"wo"), Some(6));
     assert_eq!(find_from_u8_line_prefix(b"hello\nworld", 6, b"wo"), Some(6));
     assert_eq!(find_from_u8_line_prefix(b"hello\nworld", 7, b"wo"), None);
+    assert_eq!(
+        find_from_u8_line_prefix(b"hello\nworld", 0, b"world"),
+        Some(6)
+    );
 }
 
 impl<'a> MailHeader<'a> {
