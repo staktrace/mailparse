@@ -120,7 +120,7 @@ pub(crate) fn find_from(line: &str, ix_start: usize, key: &str) -> Option<usize>
 
 fn find_from_u8(line: &[u8], ix_start: usize, key: &[u8]) -> Option<usize> {
     assert!(!key.is_empty());
-    assert!(ix_start < line.len());
+    assert!(ix_start <= line.len());
     if line.len() < key.len() {
         return None;
     }
@@ -2163,6 +2163,27 @@ mod tests {
 
         let mut parts = mail.parts();
         assert_eq!(parts.next().unwrap().ctype.mimetype, "text/plain");
+        assert!(parts.next().is_none());
+    }
+
+    #[test]
+    fn test_no_parts() {
+        let mail = parse_mail(
+            concat!(
+                "Content-Type: multipart/mixed; boundary=\"foobar\"\n",
+                "\n",
+                "--foobar--\n"
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+
+        let mut parts = mail.parts();
+        let part = parts.next().unwrap();
+        assert_eq!(part.ctype.mimetype, "multipart/mixed");
+
+        let part = parts.next().unwrap();
+        assert_eq!(part.ctype.mimetype, "text/plain");
         assert!(parts.next().is_none());
     }
 }
