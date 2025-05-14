@@ -170,9 +170,31 @@ pub fn dateparse(date: &str) -> Result<i64, MailParseError> {
                             "CST" | "MDT" => (600, -1),
                             "MST" | "PDT" => (700, -1),
                             "PST" => (800, -1),
+                            // Military time zones (RFC 822, RFC 5322).  A-M (except J) are negative offsets, N-Y are positive.  J is not used.
                             "A" => (100, -1),
+                            "B" => (200, -1),
+                            "C" => (300, -1),
+                            "D" => (400, -1),
+                            "E" => (500, -1),
+                            "F" => (600, -1),
+                            "G" => (700, -1),
+                            "H" => (800, -1),
+                            "I" => (900, -1),
+                            // "J" is not used
+                            "K" => (1000, -1),
+                            "L" => (1100, -1),
                             "M" => (1200, -1),
                             "N" => (100, 1),
+                            "O" => (200, 1),
+                            "P" => (300, 1),
+                            "Q" => (400, 1),
+                            "R" => (500, 1),
+                            "S" => (600, 1),
+                            "T" => (700, 1),
+                            "U" => (800, 1),
+                            "V" => (900, 1),
+                            "W" => (1000, 1),
+                            "X" => (1100, 1),
                             "Y" => (1200, 1),
                             _ => return Err(MailParseError::Generic("Invalid timezone")),
                         }
@@ -223,6 +245,14 @@ mod tests {
         assert_eq!(
             dateparse("Fri, 30 Nov 2012 20:57:23 GMT").unwrap(),
             1354309043
+        );
+        assert_eq!(
+            dateparse("Fri, 30 Nov 2012 20:57:23 Q").unwrap(),
+            1354294643
+        );
+        assert_eq!(
+            dateparse("Fri, 30 Nov 2012 20:57:23 D").unwrap(),
+            1354323443
         );
 
         // Day cannot be zero.
