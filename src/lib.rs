@@ -925,7 +925,7 @@ impl<'a> Iterator for PartsIterator<'a> {
 ///     assert_eq!(dateparse(parsed.headers.get_first_value("Date").unwrap().as_str()).unwrap(), 1475417182);
 /// ```
 pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail<'_>, MailParseError> {
-    parse_mail_recursive(raw_data, false)
+    parse_mail_recursive(raw_data, false, RECURSION_LIMIT)
 }
 
 /// Strips LF or CRLF if there is one at the end of the string raw_data[ix_start..ix].
@@ -942,9 +942,12 @@ fn strip_trailing_crlf(raw_data: &[u8], ix_start: usize, mut ix: usize) -> usize
     ix
 }
 
+const RECURSION_LIMIT: u8 = 100;
+
 fn parse_mail_recursive(
     raw_data: &[u8],
     in_multipart_digest: bool,
+    depth: u8,
 ) -> Result<ParsedMail<'_>, MailParseError> {
     let (headers, ix_body) = parse_headers(raw_data)?;
     let ctype = headers
@@ -985,6 +988,9 @@ fn parse_mail_recursive(
                 result.subparts.push(parse_mail_recursive(
                     &raw_data[ix_part_start..ix_part_end],
                     in_multipart_digest,
+                    depth
+                        .checked_sub(1)
+                        .ok_or(MailParseError::Generic("Recursion limit reached"))?,
                 )?);
                 ix_boundary_end = ix_part_boundary_start
                     .map(|x| x + boundary.len())
