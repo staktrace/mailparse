@@ -2,7 +2,7 @@
 name = "mailparse"
 version = "0.16.1"
 authors = ["Kartikaya Gupta"]
-edition = "2018"
+edition = "2024"
 license = "0BSD"
 
 description = "A simple parser for MIME e-mail messages"
