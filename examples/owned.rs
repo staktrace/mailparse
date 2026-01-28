@@ -1,7 +1,4 @@
-extern crate mailparse;
-extern crate ouroboros;
-
-use mailparse::{parse_mail, ParsedMail};
+use mailparse::{ParsedMail, parse_mail};
 use ouroboros::self_referencing;
 
 #[self_referencing]

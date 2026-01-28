@@ -80,7 +80,7 @@ pub fn dateparse(date: &str) -> Result<i64, MailParseError> {
     let mut month = 0;
     let mut day_of_month = 0;
     let mut state = DateParseState::Date;
-    for tok in date.split(|c| c == ' ' || c == ':') {
+    for tok in date.split([' ', ':']) {
         if tok.is_empty() {
             continue;
         }
@@ -157,7 +157,7 @@ pub fn dateparse(date: &str) -> Result<i64, MailParseError> {
             DateParseState::Timezone => {
                 let (tz, tz_sign) = match tok.parse::<i32>() {
                     Ok(v) if !(-2400..=2400).contains(&v) => {
-                        return Err(MailParseError::Generic("Invalid timezone"))
+                        return Err(MailParseError::Generic("Invalid timezone"));
                     }
                     Ok(v) if v < 0 => (-v, -1),
                     Ok(v) => (v, 1),

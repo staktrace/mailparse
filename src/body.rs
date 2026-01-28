@@ -1,4 +1,4 @@
-use charset::{decode_ascii, Charset};
+use charset::{Charset, decode_ascii};
 
 use crate::{MailParseError, ParsedContentType};
 
