@@ -1,5 +1,3 @@
-extern crate mailparse;
-
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
@@ -12,18 +10,18 @@ fn dump(pfx: &str, pm: &mailparse::ParsedMail) {
         println!("  [{}] => [{}]", h.get_key(), h.get_value());
     }
     println!(">> Addresses from {} <<", pfx);
-    pm.headers
-        .get_first_value("From")
-        .map(|a| println!("{:?}", mailparse::addrparse(&a).unwrap()));
-    pm.headers
-        .get_first_value("To")
-        .map(|a| println!("{:?}", mailparse::addrparse(&a).unwrap()));
-    pm.headers
-        .get_first_value("Cc")
-        .map(|a| println!("{:?}", mailparse::addrparse(&a).unwrap()));
-    pm.headers
-        .get_first_value("Bcc")
-        .map(|a| println!("{:?}", mailparse::addrparse(&a).unwrap()));
+    if let Some(a) = pm.headers.get_first_value("From") {
+        println!("{:?}", mailparse::addrparse(&a).unwrap())
+    }
+    if let Some(a) = pm.headers.get_first_value("To") {
+        println!("{:?}", mailparse::addrparse(&a).unwrap())
+    }
+    if let Some(a) = pm.headers.get_first_value("Cc") {
+        println!("{:?}", mailparse::addrparse(&a).unwrap())
+    }
+    if let Some(a) = pm.headers.get_first_value("Bcc") {
+        println!("{:?}", mailparse::addrparse(&a).unwrap())
+    }
     println!(">> Body from {} <<", pfx);
     if pm.ctype.mimetype.starts_with("text/") {
         println!("  [{}]", pm.get_body().unwrap());

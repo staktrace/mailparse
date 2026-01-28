@@ -53,7 +53,7 @@ impl<'a> IntoIterator for Headers<'a> {
     type IntoIter = slice::Iter<'a, MailHeader<'a>>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.headers.into_iter()
+        self.headers.iter()
     }
 }
 
@@ -96,7 +96,7 @@ impl<'a> MailHeaderMap for Headers<'a> {
         self.headers.get_first_value(key)
     }
 
-    fn get_first_header(&self, key: &str) -> Option<&MailHeader> {
+    fn get_first_header(&self, key: &str) -> Option<&MailHeader<'_>> {
         self.headers.get_first_header(key)
     }
 
@@ -114,7 +114,7 @@ impl<'a> MailHeaderMap for Headers<'a> {
         self.headers.get_all_values(key)
     }
 
-    fn get_all_headers(&self, key: &str) -> Vec<&MailHeader> {
+    fn get_all_headers(&self, key: &str) -> Vec<&MailHeader<'_>> {
         self.headers.get_all_headers(key)
     }
 }

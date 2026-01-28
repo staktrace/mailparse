@@ -1,15 +1,11 @@
 #![forbid(unsafe_code)]
 
-extern crate charset;
-extern crate data_encoding;
-extern crate quoted_printable;
-
 use std::borrow::Cow;
 use std::collections::{BTreeMap, HashMap};
 use std::error;
 use std::fmt;
 
-use charset::{decode_latin1, Charset};
+use charset::{Charset, decode_latin1};
 
 mod addrparse;
 pub mod body;
@@ -19,13 +15,13 @@ pub mod headers;
 mod msgidparse;
 
 pub use crate::addrparse::{
-    addrparse, addrparse_header, GroupInfo, MailAddr, MailAddrList, SingleInfo,
+    GroupInfo, MailAddr, MailAddrList, SingleInfo, addrparse, addrparse_header,
 };
 use crate::body::Body;
 pub use crate::dateparse::dateparse;
 use crate::header::HeaderToken;
 use crate::headers::Headers;
-pub use crate::msgidparse::{msgidparse, MessageIdList};
+pub use crate::msgidparse::{MessageIdList, msgidparse};
 
 /// An error type that represents the different kinds of errors that may be
 /// encountered during message parsing.
@@ -192,7 +188,7 @@ impl<'a> MailHeader<'a> {
 
     /// Get the name of the header, borrowing if it's ASCII-only.
     /// Note that header names are case-insensitive.
-    pub fn get_key_ref(&self) -> Cow<str> {
+    pub fn get_key_ref(&self) -> Cow<'_, str> {
         decode_latin1(self.key)
     }
 
@@ -332,7 +328,7 @@ enum HeaderParseState {
 ///     assert_eq!(parsed.get_key(), "Subject");
 ///     assert_eq!(parsed.get_value(), "Hello, sir, I am multiline");
 /// ```
-pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader, usize), MailParseError> {
+pub fn parse_header(raw_data: &[u8]) -> Result<(MailHeader<'_>, usize), MailParseError> {
     let mut it = raw_data.iter();
     let mut ix = 0;
     let mut c = match it.next() {
@@ -451,7 +447,7 @@ pub trait MailHeaderMap {
 
     /// Similar to `get_first_value`, except it returns a reference to the
     /// MailHeader struct instead of just extracting the value.
-    fn get_first_header(&self, key: &str) -> Option<&MailHeader>;
+    fn get_first_header(&self, key: &str) -> Option<&MailHeader<'_>>;
 
     /// Look through the list of headers and return the values of all headers
     /// matching the provided key. Returns an empty vector if no matching headers
@@ -473,7 +469,7 @@ pub trait MailHeaderMap {
 
     /// Similar to `get_all_values`, except it returns references to the
     /// MailHeader structs instead of just extracting the values.
-    fn get_all_headers(&self, key: &str) -> Vec<&MailHeader>;
+    fn get_all_headers(&self, key: &str) -> Vec<&MailHeader<'_>>;
 }
 
 impl<'a> MailHeaderMap for [MailHeader<'a>] {
@@ -486,7 +482,7 @@ impl<'a> MailHeaderMap for [MailHeader<'a>] {
         None
     }
 
-    fn get_first_header(&self, key: &str) -> Option<&MailHeader> {
+    fn get_first_header(&self, key: &str) -> Option<&MailHeader<'_>> {
         self.iter()
             .find(|&x| x.get_key_ref().eq_ignore_ascii_case(key))
     }
@@ -501,7 +497,7 @@ impl<'a> MailHeaderMap for [MailHeader<'a>] {
         values
     }
 
-    fn get_all_headers(&self, key: &str) -> Vec<&MailHeader> {
+    fn get_all_headers(&self, key: &str) -> Vec<&MailHeader<'_>> {
         let mut headers: Vec<&MailHeader> = Vec::new();
         for x in self {
             if x.get_key_ref().eq_ignore_ascii_case(key) {
@@ -535,7 +531,7 @@ impl<'a> MailHeaderMap for [MailHeader<'a>] {
 ///     assert_eq!(headers[1].get_key(), "From");
 ///     assert_eq!(headers.get_first_value("To"), Some("you@yourself.com".to_string()));
 /// ```
-pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader>, usize), MailParseError> {
+pub fn parse_headers(raw_data: &[u8]) -> Result<(Vec<MailHeader<'_>>, usize), MailParseError> {
     let mut headers: Vec<MailHeader> = Vec::new();
     let mut ix = 0;
     loop {
@@ -655,10 +651,11 @@ pub fn parse_content_type(header: &str) -> ParsedContentType {
 /// https://www.iana.org/assignments/cont-disp/cont-disp.xhtml. This library
 /// only enumerates the types most commonly found in email messages, and
 /// provides the `Extension` value for holding all other types.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub enum DispositionType {
     /// Default value, indicating the content is to be displayed inline as
     /// part of the enclosing document.
+    #[default]
     Inline,
     /// A disposition indicating the content is not meant for inline display,
     /// but whose content can be accessed for use.
@@ -667,12 +664,6 @@ pub enum DispositionType {
     FormData,
     /// Extension type to hold any disposition not explicitly enumerated.
     Extension(String),
-}
-
-impl Default for DispositionType {
-    fn default() -> Self {
-        DispositionType::Inline
-    }
 }
 
 /// Convert the string represented disposition type to enum.
@@ -815,7 +806,7 @@ impl<'a> ParsedMail<'a> {
     ///             assert_eq!(body.get_decoded().unwrap(), b"hello world");
     ///             assert_eq!(body.get_decoded_as_string().unwrap(), "hello world");
     ///         },
-    ///         _ => assert!(false),
+    ///         _ => panic!(),
     ///     };
     ///
     ///
@@ -933,7 +924,7 @@ impl<'a> Iterator for PartsIterator<'a> {
 ///     assert!(parsed.subparts[1].get_body().unwrap().starts_with("<html>"));
 ///     assert_eq!(dateparse(parsed.headers.get_first_value("Date").unwrap().as_str()).unwrap(), 1475417182);
 /// ```
-pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail, MailParseError> {
+pub fn parse_mail(raw_data: &[u8]) -> Result<ParsedMail<'_>, MailParseError> {
     parse_mail_recursive(raw_data, false)
 }
 
@@ -954,7 +945,7 @@ fn strip_trailing_crlf(raw_data: &[u8], ix_start: usize, mut ix: usize) -> usize
 fn parse_mail_recursive(
     raw_data: &[u8],
     in_multipart_digest: bool,
-) -> Result<ParsedMail, MailParseError> {
+) -> Result<ParsedMail<'_>, MailParseError> {
     let (headers, ix_body) = parse_headers(raw_data)?;
     let ctype = headers
         .get_first_value("Content-Type")
@@ -970,7 +961,7 @@ fn parse_mail_recursive(
         subparts: Vec::<ParsedMail>::new(),
     };
     if result.ctype.mimetype.starts_with("multipart/")
-        && result.ctype.params.get("boundary").is_some()
+        && result.ctype.params.contains_key("boundary")
         && raw_data.len() > ix_body
     {
         let in_multipart_digest = result.ctype.mimetype == "multipart/digest";
@@ -1727,8 +1718,8 @@ mod tests {
             parse_param_content("attachment;\n\tfilename*0=\"X\";\n\tfilename*1=\"Y.pdf\"");
         assert_eq!(parsed.value, "attachment");
         assert_eq!(parsed.params["filename"], "XY.pdf");
-        assert_eq!(parsed.params.contains_key("filename*0"), false);
-        assert_eq!(parsed.params.contains_key("filename*1"), false);
+        assert!(!parsed.params.contains_key("filename*0"));
+        assert!(!parsed.params.contains_key("filename*1"));
 
         let parsed = parse_param_content(
             "attachment;\n\tfilename=XX.pdf;\n\tfilename*0=\"X\";\n\tfilename*1=\"Y.pdf\"",
@@ -1740,76 +1731,80 @@ mod tests {
 
         let parsed = parse_param_content("attachment; filename*1=\"Y.pdf\"");
         assert_eq!(parsed.params["filename*1"], "Y.pdf");
-        assert_eq!(parsed.params.contains_key("filename"), false);
+        assert!(!parsed.params.contains_key("filename"));
     }
 
     #[test]
     fn test_parameter_encodings() {
-        let parsed = parse_param_content("attachment;\n\tfilename*0*=us-ascii''%28X%29%20801%20-%20X;\n\tfilename*1*=%20%E2%80%93%20X%20;\n\tfilename*2*=X%20X%2Epdf");
+        let parsed = parse_param_content(
+            "attachment;\n\tfilename*0*=us-ascii''%28X%29%20801%20-%20X;\n\tfilename*1*=%20%E2%80%93%20X%20;\n\tfilename*2*=X%20X%2Epdf",
+        );
         // Note this is a real-world case from mutt, but it's wrong. The original filename had an en dash \u{2013} but mutt
         // declared us-ascii as the encoding instead of utf-8 for some reason.
         assert_eq!(
             parsed.params["filename"],
             "(X) 801 - X \u{00E2}\u{20AC}\u{201C} X X X.pdf"
         );
-        assert_eq!(parsed.params.contains_key("filename*0*"), false);
-        assert_eq!(parsed.params.contains_key("filename*0"), false);
-        assert_eq!(parsed.params.contains_key("filename*1*"), false);
-        assert_eq!(parsed.params.contains_key("filename*1"), false);
-        assert_eq!(parsed.params.contains_key("filename*2*"), false);
-        assert_eq!(parsed.params.contains_key("filename*2"), false);
+        assert!(!parsed.params.contains_key("filename*0*"));
+        assert!(!parsed.params.contains_key("filename*0"));
+        assert!(!parsed.params.contains_key("filename*1*"));
+        assert!(!parsed.params.contains_key("filename*1"));
+        assert!(!parsed.params.contains_key("filename*2*"));
+        assert!(!parsed.params.contains_key("filename*2"));
 
         // Here is the corrected version.
-        let parsed = parse_param_content("attachment;\n\tfilename*0*=utf-8''%28X%29%20801%20-%20X;\n\tfilename*1*=%20%E2%80%93%20X%20;\n\tfilename*2*=X%20X%2Epdf");
+        let parsed = parse_param_content(
+            "attachment;\n\tfilename*0*=utf-8''%28X%29%20801%20-%20X;\n\tfilename*1*=%20%E2%80%93%20X%20;\n\tfilename*2*=X%20X%2Epdf",
+        );
         assert_eq!(parsed.params["filename"], "(X) 801 - X \u{2013} X X X.pdf");
-        assert_eq!(parsed.params.contains_key("filename*0*"), false);
-        assert_eq!(parsed.params.contains_key("filename*0"), false);
-        assert_eq!(parsed.params.contains_key("filename*1*"), false);
-        assert_eq!(parsed.params.contains_key("filename*1"), false);
-        assert_eq!(parsed.params.contains_key("filename*2*"), false);
-        assert_eq!(parsed.params.contains_key("filename*2"), false);
+        assert!(!parsed.params.contains_key("filename*0*"));
+        assert!(!parsed.params.contains_key("filename*0"));
+        assert!(!parsed.params.contains_key("filename*1*"));
+        assert!(!parsed.params.contains_key("filename*1"));
+        assert!(!parsed.params.contains_key("filename*2*"));
+        assert!(!parsed.params.contains_key("filename*2"));
         let parsed = parse_param_content("attachment; filename*=utf-8'en'%e2%80%A1.bin");
         assert_eq!(parsed.params["filename"], "\u{2021}.bin");
-        assert_eq!(parsed.params.contains_key("filename*"), false);
+        assert!(!parsed.params.contains_key("filename*"));
 
         let parsed = parse_param_content("attachment; filename*='foo'%e2%80%A1.bin");
         assert_eq!(parsed.params["filename*"], "'foo'%e2%80%A1.bin");
-        assert_eq!(parsed.params.contains_key("filename"), false);
+        assert!(!parsed.params.contains_key("filename"));
 
         let parsed = parse_param_content("attachment; filename*=nonexistent'foo'%e2%80%a1.bin");
         assert_eq!(parsed.params["filename*"], "nonexistent'foo'%e2%80%a1.bin");
-        assert_eq!(parsed.params.contains_key("filename"), false);
+        assert!(!parsed.params.contains_key("filename"));
 
         let parsed = parse_param_content(
             "attachment; filename*0*=utf-8'en'%e2%80%a1; filename*1*=%e2%80%A1.bin",
         );
         assert_eq!(parsed.params["filename"], "\u{2021}\u{2021}.bin");
-        assert_eq!(parsed.params.contains_key("filename*0*"), false);
-        assert_eq!(parsed.params.contains_key("filename*0"), false);
-        assert_eq!(parsed.params.contains_key("filename*1*"), false);
-        assert_eq!(parsed.params.contains_key("filename*1"), false);
+        assert!(!parsed.params.contains_key("filename*0*"));
+        assert!(!parsed.params.contains_key("filename*0"));
+        assert!(!parsed.params.contains_key("filename*1*"));
+        assert!(!parsed.params.contains_key("filename*1"));
 
         let parsed =
             parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*1=%20.bin");
         assert_eq!(parsed.params["filename"], "\u{2021}%20.bin");
-        assert_eq!(parsed.params.contains_key("filename*0*"), false);
-        assert_eq!(parsed.params.contains_key("filename*0"), false);
-        assert_eq!(parsed.params.contains_key("filename*1*"), false);
-        assert_eq!(parsed.params.contains_key("filename*1"), false);
+        assert!(!parsed.params.contains_key("filename*0*"));
+        assert!(!parsed.params.contains_key("filename*0"));
+        assert!(!parsed.params.contains_key("filename*1*"));
+        assert!(!parsed.params.contains_key("filename*1"));
 
         let parsed =
             parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*2*=%20.bin");
         assert_eq!(parsed.params["filename"], "\u{2021}");
         assert_eq!(parsed.params["filename*2"], " .bin");
-        assert_eq!(parsed.params.contains_key("filename*0*"), false);
-        assert_eq!(parsed.params.contains_key("filename*0"), false);
-        assert_eq!(parsed.params.contains_key("filename*2*"), false);
+        assert!(!parsed.params.contains_key("filename*0*"));
+        assert!(!parsed.params.contains_key("filename*0"));
+        assert!(!parsed.params.contains_key("filename*2*"));
 
         let parsed =
             parse_param_content("attachment; filename*0*=utf-8'en'%e2%80%a1; filename*0=foo.bin");
         assert_eq!(parsed.params["filename"], "foo.bin");
         assert_eq!(parsed.params["filename*0*"], "utf-8'en'%e2%80%a1");
-        assert_eq!(parsed.params.contains_key("filename*0"), false);
+        assert!(!parsed.params.contains_key("filename*0"));
     }
 
     #[test]
@@ -1821,7 +1816,7 @@ mod tests {
                 assert_eq!(body.get_raw(), b"+JgM-");
                 assert_eq!(body.get_as_string().unwrap(), "\u{2603}");
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
     }
 
@@ -1834,7 +1829,7 @@ mod tests {
                 assert_eq!(body.get_raw(), b"+JgM-");
                 assert_eq!(body.get_as_string().unwrap(), "\u{2603}");
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
     }
 
@@ -1847,7 +1842,7 @@ mod tests {
                 assert_eq!(body.get_raw(), b"+JgM-");
                 assert_eq!(body.get_as_string().unwrap(), "\u{2603}");
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
     }
 
@@ -1862,7 +1857,7 @@ mod tests {
                 assert_eq!(body.get_decoded().unwrap(), b"+JgM-");
                 assert_eq!(body.get_decoded_as_string().unwrap(), "\u{2603}");
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
     }
 
@@ -1876,7 +1871,7 @@ mod tests {
                 assert_eq!(body.get_decoded().unwrap(), b"hello world");
                 assert_eq!(body.get_decoded_as_string().unwrap(), "hello world");
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
     }
 
@@ -1892,7 +1887,7 @@ mod tests {
                 assert_eq!(body.get_decoded().unwrap(), b"hello worldfoo\n");
                 assert_eq!(body.get_decoded_as_string().unwrap(), "hello worldfoo\n");
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
     }
 
@@ -1904,7 +1899,7 @@ mod tests {
             Body::Binary(body) => {
                 assert_eq!(body.get_raw(), b"######");
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
     }
 
@@ -1912,10 +1907,10 @@ mod tests {
     fn test_body_content_encoding_with_multipart() {
         let mail_filepath = "./tests/files/test_email_01.txt";
         let mail = std::fs::read(mail_filepath)
-            .expect(&format!("Unable to open the file [{}]", mail_filepath));
+            .unwrap_or_else(|_| panic!("Unable to open the file [{}]", mail_filepath));
         let mail = parse_mail(&mail).unwrap();
 
-        let subpart_0 = mail.subparts.get(0).unwrap();
+        let subpart_0 = mail.subparts.first().unwrap();
         match subpart_0.get_body_encoded() {
             Body::SevenBit(body) => {
                 assert_eq!(
@@ -1923,7 +1918,7 @@ mod tests {
                     "<html>Test with attachments</html>"
                 );
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
 
         let subpart_1 = mail.subparts.get(1).unwrap();
@@ -1931,10 +1926,10 @@ mod tests {
             Body::Base64(body) => {
                 let pdf_filepath = "./tests/files/test_email_01_sample.pdf";
                 let original_pdf = std::fs::read(pdf_filepath)
-                    .expect(&format!("Unable to open the file [{}]", pdf_filepath));
+                    .unwrap_or_else(|_| panic!("Unable to open the file [{}]", pdf_filepath));
                 assert_eq!(body.get_decoded().unwrap(), original_pdf);
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
 
         let subpart_2 = mail.subparts.get(2).unwrap();
@@ -1945,7 +1940,7 @@ mod tests {
                     "txt file context for email collector\n1234567890987654321\n"
                 );
             }
-            _ => assert!(false),
+            _ => panic!(),
         };
     }
 
@@ -1953,20 +1948,20 @@ mod tests {
     fn test_fuzzer_testcase() {
         const INPUT: &str = "U3ViamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IW11bAAAAAAAAAAAamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IG11bAAAAAAAAAAAAAAAAABTTUFZdWJqZf86OiP/dCBTdWJqZWN0Ol8KRGF0ZTog/////////////////////wAAAAAAAAAAAHQgYnJmAHQgYnJmZXItRW5jeXBlOnY9NmU3OjA2OgAAAAAAAAAAAAAAADEAAAAAAP/8mAAAAAAAAAAA+f///wAAAAAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAPT0/PzEAAAEAAA==";
 
-        if let Ok(parsed) = parse_mail(&data_encoding::BASE64.decode(INPUT.as_bytes()).unwrap()) {
-            if let Some(date) = parsed.headers.get_first_value("Date") {
-                let _ = dateparse(&date);
-            }
+        if let Ok(parsed) = parse_mail(&data_encoding::BASE64.decode(INPUT.as_bytes()).unwrap())
+            && let Some(date) = parsed.headers.get_first_value("Date")
+        {
+            let _ = dateparse(&date);
         }
     }
 
     #[test]
     fn test_fuzzer_testcase_2() {
         const INPUT: &str = "U3ViamVjdDogVGhpcyBpcyBhIHRlc3QgZW1haWwKQ29udGVudC1UeXBlOiBtdWx0aXBhcnQvYWx0ZXJuYXRpdmU7IGJvdW5kYXJ5PczMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMZm9vYmFyCkRhdGU6IFN1biwgMDIgT2MKCi1TdWJqZWMtZm9vYmFydDo=";
-        if let Ok(parsed) = parse_mail(&data_encoding::BASE64.decode(INPUT.as_bytes()).unwrap()) {
-            if let Some(date) = parsed.headers.get_first_value("Date") {
-                let _ = dateparse(&date);
-            }
+        if let Ok(parsed) = parse_mail(&data_encoding::BASE64.decode(INPUT.as_bytes()).unwrap())
+            && let Some(date) = parsed.headers.get_first_value("Date")
+        {
+            let _ = dateparse(&date);
         }
     }
 
@@ -2159,7 +2154,7 @@ mod tests {
         assert_eq!(parts.next().unwrap().ctype.mimetype, "text/unknown");
         assert!(parts.next().is_none());
 
-        let mail = parse_mail(concat!("Content-Type: text/plain\n").as_bytes()).unwrap();
+        let mail = parse_mail("Content-Type: text/plain\n".as_bytes()).unwrap();
 
         let mut parts = mail.parts();
         assert_eq!(parts.next().unwrap().ctype.mimetype, "text/plain");

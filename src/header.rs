@@ -54,13 +54,12 @@ fn decode_word(encoded: &str) -> Option<String> {
             // whitespace
             let to_decode = input.replace('_', " ");
             let trimmed = to_decode.trim_end();
-            let mut d = quoted_printable::decode(trimmed, quoted_printable::ParseMode::Robust);
-            if d.is_ok() && to_decode.len() != trimmed.len() {
-                d.as_mut()
-                    .unwrap()
-                    .extend_from_slice(to_decode[trimmed.len()..].as_bytes());
+            let mut decoded =
+                quoted_printable::decode(trimmed, quoted_printable::ParseMode::Robust).ok()?;
+            if to_decode.len() != trimmed.len() {
+                decoded.extend_from_slice(&to_decode.as_bytes()[trimmed.len()..]);
             }
-            d.ok()?
+            decoded
         }
         _ => return None,
     };
@@ -72,8 +71,8 @@ fn decode_word(encoded: &str) -> Option<String> {
 /// Tokenizes a single line of the header and produces a vector of
 /// tokens. Because this only processes a single line, it will never
 /// generate `HeaderToken::Newline` tokens.
-fn tokenize_header_line(line: &str) -> Vec<HeaderToken> {
-    fn maybe_whitespace(text: &str) -> HeaderToken {
+fn tokenize_header_line(line: &str) -> Vec<HeaderToken<'_>> {
+    fn maybe_whitespace(text: &str) -> HeaderToken<'_> {
         if text.trim_end().is_empty() {
             HeaderToken::Whitespace(text)
         } else {
@@ -134,7 +133,7 @@ fn tokenize_header_line(line: &str) -> Vec<HeaderToken> {
 /// the newline will be in a separate `HeaderToken::Whitespace` or
 /// `HeaderToken::Text` token. Semantically the `HeaderToken::Newline`
 /// tokens that come out of this still represent the CRLF newline.
-fn tokenize_header(value: &str) -> Vec<HeaderToken> {
+fn tokenize_header(value: &str) -> Vec<HeaderToken<'_>> {
     let mut tokens = Vec::new();
     let mut lines = value.lines();
     let mut first = true;
@@ -216,7 +215,7 @@ fn normalize_header_whitespace(tokens: Vec<HeaderToken>) -> Vec<HeaderToken> {
     result
 }
 
-pub fn normalized_tokens(raw_value: &str) -> Vec<HeaderToken> {
+pub fn normalized_tokens(raw_value: &str) -> Vec<HeaderToken<'_>> {
     normalize_header_whitespace(tokenize_header(raw_value))
 }
 
