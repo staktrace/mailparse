@@ -944,6 +944,70 @@ fn strip_trailing_crlf(raw_data: &[u8], ix_start: usize, mut ix: usize) -> usize
 
 const RECURSION_LIMIT: u8 = 100;
 
+fn parse_multipart(
+    raw_data: &[u8],
+    ix_body: usize,
+    boundary: String,
+    in_multipart_digest: bool,
+    depth: u8,
+) -> Result<(Vec<ParsedMail<'_>>, usize), MailParseError> {
+    let mut subparts = Vec::new();
+    let mut ix_body_end = ix_body;
+
+    if let Some(ix_boundary_start) =
+        find_from_u8_line_prefix(raw_data, ix_body, boundary.as_bytes())
+    {
+        ix_body_end = strip_trailing_crlf(raw_data, ix_body, ix_boundary_start);
+        let mut ix_boundary_end = ix_boundary_start + boundary.len();
+        while let Some(ix_part_start) =
+            find_from_u8(raw_data, ix_boundary_end, b"\n").map(|v| v + 1)
+        {
+            let ix_part_boundary_start =
+                find_from_u8_line_prefix(raw_data, ix_part_start, boundary.as_bytes());
+            let ix_part_end = ix_part_boundary_start
+                .map(|x| strip_trailing_crlf(raw_data, ix_part_start, x))
+                // if there is no terminating boundary, assume the part end is the end of the email
+                .unwrap_or(raw_data.len());
+
+            subparts.push(parse_mail_recursive(
+                &raw_data[ix_part_start..ix_part_end],
+                in_multipart_digest,
+                depth
+                    .checked_sub(1)
+                    .ok_or(MailParseError::Generic("Recursion limit reached"))?,
+            )?);
+            ix_boundary_end = ix_part_boundary_start
+                .map(|x| x + boundary.len())
+                .unwrap_or(raw_data.len());
+            if ix_boundary_end + 2 > raw_data.len()
+                || (raw_data[ix_boundary_end] == b'-' && raw_data[ix_boundary_end + 1] == b'-')
+            {
+                break;
+            }
+        }
+    }
+    Ok((subparts, ix_body_end))
+}
+
+fn parse_subparts<'a>(
+    raw_data: &'a [u8],
+    ix_body: usize,
+    ctype: &'_ ParsedContentType,
+    depth: u8,
+) -> Result<(Vec<ParsedMail<'a>>, &'a [u8]), MailParseError> {
+    if raw_data.len() > ix_body
+        && ctype.mimetype.starts_with("multipart")
+        && let Some(boundary) = ctype.params.get("boundary")
+    {
+        let boundary = String::from("--") + boundary;
+        let in_multipart_digest = ctype.mimetype == "multipart/digest";
+        let (subparts, ix_body_end) =
+            parse_multipart(raw_data, ix_body, boundary, in_multipart_digest, depth)?;
+        return Ok((subparts, &raw_data[ix_body..ix_body_end]));
+    }
+    Ok((Vec::new(), &raw_data[ix_body..]))
+}
+
 fn parse_mail_recursive(
     raw_data: &[u8],
     in_multipart_digest: bool,
@@ -956,49 +1020,7 @@ fn parse_mail_recursive(
         .map(parse_content_type)
         .unwrap_or_else(|| ParsedContentType::default_conditional(in_multipart_digest));
 
-    let mut subparts = Vec::new();
-    let mut body_bytes = &raw_data[ix_body..];
-
-    if ctype.mimetype.starts_with("multipart/")
-        && let Some(boundary) = ctype.params.get("boundary")
-        && raw_data.len() > ix_body
-    {
-        let boundary = String::from("--") + boundary;
-        let in_multipart_digest = ctype.mimetype == "multipart/digest";
-        if let Some(ix_boundary_start) =
-            find_from_u8_line_prefix(raw_data, ix_body, boundary.as_bytes())
-        {
-            let ix_body_end = strip_trailing_crlf(raw_data, ix_body, ix_boundary_start);
-            body_bytes = &raw_data[ix_body..ix_body_end];
-            let mut ix_boundary_end = ix_boundary_start + boundary.len();
-            while let Some(ix_part_start) =
-                find_from_u8(raw_data, ix_boundary_end, b"\n").map(|v| v + 1)
-            {
-                let ix_part_boundary_start =
-                    find_from_u8_line_prefix(raw_data, ix_part_start, boundary.as_bytes());
-                let ix_part_end = ix_part_boundary_start
-                    .map(|x| strip_trailing_crlf(raw_data, ix_part_start, x))
-                    // if there is no terminating boundary, assume the part end is the end of the email
-                    .unwrap_or(raw_data.len());
-
-                subparts.push(parse_mail_recursive(
-                    &raw_data[ix_part_start..ix_part_end],
-                    in_multipart_digest,
-                    depth
-                        .checked_sub(1)
-                        .ok_or(MailParseError::Generic("Recursion limit reached"))?,
-                )?);
-                ix_boundary_end = ix_part_boundary_start
-                    .map(|x| x + boundary.len())
-                    .unwrap_or(raw_data.len());
-                if ix_boundary_end + 2 > raw_data.len()
-                    || (raw_data[ix_boundary_end] == b'-' && raw_data[ix_boundary_end + 1] == b'-')
-                {
-                    break;
-                }
-            }
-        }
-    }
+    let (subparts, body_bytes) = parse_subparts(raw_data, ix_body, &ctype, depth)?;
 
     Ok(ParsedMail {
         raw_bytes: raw_data,
