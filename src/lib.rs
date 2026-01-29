@@ -1910,6 +1910,14 @@ mod tests {
     }
 
     #[test]
+    fn test_recursion_limit() {
+        let mail_filepath = "./tests/files/nested.eml";
+        let mail = std::fs::read(mail_filepath)
+            .expect(&format!("Unable to open the file [{}]", mail_filepath));
+        parse_mail(&mail).err().unwrap();
+    }
+
+    #[test]
     fn test_body_content_encoding_with_multipart() {
         let mail_filepath = "./tests/files/test_email_01.txt";
         let mail = std::fs::read(mail_filepath)
