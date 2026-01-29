@@ -952,28 +952,24 @@ fn parse_mail_recursive(
     let (headers, ix_body) = parse_headers(raw_data)?;
     let ctype = headers
         .get_first_value("Content-Type")
-        .map(|s| parse_content_type(&s))
+        .as_deref()
+        .map(parse_content_type)
         .unwrap_or_else(|| ParsedContentType::default_conditional(in_multipart_digest));
 
-    let mut result = ParsedMail {
-        raw_bytes: raw_data,
-        header_bytes: &raw_data[0..ix_body],
-        headers,
-        ctype,
-        body_bytes: &raw_data[ix_body..],
-        subparts: Vec::<ParsedMail>::new(),
-    };
-    if result.ctype.mimetype.starts_with("multipart/")
-        && result.ctype.params.contains_key("boundary")
+    let mut subparts = Vec::new();
+    let mut body_bytes = &raw_data[ix_body..];
+
+    if ctype.mimetype.starts_with("multipart/")
+        && let Some(boundary) = ctype.params.get("boundary")
         && raw_data.len() > ix_body
     {
-        let in_multipart_digest = result.ctype.mimetype == "multipart/digest";
-        let boundary = String::from("--") + &result.ctype.params["boundary"];
+        let boundary = String::from("--") + boundary;
+        let in_multipart_digest = ctype.mimetype == "multipart/digest";
         if let Some(ix_boundary_start) =
             find_from_u8_line_prefix(raw_data, ix_body, boundary.as_bytes())
         {
             let ix_body_end = strip_trailing_crlf(raw_data, ix_body, ix_boundary_start);
-            result.body_bytes = &raw_data[ix_body..ix_body_end];
+            body_bytes = &raw_data[ix_body..ix_body_end];
             let mut ix_boundary_end = ix_boundary_start + boundary.len();
             while let Some(ix_part_start) =
                 find_from_u8(raw_data, ix_boundary_end, b"\n").map(|v| v + 1)
@@ -985,7 +981,7 @@ fn parse_mail_recursive(
                     // if there is no terminating boundary, assume the part end is the end of the email
                     .unwrap_or(raw_data.len());
 
-                result.subparts.push(parse_mail_recursive(
+                subparts.push(parse_mail_recursive(
                     &raw_data[ix_part_start..ix_part_end],
                     in_multipart_digest,
                     depth
@@ -1003,7 +999,15 @@ fn parse_mail_recursive(
             }
         }
     }
-    Ok(result)
+
+    Ok(ParsedMail {
+        raw_bytes: raw_data,
+        header_bytes: &raw_data[..ix_body],
+        headers,
+        ctype,
+        body_bytes,
+        subparts,
+    })
 }
 
 /// Used to store params for content-type and content-disposition
