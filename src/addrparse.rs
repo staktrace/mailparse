@@ -579,7 +579,7 @@ fn addrparse_inner(
                             // Technically not valid, but occurs in real-world corpus, so handle it gracefully
                             state = AddrParseState::Initial;
                             addr = None;
-                        } else if c == ':' {
+                        } else if c == ':' && !addr.as_ref().map_or(false, |s| s.contains('@')) {
                             if in_group {
                                 return Err(MailParseError::Generic(
                                     "Found unexpected nested group",
@@ -1099,6 +1099,46 @@ mod tests {
                     .unwrap()
                 )
             ])
+        );
+    }
+
+    #[test]
+    fn parse_ip_hostnames() {
+        assert_eq!(
+            addrparse("<test@example.org>").unwrap(),
+            MailAddrList(vec![MailAddr::Single(
+                SingleInfo::new(None, "test@example.org".to_string()).unwrap()
+            )])
+        );
+        assert_eq!(
+            addrparse("<test@[192.0.2.0]>").unwrap(),
+            MailAddrList(vec![MailAddr::Single(
+                SingleInfo::new(None, "test@[192.0.2.0]".to_string()).unwrap()
+            )])
+        );
+        assert_eq!(
+            addrparse("<test@[IPv6:2001:db8::1]>").unwrap(),
+            MailAddrList(vec![MailAddr::Single(
+                SingleInfo::new(None, "test@[IPv6:2001:db8::1]".to_string()).unwrap()
+            )])
+        );
+        assert_eq!(
+            addrparse("test@example.org").unwrap(),
+            MailAddrList(vec![MailAddr::Single(
+                SingleInfo::new(None, "test@example.org".to_string()).unwrap()
+            )])
+        );
+        assert_eq!(
+            addrparse("test@[192.0.2.0]").unwrap(),
+            MailAddrList(vec![MailAddr::Single(
+                SingleInfo::new(None, "test@[192.0.2.0]".to_string()).unwrap()
+            )])
+        );
+        assert_eq!(
+            addrparse("test@[IPv6:2001:db8::1]").unwrap(),
+            MailAddrList(vec![MailAddr::Single(
+                SingleInfo::new(None, "test@[IPv6:2001:db8::1]".to_string()).unwrap()
+            )])
         );
     }
 }
