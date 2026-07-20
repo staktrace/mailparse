@@ -1,7 +1,7 @@
 #![forbid(unsafe_code)]
 
 use std::borrow::Cow;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::error;
 use std::fmt;
 
@@ -1038,20 +1038,49 @@ struct ParamContent {
     params: BTreeMap<String, String>,
 }
 
+/// Split `content` on ';' delimiters that lie outside a quoted-string, so
+/// that a quoted parameter value legally containing ';' (RFC 2045) is not
+/// truncated. A backslash escapes the following character inside quotes.
+fn split_semicolons_unquoted(content: &str) -> Vec<&str> {
+    let mut tokens = Vec::new();
+    let mut start = 0;
+    let mut in_quote = false;
+    let mut escaped = false;
+    for (i, b) in content.bytes().enumerate() {
+        if escaped {
+            escaped = false;
+        } else if in_quote && b == b'\\' {
+            escaped = true;
+        } else if b == b'"' {
+            in_quote = !in_quote;
+        } else if b == b';' && !in_quote {
+            tokens.push(&content[start..i]);
+            start = i + 1;
+        }
+    }
+    tokens.push(&content[start..]);
+    tokens
+}
+
+/// Split a continuation segment key such as `name*3` into its base name and
+/// index. Returns `None` for keys without a trailing `*<number>`.
+fn split_continuation_index(key: &str) -> Option<(&str, usize)> {
+    let (base, index) = key.rsplit_once('*')?;
+    Some((base, index.parse().ok()?))
+}
+
 /// Parse parameterized header values such as that for Content-Type
 /// e.g. `multipart/alternative; boundary=foobar`
 /// Note: this function is not made public as it may require
-/// significant changes to be fully correct. For instance,
-/// it does not handle quoted parameter values containing the
-/// semicolon (';') character. It also produces a BTreeMap,
+/// significant changes to be fully correct. It produces a BTreeMap,
 /// which implicitly does not support multiple parameters with
 /// the same key. Also, the parameter values may contain language
 /// information in a format specified by RFC 2184 which is thrown
 /// away. The format for parameterized header values doesn't
 /// appear to be strongly specified anywhere.
 fn parse_param_content(content: &str) -> ParamContent {
-    let mut tokens = content.split(';');
-    // There must be at least one token produced by split, even if it's empty.
+    let mut tokens = split_semicolons_unquoted(content).into_iter();
+    // There must be at least one token produced by the split, even if it's empty.
     let value = tokens.next().unwrap().trim();
     let mut map: BTreeMap<String, String> = tokens
         .filter_map(|kv| {
@@ -1075,40 +1104,84 @@ fn parse_param_content(content: &str) -> ParamContent {
         .filter(|k| !map.contains_key(k))
         .collect();
     let encodings = compute_parameter_encodings(&map, &decode_key_list);
-    // Note that when we get here, we might still have entries in `encodings` for continuation segments
-    // that didn't have a *0 segment at all. These shouldn't exist per spec so we can do whatever we want,
-    // as long as we don't panic.
+    // Percent-decode each encoded parameter segment to raw OCTETS (RFC 2184
+    // Section 4). Charset-decoding is deferred to the continuation-unwrapping
+    // step below so that a multibyte character split across two continuation
+    // segments (legal per RFC 2231 Section 3) is decoded correctly: the octets
+    // are concatenated first and charset-decoded once, rather than decoding
+    // each segment on its own (which would corrupt the split character).
+    let mut octet_segments: BTreeMap<String, (Vec<u8>, Charset)> = BTreeMap::new();
     for (k, (e, strip)) in encodings {
-        if let Some(charset) = Charset::for_label_no_replacement(e.as_bytes()) {
-            let key = format!("{}*", k);
-            let percent_encoded_value = map.remove(&key).unwrap();
-            let encoded_value = if strip {
-                percent_decode(percent_encoded_value.splitn(3, '\'').nth(2).unwrap_or(""))
-            } else {
-                percent_decode(&percent_encoded_value)
-            };
-            let decoded_value = charset.decode_without_bom_handling(&encoded_value).0;
-            map.insert(k, decoded_value.to_string());
+        let charset = match Charset::for_label_no_replacement(e.as_bytes()) {
+            Some(charset) => charset,
+            // Unknown charset: leave the raw `name*` value in the map untouched.
+            None => continue,
+        };
+        let percent_encoded_value = map.remove(&format!("{}*", k)).unwrap();
+        let octets = if strip {
+            percent_decode(percent_encoded_value.splitn(3, '\'').nth(2).unwrap_or(""))
+        } else {
+            percent_decode(&percent_encoded_value)
+        };
+        if split_continuation_index(&k).is_some() {
+            octet_segments.insert(k, (octets, charset));
+        } else {
+            // Single (non-continuation) extended parameter: decode immediately.
+            map.insert(
+                k,
+                charset.decode_without_bom_handling(&octets).0.into_owned(),
+            );
         }
     }
 
-    // Unwrap parameter value continuations, as described in RFC 2184, Section 3.
-    let unwrap_key_list: Vec<String> = map
+    // Unwrap parameter value continuations, as described in RFC 2184, Section 3,
+    // for every base parameter that has a *0 segment (encoded or literal).
+    let continuation_bases: BTreeSet<String> = octet_segments
         .keys()
-        .filter_map(|k| k.strip_suffix("*0"))
-        .map(String::from)
-        // Skip wrapped keys where there is already an unwrapped equivalent in the map
-        .filter(|k| !map.contains_key(k))
+        .chain(map.keys())
+        .filter_map(|k| match split_continuation_index(k) {
+            Some((base, 0)) if !map.contains_key(base) => Some(base.to_string()),
+            _ => None,
+        })
         .collect();
-    for unwrap_key in unwrap_key_list {
+    for base in continuation_bases {
         let mut unwrapped_value = String::new();
+        let mut pending_octets: Vec<u8> = Vec::new();
+        let mut pending_charset: Option<Charset> = None;
         let mut index = 0;
-        while let Some(wrapped_value_part) = map.remove(&format!("{}*{}", &unwrap_key, index)) {
+        loop {
+            let segment_key = format!("{}*{}", &base, index);
+            if let Some((octets, charset)) = octet_segments.remove(&segment_key) {
+                // Encoded segment: accumulate octets (all share the *0 charset).
+                pending_charset = Some(charset);
+                pending_octets.extend_from_slice(&octets);
+            } else if let Some(literal) = map.remove(&segment_key) {
+                // Unencoded segment: literal text ends the encoded octet run.
+                if let Some(charset) = pending_charset.take() {
+                    unwrapped_value
+                        .push_str(&charset.decode_without_bom_handling(&pending_octets).0);
+                    pending_octets.clear();
+                }
+                unwrapped_value.push_str(&literal);
+            } else {
+                break;
+            }
             index += 1;
-            unwrapped_value.push_str(&wrapped_value_part);
         }
-        let old_value = map.insert(unwrap_key, unwrapped_value);
+        if let Some(charset) = pending_charset {
+            unwrapped_value.push_str(&charset.decode_without_bom_handling(&pending_octets).0);
+        }
+        let old_value = map.insert(base, unwrapped_value);
         assert!(old_value.is_none());
+    }
+
+    // Any encoded segments not consumed by a contiguous continuation (e.g. a
+    // non-contiguous index) are charset-decoded on their own.
+    for (k, (octets, charset)) in octet_segments {
+        map.insert(
+            k,
+            charset.decode_without_bom_handling(&octets).0.into_owned(),
+        );
     }
 
     ParamContent {
@@ -1837,6 +1910,46 @@ mod tests {
         assert_eq!(parsed.params["filename"], "foo.bin");
         assert_eq!(parsed.params["filename*0*"], "utf-8'en'%e2%80%a1");
         assert!(!parsed.params.contains_key("filename*0"));
+    }
+
+    #[test]
+    fn test_parameter_encoding_split_across_continuations() {
+        // A multibyte character may legally be split across continuation
+        // segments (RFC 2231 Section 3); the octets must be concatenated
+        // before charset-decoding. Snowman U+2603 = UTF-8 E2 98 83, split
+        // E2 98 in *0* and 83 in *1*.
+        let parsed =
+            parse_param_content("application/x-stuff; name*0*=UTF-8''%E2%98; name*1*=%83.txt");
+        assert_eq!(parsed.params["name"], "\u{2603}.txt");
+
+        // Euro U+20AC = E2 82 AC, split after the first octet.
+        let parsed =
+            parse_param_content("application/x-stuff; name*0*=UTF-8''%E2; name*1*=%82%AC.txt");
+        assert_eq!(parsed.params["name"], "\u{20AC}.txt");
+
+        // A 4-byte character split across three segments: U+1F600 = F0 9F 98 80.
+        let parsed = parse_param_content(
+            "application/x-stuff; name*0*=UTF-8''%F0; name*1*=%9F%98; name*2*=%80.dat",
+        );
+        assert_eq!(parsed.params["name"], "\u{1F600}.dat");
+
+        // Control: a single-byte charset split is unaffected (per-segment and
+        // octet-concatenated decoding coincide there).
+        let parsed =
+            parse_param_content("application/x-stuff; name*0*=ISO-8859-1''%E9; name*1*=%E8.txt");
+        assert_eq!(parsed.params["name"], "\u{E9}\u{E8}.txt");
+    }
+
+    #[test]
+    fn test_quoted_parameter_value_with_semicolon() {
+        // A quoted-string value may legally contain ';' (RFC 2045); it must
+        // not be split on the embedded semicolon.
+        let parsed = parse_param_content("application/octet-stream; name=\"foo;bar.txt\"");
+        assert_eq!(parsed.params["name"], "foo;bar.txt");
+
+        let parsed = parse_param_content("application/octet-stream; name=\"a;b\"; charset=utf-8");
+        assert_eq!(parsed.params["name"], "a;b");
+        assert_eq!(parsed.params["charset"], "utf-8");
     }
 
     #[test]
