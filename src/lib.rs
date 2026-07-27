@@ -1062,6 +1062,27 @@ fn split_semicolons_unquoted(content: &str) -> Vec<&str> {
     tokens
 }
 
+/// Strip the quotes from a quoted parameter value and undo the `\"` and `\\`
+/// quoted-pairs inside it (RFC 2045 Section 5.1). Any other `\x` is kept
+/// verbatim, since unescaped Windows paths are common in real `filename`
+/// parameters; Python's `email` and Go's `mime` draw the line in the same place.
+fn unquote_param_value(value: &str) -> String {
+    if value.len() < 2 || !value.starts_with('"') || !value.ends_with('"') {
+        return value.to_string();
+    }
+    let inner = &value[1..value.len() - 1];
+    let mut out = String::with_capacity(inner.len());
+    let mut chars = inner.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\\' && matches!(chars.peek(), Some('"') | Some('\\')) {
+            out.push(chars.next().unwrap());
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
 /// Split a continuation segment key such as `name*3` into its base name and
 /// index. Returns `None` for keys without a trailing `*<number>`.
 fn split_continuation_index(key: &str) -> Option<(&str, usize)> {
@@ -1086,11 +1107,7 @@ fn parse_param_content(content: &str) -> ParamContent {
         .filter_map(|kv| {
             kv.find('=').map(|idx| {
                 let key = kv[0..idx].trim().to_lowercase();
-                let mut value = kv[idx + 1..].trim();
-                if value.starts_with('"') && value.ends_with('"') && value.len() > 1 {
-                    value = &value[1..value.len() - 1];
-                }
-                (key, value.to_string())
+                (key, unquote_param_value(kv[idx + 1..].trim()))
             })
         })
         .collect();
@@ -1815,6 +1832,51 @@ mod tests {
     fn test_dont_panic_for_value_with_new_lines() {
         let parsed = parse_param_content(r#"application/octet-stream; name=""#);
         assert_eq!(parsed.params["name"], "\"");
+    }
+
+    #[test]
+    fn test_parameter_quoted_pairs() {
+        // (parameter list, expected value of the `filename` parameter)
+        let cases = [
+            // `\"` and `\\` are quoted-pairs and lose their backslash.
+            (r#"attachment; filename="a\"b.txt""#, r#"a"b.txt"#),
+            (r#"attachment; filename="a\\b.txt""#, r"a\b.txt"),
+            (r#"attachment; filename="a\\b\"c""#, r#"a\b"c"#),
+            (r#"attachment; filename="a\\""#, r"a\"),
+            (r#"attachment; filename="\\\\""#, r"\\"),
+            // A backslash before anything else is data, not an escape, so
+            // Windows paths written by older mailers survive intact.
+            (
+                r#"attachment; filename="C:\dev\go\foo.txt""#,
+                r"C:\dev\go\foo.txt",
+            ),
+            (r#"attachment; filename="a\;b.txt""#, r"a\;b.txt"),
+            // Outside a quoted-string a backslash is never an escape.
+            (r"attachment; filename=a\b.txt", r"a\b.txt"),
+            (r#"attachment; filename=a\"b.txt"#, r#"a\"b.txt"#),
+            // Unrelated values are untouched.
+            (r#"attachment; filename="plain.txt""#, "plain.txt"),
+            ("attachment; filename=plain.txt", "plain.txt"),
+        ];
+        for (input, expected) in cases {
+            assert_eq!(
+                parse_param_content(input).params["filename"],
+                expected,
+                "input: {}",
+                input
+            );
+        }
+
+        // Same values reached through the two public accessors.
+        let cd = parse_content_disposition(r#"attachment; filename="a\"b.txt""#);
+        assert_eq!(cd.params["filename"], r#"a"b.txt"#);
+        let ct = parse_content_type(r#"text/plain; name="a\\b"; boundary="x\"y""#);
+        assert_eq!(ct.params["name"], r"a\b");
+        assert_eq!(ct.params["boundary"], r#"x"y"#);
+
+        // A quoted-pair also survives the RFC 2231 continuation join.
+        let parsed = parse_param_content(r#"attachment; filename*0="a\\"; filename*1="b.txt""#);
+        assert_eq!(parsed.params["filename"], r"a\b.txt");
     }
 
     #[test]

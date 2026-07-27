@@ -26,10 +26,16 @@ impl SingleInfo {
     }
 }
 
+/// Escape a display name for use inside a quoted-string. Backslash must go
+/// first, or the backslashes added for the quotes get escaped in turn.
+fn escape_quoted(name: &str) -> String {
+    name.replace('\\', r"\\").replace('"', r#"\""#)
+}
+
 impl fmt::Display for SingleInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(name) = &self.display_name {
-            write!(f, r#""{}" <{}>"#, name.replace('"', r#"\""#), self.addr)
+            write!(f, r#""{}" <{}>"#, escape_quoted(name), self.addr)
         } else {
             write!(f, "{}", self.addr)
         }
@@ -55,7 +61,7 @@ impl GroupInfo {
 
 impl fmt::Display for GroupInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, r#""{}":"#, self.group_name.replace('"', r#"\""#))?;
+        write!(f, r#""{}":"#, escape_quoted(&self.group_name))?;
         for (i, addr) in self.addrs.iter().enumerate() {
             if i == 0 {
                 write!(f, " ")?;
@@ -91,6 +97,7 @@ enum AddrParseState {
     Unquoted,
     NameWithEncodedWord,
     Comment,
+    CommentEscapedChar,
 }
 
 /// A simple wrapper around `Vec<MailAddr>`. This is primarily here so we can
@@ -620,10 +627,16 @@ fn addrparse_inner(
                     }
                 }
             }
+            AddrParseState::CommentEscapedChar => {
+                // The escaped item is discarded along with the rest of the comment.
+                state = AddrParseState::Comment;
+            }
             AddrParseState::Comment => {
                 match hti {
                     HeaderTokenItem::Char(c) => {
-                        if c == ')' {
+                        if c == '\\' {
+                            state = AddrParseState::CommentEscapedChar;
+                        } else if c == ')' {
                             state = comment_return.take().unwrap();
                         }
                     }
@@ -656,6 +669,7 @@ fn addrparse_inner(
         | AddrParseState::AfterQuotedName
         | AddrParseState::BracketedAddr
         | AddrParseState::Comment
+        | AddrParseState::CommentEscapedChar
         | AddrParseState::NameWithEncodedWord => Err(MailParseError::Generic(
             "Address string unexpectedly terminated",
         )),
@@ -918,6 +932,21 @@ mod tests {
             MailAddrList(vec![MailAddr::Single(tc)])
         );
 
+        let tc =
+            SingleInfo::new(Some(r"John \ Doe".to_string()), "john@doe.com".to_string()).unwrap();
+        assert_eq!(tc.to_string(), r#""John \\ Doe" <john@doe.com>"#);
+        assert_eq!(
+            addrparse(&tc.to_string()).unwrap(),
+            MailAddrList(vec![MailAddr::Single(tc)])
+        );
+
+        let tc = SingleInfo::new(Some(r#"a\b"c"#.to_string()), "john@doe.com".to_string()).unwrap();
+        assert_eq!(tc.to_string(), r#""a\\b\"c" <john@doe.com>"#);
+        assert_eq!(
+            addrparse(&tc.to_string()).unwrap(),
+            MailAddrList(vec![MailAddr::Single(tc)])
+        );
+
         let tc = SingleInfo::new(None, "foo@bar.com".to_string()).unwrap();
         assert_eq!(tc.to_string(), r#"foo@bar.com"#);
         assert_eq!(
@@ -954,6 +983,38 @@ mod tests {
             addrparse(&tc.to_string()).unwrap(),
             MailAddrList(vec![MailAddr::Group(tc)])
         );
+
+        let tc = GroupInfo::new(r"group-with\backslash".to_string(), vec![]);
+        assert_eq!(tc.to_string(), r#""group-with\\backslash":;"#);
+        assert_eq!(
+            addrparse(&tc.to_string()).unwrap(),
+            MailAddrList(vec![MailAddr::Group(tc)])
+        );
+    }
+
+    #[test]
+    fn parse_escaped_comment() {
+        // A quoted-pair inside a comment does not end it (RFC 5322 3.2.2).
+        for header in [
+            r"x@y.com (a\)b)",
+            r"x@y.com (a\(b)",
+            r"x@y.com (a\\b)",
+            r"x@y.com (plain)",
+            r"x@y.com (a\)b) (c\)d)",
+        ] {
+            assert_eq!(
+                addrparse(header).unwrap(),
+                MailAddrList(vec![MailAddr::Single(
+                    SingleInfo::new(None, "x@y.com".to_string()).unwrap()
+                )]),
+                "header: {}",
+                header
+            );
+        }
+
+        // An unterminated comment is still an error, not a silent truncation.
+        assert!(addrparse(r"x@y.com (a\)b").is_err());
+        assert!(addrparse(r"x@y.com (ab\)").is_err());
     }
 
     #[test]
