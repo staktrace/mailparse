@@ -1070,6 +1070,21 @@ fn unquote_param_value(value: &str) -> String {
     if value.len() < 2 || !value.starts_with('"') || !value.ends_with('"') {
         return value.to_string();
     }
+    // A trailing `"` preceded by an odd run of backslashes is itself escaped
+    // (the second half of a `\"` quoted-pair), not the closing delimiter --
+    // the value is an unterminated quoted-string (e.g. header content
+    // truncated right after the escape). Leave it untouched rather than
+    // silently treating the escaped quote as if it closed the string, which
+    // would drop the final backslash and produce a value the input never
+    // actually specified.
+    let trailing_backslashes = value[..value.len() - 1]
+        .chars()
+        .rev()
+        .take_while(|&c| c == '\\')
+        .count();
+    if trailing_backslashes % 2 == 1 {
+        return value.to_string();
+    }
     let inner = &value[1..value.len() - 1];
     let mut out = String::with_capacity(inner.len());
     let mut chars = inner.chars().peekable();
@@ -1866,6 +1881,16 @@ mod tests {
                 input
             );
         }
+
+        // Header content truncated right after an escaped quote: the
+        // trailing `"` is the second half of the `\"` quoted-pair, not a
+        // real closing delimiter, so the value is an unterminated
+        // quoted-string. Left untouched (quotes and backslash intact)
+        // rather than treating the escape's own quote as if it closed the
+        // string, which would silently invent a value the input never
+        // specified.
+        let parsed = parse_param_content("attachment; filename=\"foo\\\"");
+        assert_eq!(parsed.params["filename"], "\"foo\\\"");
 
         // Same values reached through the two public accessors.
         let cd = parse_content_disposition(r#"attachment; filename="a\"b.txt""#);
