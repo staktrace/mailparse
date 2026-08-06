@@ -332,6 +332,9 @@ fn addrparse_inner(
                                 ));
                             }
                             return Ok(MailAddrList(result));
+                        } else if c == '(' {
+                            comment_return = Some(AddrParseState::Initial);
+                            state = AddrParseState::Comment;
                         } else {
                             state = AddrParseState::Unquoted;
                             addr = Some(String::new());
@@ -423,6 +426,9 @@ fn addrparse_inner(
                                     .collect(),
                             )));
                             name = None;
+                        } else if c == '(' {
+                            comment_return = Some(AddrParseState::AfterQuotedName);
+                            state = AddrParseState::Comment;
                         } else {
                             // I think technically not valid, but this occurs in real-world corpus, so
                             // handle gracefully
@@ -545,6 +551,9 @@ fn addrparse_inner(
                                 .collect(),
                         )));
                         addr = None;
+                    } else if c == '(' {
+                        comment_return = Some(AddrParseState::NameWithEncodedWord);
+                        state = AddrParseState::Comment;
                     } else {
                         addr.as_mut().unwrap().push(c);
                     }
@@ -749,6 +758,148 @@ mod tests {
                 )
                 .unwrap()
             )])
+        );
+    }
+
+    #[test]
+    fn parse_comments() {
+        fn single(name: Option<&str>, addr: &str) -> MailAddrList {
+            MailAddrList(vec![MailAddr::Single(
+                SingleInfo::new(name.map(String::from), addr.to_string()).unwrap(),
+            )])
+        }
+
+        // A comment before an unbracketed address
+        assert_eq!(addrparse("(ab) x@y.com").unwrap(), single(None, "x@y.com"));
+        assert_eq!(
+            addrparse("(a)(b) x@y.com").unwrap(),
+            single(None, "x@y.com")
+        );
+        assert_eq!(
+            addrparse("  (c)   x@y.com").unwrap(),
+            single(None, "x@y.com")
+        );
+
+        // ...before the other three ways an address can start.
+        assert_eq!(addrparse("(c) <x@y.com>").unwrap(), single(None, "x@y.com"));
+        assert_eq!(addrparse("(c)<x@y.com>").unwrap(), single(None, "x@y.com"));
+        assert_eq!(
+            addrparse("(c) Foo <x@y.com>").unwrap(),
+            single(Some("Foo"), "x@y.com")
+        );
+        assert_eq!(
+            addrparse(r#"(c) "Foo" <x@y.com>"#).unwrap(),
+            single(Some("Foo"), "x@y.com")
+        );
+
+        // A comment between a quoted display name and what follows it.
+        assert_eq!(
+            addrparse(r#""Foo" (c) <x@y.com>"#).unwrap(),
+            single(Some("Foo"), "x@y.com")
+        );
+        assert_eq!(
+            addrparse(r#""Foo" (c) Bar <x@y.com>"#).unwrap(),
+            single(Some("Foo  Bar"), "x@y.com")
+        );
+
+        // Comments in a list, and either side of a group.
+        assert_eq!(
+            addrparse("a@b.com, (c) x@y.com").unwrap(),
+            MailAddrList(vec![
+                MailAddr::Single(SingleInfo::new(None, "a@b.com".to_string()).unwrap()),
+                MailAddr::Single(SingleInfo::new(None, "x@y.com".to_string()).unwrap()),
+            ])
+        );
+        assert_eq!(
+            addrparse("(c) grp: x@y.com;").unwrap(),
+            MailAddrList(vec![MailAddr::Group(GroupInfo::new(
+                "grp".to_string(),
+                vec![SingleInfo::new(None, "x@y.com".to_string()).unwrap()]
+            ))])
+        );
+        assert_eq!(
+            addrparse("grp: (c) x@y.com;").unwrap(),
+            MailAddrList(vec![MailAddr::Group(GroupInfo::new(
+                "grp".to_string(),
+                vec![SingleInfo::new(None, "x@y.com".to_string()).unwrap()]
+            ))])
+        );
+        assert_eq!(
+            addrparse(r#""grp" (c): x@y.com;"#).unwrap(),
+            MailAddrList(vec![MailAddr::Group(GroupInfo::new(
+                "grp".to_string(),
+                vec![SingleInfo::new(None, "x@y.com".to_string()).unwrap()]
+            ))])
+        );
+
+        // A comment is not an address, so a header made only of comments is empty rather
+        // than an error.
+        assert_eq!(addrparse("(c)").unwrap(), MailAddrList(vec![]));
+        assert_eq!(addrparse("x@y.com, (c)").unwrap(), single(None, "x@y.com"));
+        assert_eq!(
+            addrparse("grp: x@y.com; (c)").unwrap(),
+            MailAddrList(vec![MailAddr::Group(GroupInfo::new(
+                "grp".to_string(),
+                vec![SingleInfo::new(None, "x@y.com".to_string()).unwrap()]
+            ))])
+        );
+        // ...but an unterminated one is still an error, as it already was in the trailing
+        // position.
+        assert!(addrparse("(c x@y.com").is_err());
+        assert!(addrparse("x@y.com (c").is_err());
+
+        // Parentheses inside a quoted-string are qtext, not a comment.
+        assert_eq!(
+            addrparse(r#""F(o)o" <x@y.com>"#).unwrap(),
+            single(Some("F(o)o"), "x@y.com")
+        );
+        assert_eq!(
+            addrparse(r#""(c)" <x@y.com>"#).unwrap(),
+            single(Some("(c)"), "x@y.com")
+        );
+        // A stray ")" outside a comment stays put.
+        assert_eq!(
+            addrparse("Fo)o <x@y.com>").unwrap(),
+            single(Some("Fo)o"), "x@y.com")
+        );
+        assert_eq!(addrparse(")x@y.com").unwrap(), single(None, ")x@y.com"));
+
+        // The contents of an angle-addr are still passed through verbatim.
+        assert_eq!(
+            addrparse("<(c)x@y.com>").unwrap(),
+            single(None, "(c)x@y.com")
+        );
+    }
+
+    #[test]
+    fn parse_comments_with_encoded_words() {
+        let cases = [
+            ("From: =?UTF-8?B?Rm9v?= (c) <x@y.com>", "Foo"),
+            ("From: (c) =?UTF-8?B?Rm9v?= <x@y.com>", "Foo"),
+            (
+                "From: =?UTF-8?B?Rm9v?= (c) =?UTF-8?B?QmFy?= <x@y.com>",
+                "Foo  Bar",
+            ),
+            ("From: \"=?utf-8?q?G=C3=B6tz?= C\" (x) <g@c.de>", "Götz C"),
+        ];
+        for (header, name) in cases {
+            let (parsed, _) = crate::parse_header(header.as_bytes()).unwrap();
+            let addrs = addrparse_header(&parsed).unwrap();
+            assert_eq!(
+                addrs.extract_single_info().unwrap().display_name,
+                Some(name.to_string()),
+                "header {:?}",
+                header
+            );
+        }
+
+        let (parsed, _) = crate::parse_header(b"From: =?UTF-8?B?Z3Jw?= (c) : x@y.com;").unwrap();
+        assert_eq!(
+            addrparse_header(&parsed).unwrap(),
+            MailAddrList(vec![MailAddr::Group(GroupInfo::new(
+                "grp".to_string(),
+                vec![SingleInfo::new(None, "x@y.com".to_string()).unwrap()]
+            ))])
         );
     }
 
