@@ -117,27 +117,7 @@ pub(crate) fn find_from(line: &str, ix_start: usize, key: &str) -> Option<usize>
 fn find_from_u8(line: &[u8], ix_start: usize, key: &[u8]) -> Option<usize> {
     assert!(!key.is_empty());
     assert!(ix_start <= line.len());
-    if line.len() < key.len() {
-        return None;
-    }
-    let ix_end = line.len() - key.len();
-    if ix_start <= ix_end {
-        for i in ix_start..=ix_end {
-            if line[i] == key[0] {
-                let mut success = true;
-                for j in 1..key.len() {
-                    if line[i + j] != key[j] {
-                        success = false;
-                        break;
-                    }
-                }
-                if success {
-                    return Some(i);
-                }
-            }
-        }
-    }
-    None
+    memchr::memmem::find(&line[ix_start..], key).map(|v| ix_start + v)
 }
 
 #[test]

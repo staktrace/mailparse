@@ -18,6 +18,7 @@ maintenance = { status = "passively-maintained" }
 
 [dependencies]
 data-encoding = "2.6.0"
+memchr = "2.7.0"
 quoted_printable = "0.5.0"
 charset = "0.1.3"
 
