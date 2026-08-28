@@ -137,11 +137,7 @@ impl<'a> BinaryBody<'a> {
 }
 
 fn decode_base64(body: &[u8]) -> Result<Vec<u8>, MailParseError> {
-    let cleaned = body
-        .iter()
-        .filter(|c| !c.is_ascii_whitespace())
-        .cloned()
-        .collect::<Vec<u8>>();
+    let cleaned = crate::bytescan::strip_ascii_whitespace(body);
     Ok(data_encoding::BASE64_MIME_PERMISSIVE.decode(&cleaned)?)
 }
 
