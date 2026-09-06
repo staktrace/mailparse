@@ -1069,6 +1069,31 @@ fn split_continuation_index(key: &str) -> Option<(&str, usize)> {
     Some((base, index.parse().ok()?))
 }
 
+fn unescape(text: &str) -> String {
+    if !(text.starts_with('"') && text.ends_with('"') && text.len() > 1) {
+        return text.to_string();
+    }
+    let unquoted = &text[1..text.len() - 1];
+    if unquoted.find('\\').is_none() {
+        return unquoted.to_string();
+    }
+    let mut unescaped = String::with_capacity(unquoted.len());
+    let mut escape = false;
+    for c in unquoted.chars() {
+        if escape {
+            // Windows file paths may need to be handled specially here
+            // since they (incorrectly) contain unescaped '\' characters.
+            // If so, restore the '\' if c is none of [backslash, quote, semicolon].
+            escape = false;
+        } else if c == '\\' {
+            escape = true;
+            continue;
+        }
+        unescaped.push(c);
+    }
+    return unescaped;
+}
+
 /// Parse parameterized header values such as that for Content-Type
 /// e.g. `multipart/alternative; boundary=foobar`
 /// Note: this function is not made public as it may require
@@ -1086,11 +1111,8 @@ fn parse_param_content(content: &str) -> ParamContent {
         .filter_map(|kv| {
             kv.find('=').map(|idx| {
                 let key = kv[0..idx].trim().to_lowercase();
-                let mut value = kv[idx + 1..].trim();
-                if value.starts_with('"') && value.ends_with('"') && value.len() > 1 {
-                    value = &value[1..value.len() - 1];
-                }
-                (key, value.to_string())
+                let value = kv[idx + 1..].trim();
+                (key, unescape(value))
             })
         })
         .collect();
@@ -1950,6 +1972,41 @@ mod tests {
         let parsed = parse_param_content("application/octet-stream; name=\"a;b\"; charset=utf-8");
         assert_eq!(parsed.params["name"], "a;b");
         assert_eq!(parsed.params["charset"], "utf-8");
+    }
+
+    #[test]
+    fn test_parameter_quoted_pairs() {
+        let parsed = parse_param_content(r#"attachment; filename="a\"b.txt""#);
+        assert_eq!(parsed.params["filename"], r#"a"b.txt"#);
+
+        let parsed = parse_param_content(r#"attachment; filename="a\\b.txt""#);
+        assert_eq!(parsed.params["filename"], r#"a\b.txt"#);
+
+        let parsed = parse_param_content(r#"attachment; filename="\\\\""#);
+        assert_eq!(parsed.params["filename"], r#"\\"#);
+
+        // technically malformed but we handle it gracefully by dropping the
+        // last backslash
+        let parsed = parse_param_content(r#" attachment; filename="\\\" "#);
+        assert_eq!(parsed.params["filename"], r#"\"#);
+
+        let parsed = parse_param_content(r#"attachment; filename=a\b.txt"#);
+        assert_eq!(parsed.params["filename"], r#"a\b.txt"#);
+
+        let parsed = parse_param_content(r#"attachment; filename=a\"b.txt"#);
+        assert_eq!(parsed.params["filename"], r#"a\"b.txt"#);
+
+        // Same values reached through the two public accessors.
+        let cd = parse_content_disposition(r#"attachment; filename="a\"b.txt""#);
+        assert_eq!(cd.params["filename"], r#"a"b.txt"#);
+
+        let ct = parse_content_type(r#"text/plain; name="a\\b"; boundary="x\"y""#);
+        assert_eq!(ct.params["name"], r"a\b");
+        assert_eq!(ct.params["boundary"], r#"x"y"#);
+
+        // A quoted-pair also survives the RFC 2231 continuation join.
+        let parsed = parse_param_content(r#"attachment; filename*0="a\\"; filename*1="b.txt""#);
+        assert_eq!(parsed.params["filename"], r"a\b.txt");
     }
 
     #[test]
