@@ -91,6 +91,7 @@ enum AddrParseState {
     Unquoted,
     NameWithEncodedWord,
     Comment,
+    CommentEscapedChar,
 }
 
 /// A simple wrapper around `Vec<MailAddr>`. This is primarily here so we can
@@ -625,6 +626,8 @@ fn addrparse_inner(
                     HeaderTokenItem::Char(c) => {
                         if c == ')' {
                             state = comment_return.take().unwrap();
+                        } else if c == '\\' {
+                            state = AddrParseState::CommentEscapedChar;
                         }
                     }
                     HeaderTokenItem::Whitespace(_) => {
@@ -637,6 +640,9 @@ fn addrparse_inner(
                         // ignore and stay in same state
                     }
                 }
+            }
+            AddrParseState::CommentEscapedChar => {
+                state = AddrParseState::Comment;
             }
         }
 
@@ -656,6 +662,7 @@ fn addrparse_inner(
         | AddrParseState::AfterQuotedName
         | AddrParseState::BracketedAddr
         | AddrParseState::Comment
+        | AddrParseState::CommentEscapedChar
         | AddrParseState::NameWithEncodedWord => Err(MailParseError::Generic(
             "Address string unexpectedly terminated",
         )),
@@ -1140,5 +1147,43 @@ mod tests {
                 SingleInfo::new(None, "test@[IPv6:2001:db8::1]".to_string()).unwrap()
             )])
         );
+    }
+
+    #[test]
+    fn parse_escaped_comment() {
+        // A quoted-pair inside a comment does not end it (RFC 5322 3.2.2).
+        assert_eq!(
+            addrparse(r"x@y.com (a\)b)").unwrap(),
+            MailAddrList(vec![MailAddr::Single(
+                SingleInfo::new(None, "x@y.com".to_string()).unwrap()
+            )])
+        );
+        assert_eq!(
+            addrparse(r"x@y.com (a\(b)").unwrap(),
+            MailAddrList(vec![MailAddr::Single(
+                SingleInfo::new(None, "x@y.com".to_string()).unwrap()
+            )])
+        );
+        assert_eq!(
+            addrparse(r"x@y.com (a\\b)").unwrap(),
+            MailAddrList(vec![MailAddr::Single(
+                SingleInfo::new(None, "x@y.com".to_string()).unwrap()
+            )])
+        );
+        assert_eq!(
+            addrparse(r"x@y.com (plain)").unwrap(),
+            MailAddrList(vec![MailAddr::Single(
+                SingleInfo::new(None, "x@y.com".to_string()).unwrap()
+            )])
+        );
+        assert_eq!(
+            addrparse(r"x@y.com (a\)b) (c\)d)").unwrap(),
+            MailAddrList(vec![MailAddr::Single(
+                SingleInfo::new(None, "x@y.com".to_string()).unwrap()
+            )])
+        );
+        // An unterminated comment is still an error, not a silent truncation.
+        assert!(addrparse(r"x@y.com (a\)b").is_err());
+        assert!(addrparse(r"x@y.com (ab\)").is_err());
     }
 }
