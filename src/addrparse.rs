@@ -3,6 +3,10 @@ use std::fmt;
 use crate::header::HeaderToken;
 use crate::{MailHeader, MailParseError};
 
+fn escape(text: &str) -> String {
+    text.replace('\\', "\\\\").replace('"', r#"\""#)
+}
+
 /// A representation of a single mailbox. Each mailbox has
 /// a routing address `addr` and an optional display name.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -29,7 +33,7 @@ impl SingleInfo {
 impl fmt::Display for SingleInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(name) = &self.display_name {
-            write!(f, r#""{}" <{}>"#, name.replace('"', r#"\""#), self.addr)
+            write!(f, r#""{}" <{}>"#, escape(name), self.addr)
         } else {
             write!(f, "{}", self.addr)
         }
@@ -55,7 +59,7 @@ impl GroupInfo {
 
 impl fmt::Display for GroupInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, r#""{}":"#, self.group_name.replace('"', r#"\""#))?;
+        write!(f, r#""{}":"#, escape(&self.group_name))?;
         for (i, addr) in self.addrs.iter().enumerate() {
             if i == 0 {
                 write!(f, " ")?;
@@ -723,15 +727,18 @@ mod tests {
 
     #[test]
     fn parse_backslashes() {
+        let parsed = SingleInfo::new(
+            Some("First \"nick\" Last".to_string()),
+            "user@host.tld".to_string(),
+        )
+        .unwrap();
         assert_eq!(
             addrparse(r#" "First \"nick\" Last" <user@host.tld> "#).unwrap(),
-            MailAddrList(vec![MailAddr::Single(
-                SingleInfo::new(
-                    Some("First \"nick\" Last".to_string()),
-                    "user@host.tld".to_string()
-                )
-                .unwrap()
-            )])
+            MailAddrList(vec![MailAddr::Single(parsed.clone())])
+        );
+        assert_eq!(
+            parsed.to_string(),
+            r#""First \"nick\" Last" <user@host.tld>"#
         );
         assert_eq!(
             addrparse(r#" First \"nick\" Last <user@host.tld> "#).unwrap(),
@@ -931,6 +938,21 @@ mod tests {
             addrparse(&tc.to_string()).unwrap(),
             MailAddrList(vec![MailAddr::Single(tc)])
         );
+
+        let tc =
+            SingleInfo::new(Some(r"John \ Doe".to_string()), "john@doe.com".to_string()).unwrap();
+        assert_eq!(tc.to_string(), r#""John \\ Doe" <john@doe.com>"#);
+        assert_eq!(
+            addrparse(&tc.to_string()).unwrap(),
+            MailAddrList(vec![MailAddr::Single(tc)])
+        );
+
+        let tc = SingleInfo::new(Some(r#"a\b"c"#.to_string()), "john@doe.com".to_string()).unwrap();
+        assert_eq!(tc.to_string(), r#""a\\b\"c" <john@doe.com>"#);
+        assert_eq!(
+            addrparse(&tc.to_string()).unwrap(),
+            MailAddrList(vec![MailAddr::Single(tc)])
+        );
     }
 
     #[test]
@@ -957,6 +979,13 @@ mod tests {
 
         let tc = GroupInfo::new(r#"group-with"quote"#.to_string(), vec![]);
         assert_eq!(tc.to_string(), r#""group-with\"quote":;"#);
+        assert_eq!(
+            addrparse(&tc.to_string()).unwrap(),
+            MailAddrList(vec![MailAddr::Group(tc)])
+        );
+
+        let tc = GroupInfo::new(r"group-with\backslash".to_string(), vec![]);
+        assert_eq!(tc.to_string(), r#""group-with\\backslash":;"#);
         assert_eq!(
             addrparse(&tc.to_string()).unwrap(),
             MailAddrList(vec![MailAddr::Group(tc)])
