@@ -1,6 +1,6 @@
 [package]
 name = "mailparse"
-version = "0.17.0"
+version = "0.18.0"
 authors = ["Kartikaya Gupta"]
 edition = "2024"
 rust-version = "1.85.0"
