@@ -593,7 +593,7 @@ fn addrparse_inner(
                             // Technically not valid, but occurs in real-world corpus, so handle it gracefully
                             state = AddrParseState::Initial;
                             addr = None;
-                        } else if c == ':' && !addr.as_ref().map_or(false, |s| s.contains('@')) {
+                        } else if c == ':' && !addr.as_ref().is_some_and(|s| s.contains('@')) {
                             if in_group {
                                 return Err(MailParseError::Generic(
                                     "Found unexpected nested group",

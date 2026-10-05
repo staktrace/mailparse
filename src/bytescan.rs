@@ -3,9 +3,6 @@
 //! Uses the classic haszero/hasless bit tricks (Bit Twiddling Hacks) on usize
 //! words loaded with from_le_bytes. No unsafe, no dependencies.
 
-// clippy suggests as_chunks here, but that needs Rust 1.88.
-#![allow(clippy::chunks_exact_to_as_chunks)]
-
 const WORD: usize = core::mem::size_of::<usize>();
 const LO: usize = usize::from_ne_bytes([0x01; WORD]);
 const HI: usize = usize::from_ne_bytes([0x80; WORD]);
