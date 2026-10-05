@@ -61,7 +61,7 @@ See the rustdoc at [docs.rs](https://docs.rs/mailparse/).
 
 MSRV policy
 ---
-Currently the minimum supported Rust version (MSRV) is 1.51.0.
+Currently the minimum supported Rust version (MSRV) is 1.85.0.
 MSRV increases will be kept to a minimum, and will always be accompanied with a minor version bump.
 
 Contributing
