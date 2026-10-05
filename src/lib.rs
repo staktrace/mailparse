@@ -1072,7 +1072,7 @@ fn unescape(text: &str) -> String {
         }
         unescaped.push(c);
     }
-    return unescaped;
+    unescaped
 }
 
 /// Parse parameterized header values such as that for Content-Type
@@ -1153,7 +1153,7 @@ fn parse_param_content(content: &str) -> ParamContent {
         let mut pending_charset: Option<Charset> = None;
         let mut index = 0;
         loop {
-            let segment_key = format!("{}*{}", &base, index);
+            let segment_key = format!("{}*{}", base, index);
             if let Some((octets, charset)) = octet_segments.remove(&segment_key) {
                 // Encoded segment: accumulate octets (all share the *0 charset).
                 pending_charset = Some(charset);
