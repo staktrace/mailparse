@@ -22,18 +22,26 @@ pub enum HeaderToken<'a> {
     DecodedWord(String),
 }
 
+/// Takes a string and a byte index, and returns true if that
+/// byte index in the string is a boundary character, or if
+/// the byte index is out of bounds of the string.
 fn is_boundary(line: &str, ix: Option<usize>) -> bool {
-    ix.and_then(|v| line.chars().nth(v))
-        .map(|c| {
-            c.is_whitespace()
+    match ix {
+        None => true,
+        Some(v) => {
+            if v >= line.len() {
+                return true;
+            }
+            let c = line.as_bytes()[v] as char;
+            (c.is_ascii() && c.is_whitespace())
                 || c == '"'
                 || c == '('
                 || c == ')'
                 || c == '<'
                 || c == '>'
                 || c == ','
-        })
-        .unwrap_or(true)
+        }
+    }
 }
 
 fn decode_word(encoded: &str) -> Option<String> {
@@ -228,6 +236,10 @@ mod tests {
         // Bug #26, Incorrect unwrap() guard in is_boundary()
         // 6x'REPLACEMENT CHARACTER', but 18 bytes of data:
         let test = "\u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD}\u{FFFD}";
-        assert!(is_boundary(test, Some(8)));
+        assert!(is_boundary(test, None));
+        assert!(is_boundary(test, Some(18)));
+        assert!(!is_boundary(test, Some(0)));
+        assert!(!is_boundary(test, Some(1)));
+        assert!(is_boundary("\u{FFFD} ", Some(3)));
     }
 }
