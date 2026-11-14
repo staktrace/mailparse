@@ -134,13 +134,38 @@ fn test_find_from_u8() {
 
 // Like find_from_u8, but additionally filters such that `key` is at the start
 // of a line (preceded by `\n`) or at the start of the search space.
+// Searches only at line starts so the cost stays linear in `line`, even when
+// `key` is very long (see issue #148).
 fn find_from_u8_line_prefix(line: &[u8], ix_start: usize, key: &[u8]) -> Option<usize> {
-    let mut start = ix_start;
-    while let Some(ix) = find_from_u8(line, start, key) {
-        if ix == ix_start || line[ix - 1] == b'\n' {
-            return Some(ix);
+    assert!(ix_start <= line.len());
+    // Consistent with bytescan::find: an empty key never matches.
+    if key.is_empty() {
+        return None;
+    }
+
+    // A MIME boundary cannot contain a newline. If one does, fall back to the
+    // previous search so behaviour is preserved.
+    if key.contains(&b'\n') {
+        let mut start = ix_start;
+        while let Some(ix) = find_from_u8(line, start, key) {
+            if ix == ix_start || line[ix - 1] == b'\n' {
+                return Some(ix);
+            }
+            start = ix + 1;
         }
-        start = ix + 1;
+        return None;
+    }
+
+    if line[ix_start..].starts_with(key) {
+        return Some(ix_start);
+    }
+    let mut at = ix_start;
+    while let Some(i) = bytescan::find_byte(&line[at..], b'\n') {
+        let p = at + i;
+        if line[p + 1..].starts_with(key) {
+            return Some(p + 1);
+        }
+        at = p + 1;
     }
     None
 }
@@ -2371,5 +2396,17 @@ mod tests {
         let part = parts.next().unwrap();
         assert_eq!(part.ctype.mimetype, "text/plain");
         assert!(parts.next().is_none());
+    }
+
+    // Regression test for issue #148. A long boundary with similar text in
+    // the middle of a line used to hang because each failed match restarted
+    // the search one byte later.
+    #[test]
+    fn test_long_boundary_mid_line_does_not_hang() {
+        let boundary = "-".repeat(2_000_000);
+        let email = format!("Content-Type: multipart/mixed; boundary={boundary}\n\n")
+            + "A"
+            + &"-".repeat(5_000_000);
+        assert!(parse_mail(email.as_bytes()).is_ok());
     }
 }
