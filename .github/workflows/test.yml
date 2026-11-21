@@ -8,6 +8,20 @@ on:
 
 
 jobs:
+  msrv:
+    name: Run tests on MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v2
+      - name: Install the MSRV toolchain
+        run: |
+          msrv=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml)
+          echo "MSRV is ${msrv}"
+          rustup toolchain install "${msrv}" --profile minimal
+          echo "MSRV=${msrv}" >> "${GITHUB_ENV}"
+      - name: Run tests
+        run: cargo +${MSRV} test --all
   stable:
     name: Run tests on stable rust
     runs-on: ubuntu-latest
