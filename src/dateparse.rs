@@ -66,6 +66,62 @@ fn seconds_to_date(year: i64, month: i64, day: i64) -> i64 {
     result + 86400 * (day - 1)
 }
 
+fn apply_timezone(result: i64, tok: &str) -> Result<i64, MailParseError> {
+    let (tz, tz_sign) = match tok.parse::<i32>() {
+        Ok(v) if !(-2400..=2400).contains(&v) => {
+            return Err(MailParseError::Generic("Invalid timezone"));
+        }
+        Ok(v) if v < 0 => (-v, -1),
+        Ok(v) => (v, 1),
+        Err(_) => {
+            match tok.to_uppercase().as_str() {
+                // This list taken from IETF RFC 822
+                "UTC" | "UT" | "GMT" | "Z" => (0, 1),
+                "EDT" => (400, -1),
+                "EST" | "CDT" => (500, -1),
+                "CST" | "MDT" => (600, -1),
+                "MST" | "PDT" => (700, -1),
+                "PST" => (800, -1),
+                // Military time zones (RFC 822, RFC 5322).  A-M (except J) are negative offsets, N-Y are positive.  J is not used.
+                "A" => (100, -1),
+                "B" => (200, -1),
+                "C" => (300, -1),
+                "D" => (400, -1),
+                "E" => (500, -1),
+                "F" => (600, -1),
+                "G" => (700, -1),
+                "H" => (800, -1),
+                "I" => (900, -1),
+                // "J" is not used
+                "K" => (1000, -1),
+                "L" => (1100, -1),
+                "M" => (1200, -1),
+                "N" => (100, 1),
+                "O" => (200, 1),
+                "P" => (300, 1),
+                "Q" => (400, 1),
+                "R" => (500, 1),
+                "S" => (600, 1),
+                "T" => (700, 1),
+                "U" => (800, 1),
+                "V" => (900, 1),
+                "W" => (1000, 1),
+                "X" => (1100, 1),
+                "Y" => (1200, 1),
+                _ => return Err(MailParseError::Generic("Invalid timezone")),
+            }
+        }
+    };
+    let tz_hours = tz / 100;
+    let tz_mins = tz % 100;
+    let tz_delta = (tz_hours * 3600) + (tz_mins * 60);
+    if tz_sign < 0 {
+        Ok(result + i64::from(tz_delta))
+    } else {
+        Ok(result - i64::from(tz_delta))
+    }
+}
+
 /// Convert a date field from an email header into a UNIX epoch timestamp.
 /// This function handles the most common formatting of date fields found in
 /// email headers. It may fail to parse some of the more creative formattings.
@@ -155,59 +211,7 @@ pub fn dateparse(date: &str) -> Result<i64, MailParseError> {
                 continue;
             }
             DateParseState::Timezone => {
-                let (tz, tz_sign) = match tok.parse::<i32>() {
-                    Ok(v) if !(-2400..=2400).contains(&v) => {
-                        return Err(MailParseError::Generic("Invalid timezone"));
-                    }
-                    Ok(v) if v < 0 => (-v, -1),
-                    Ok(v) => (v, 1),
-                    Err(_) => {
-                        match tok.to_uppercase().as_str() {
-                            // This list taken from IETF RFC 822
-                            "UTC" | "UT" | "GMT" | "Z" => (0, 1),
-                            "EDT" => (400, -1),
-                            "EST" | "CDT" => (500, -1),
-                            "CST" | "MDT" => (600, -1),
-                            "MST" | "PDT" => (700, -1),
-                            "PST" => (800, -1),
-                            // Military time zones (RFC 822, RFC 5322).  A-M (except J) are negative offsets, N-Y are positive.  J is not used.
-                            "A" => (100, -1),
-                            "B" => (200, -1),
-                            "C" => (300, -1),
-                            "D" => (400, -1),
-                            "E" => (500, -1),
-                            "F" => (600, -1),
-                            "G" => (700, -1),
-                            "H" => (800, -1),
-                            "I" => (900, -1),
-                            // "J" is not used
-                            "K" => (1000, -1),
-                            "L" => (1100, -1),
-                            "M" => (1200, -1),
-                            "N" => (100, 1),
-                            "O" => (200, 1),
-                            "P" => (300, 1),
-                            "Q" => (400, 1),
-                            "R" => (500, 1),
-                            "S" => (600, 1),
-                            "T" => (700, 1),
-                            "U" => (800, 1),
-                            "V" => (900, 1),
-                            "W" => (1000, 1),
-                            "X" => (1100, 1),
-                            "Y" => (1200, 1),
-                            _ => return Err(MailParseError::Generic("Invalid timezone")),
-                        }
-                    }
-                };
-                let tz_hours = tz / 100;
-                let tz_mins = tz % 100;
-                let tz_delta = (tz_hours * 3600) + (tz_mins * 60);
-                if tz_sign < 0 {
-                    result += i64::from(tz_delta);
-                } else {
-                    result -= i64::from(tz_delta);
-                }
+                result = apply_timezone(result, tok)?;
                 break;
             }
         }
