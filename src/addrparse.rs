@@ -165,9 +165,9 @@ impl MailAddrList {
     /// one `SingleInfo`, this function returns None.
     pub fn extract_single_info(self) -> Option<SingleInfo> {
         if self.len() == 1 {
-            match &self[0] {
-                MailAddr::Group(_) => None,
-                MailAddr::Single(s) => Some(s.clone()),
+            match self.0.into_iter().next() {
+                Some(MailAddr::Single(s)) => Some(s),
+                _ => None,
             }
         } else {
             None
