@@ -1001,15 +1001,14 @@ fn parse_subparts<'a>(
     ctype: &'_ ParsedContentType,
     depth: u8,
 ) -> Result<(Vec<ParsedMail<'a>>, &'a [u8]), MailParseError> {
-    if raw_data.len() > ix_body
-        && ctype.mimetype.starts_with("multipart")
-        && let Some(boundary) = ctype.params.get("boundary")
-    {
-        let boundary = String::from("--") + boundary;
-        let in_multipart_digest = ctype.mimetype == "multipart/digest";
-        let (subparts, ix_body_end) =
-            parse_multipart(raw_data, ix_body, boundary, in_multipart_digest, depth)?;
-        return Ok((subparts, &raw_data[ix_body..ix_body_end]));
+    if raw_data.len() > ix_body && ctype.mimetype.starts_with("multipart") {
+        if let Some(boundary) = ctype.params.get("boundary") {
+            let boundary = String::from("--") + boundary;
+            let in_multipart_digest = ctype.mimetype == "multipart/digest";
+            let (subparts, ix_body_end) =
+                parse_multipart(raw_data, ix_body, boundary, in_multipart_digest, depth)?;
+            return Ok((subparts, &raw_data[ix_body..ix_body_end]));
+        }
     }
     Ok((Vec::new(), &raw_data[ix_body..]))
 }
@@ -2164,20 +2163,20 @@ mod tests {
     fn test_fuzzer_testcase() {
         const INPUT: &str = "U3ViamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IW11bAAAAAAAAAAAamVjdDplcy1UeXBlOiBtdW50ZW50LVV5cGU6IG11bAAAAAAAAAAAAAAAAABTTUFZdWJqZf86OiP/dCBTdWJqZWN0Ol8KRGF0ZTog/////////////////////wAAAAAAAAAAAHQgYnJmAHQgYnJmZXItRW5jeXBlOnY9NmU3OjA2OgAAAAAAAAAAAAAAADEAAAAAAP/8mAAAAAAAAAAA+f///wAAAAAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAPT0/PzEAAAEAAA==";
 
-        if let Ok(parsed) = parse_mail(&data_encoding::BASE64.decode(INPUT.as_bytes()).unwrap())
-            && let Some(date) = parsed.headers.get_first_value("Date")
-        {
-            let _ = dateparse(&date);
+        if let Ok(parsed) = parse_mail(&data_encoding::BASE64.decode(INPUT.as_bytes()).unwrap()) {
+            if let Some(date) = parsed.headers.get_first_value("Date") {
+                let _ = dateparse(&date);
+            }
         }
     }
 
     #[test]
     fn test_fuzzer_testcase_2() {
         const INPUT: &str = "U3ViamVjdDogVGhpcyBpcyBhIHRlc3QgZW1haWwKQ29udGVudC1UeXBlOiBtdWx0aXBhcnQvYWx0ZXJuYXRpdmU7IGJvdW5kYXJ5PczMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMZm9vYmFyCkRhdGU6IFN1biwgMDIgT2MKCi1TdWJqZWMtZm9vYmFydDo=";
-        if let Ok(parsed) = parse_mail(&data_encoding::BASE64.decode(INPUT.as_bytes()).unwrap())
-            && let Some(date) = parsed.headers.get_first_value("Date")
-        {
-            let _ = dateparse(&date);
+        if let Ok(parsed) = parse_mail(&data_encoding::BASE64.decode(INPUT.as_bytes()).unwrap()) {
+            if let Some(date) = parsed.headers.get_first_value("Date") {
+                let _ = dateparse(&date);
+            }
         }
     }
 
