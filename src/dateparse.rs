@@ -202,13 +202,18 @@ pub fn dateparse(date: &str) -> Result<i64, MailParseError> {
                 continue;
             }
             DateParseState::Second => {
-                let second = match tok.parse::<u8>() {
-                    Ok(v) => v,
-                    Err(_) => return Err(MailParseError::Generic("Invalid second")),
-                };
-                result += i64::from(second);
-                state = DateParseState::Timezone;
-                continue;
+                // RFC 5322 section 3.3: seconds are optional. Only treat a
+                // token of one or two ASCII digits as seconds; otherwise this
+                // token is the timezone.
+                if tok.len() <= 2 && tok.as_bytes().iter().all(u8::is_ascii_digit) {
+                    let second = tok
+                        .parse::<u8>()
+                        .expect("one or two ASCII digits always parse as u8");
+                    result += i64::from(second);
+                    state = DateParseState::Timezone;
+                    continue;
+                }
+                return apply_timezone(result, tok);
             }
             DateParseState::Timezone => {
                 result = apply_timezone(result, tok)?;
@@ -258,6 +263,23 @@ mod tests {
             dateparse("Fri, 30 Nov 2012 20:57:23 D").unwrap(),
             1354323443
         );
+
+        // RFC 5322 section 3.3: seconds are optional (hour ":" minute [":" second]).
+        assert_eq!(
+            dateparse("Sat, 14 Dec 1985 11:43:00 +0100").unwrap(),
+            503404980
+        );
+        assert_eq!(
+            dateparse("Sat, 14 Dec 1985 11:43 +0100").unwrap(),
+            503404980
+        );
+        assert_eq!(
+            dateparse("Sat, 14 Dec 1985 11:43 -0500").unwrap(),
+            503426580
+        );
+        assert_eq!(dateparse("Sat, 14 Dec 1985 11:43 GMT").unwrap(), 503408580);
+        // No timezone after minutes: same as before (interpreted as UTC).
+        assert_eq!(dateparse("Sat, 14 Dec 1985 11:43").unwrap(), 503408580);
 
         // Day cannot be zero.
         assert!(dateparse("Wed, 0 Jan 1970 00:00:00 +0000").is_err());
