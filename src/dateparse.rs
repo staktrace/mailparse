@@ -136,7 +136,7 @@ pub fn dateparse(date: &str) -> Result<i64, MailParseError> {
     let mut month = 0;
     let mut day_of_month = 0;
     let mut state = DateParseState::Date;
-    for tok in date.split([' ', ':']) {
+    for tok in date.split([' ', '\t', '\r', '\n', ':']) {
         if tok.is_empty() {
             continue;
         }
@@ -280,6 +280,16 @@ mod tests {
         assert_eq!(dateparse("Sat, 14 Dec 1985 11:43 GMT").unwrap(), 503408580);
         // No timezone after minutes: same as before (interpreted as UTC).
         assert_eq!(dateparse("Sat, 14 Dec 1985 11:43").unwrap(), 503408580);
+
+        // RFC 5322 FWS in Date fields can include tabs.
+        assert_eq!(
+            dateparse("Tue, 12 Aug 2003 05:39:03 -0330").unwrap(),
+            1060679343
+        );
+        assert_eq!(
+            dateparse("Tue,\t12 Aug\t2003\t05:39:03\t-0330").unwrap(),
+            dateparse("Tue, 12 Aug 2003 05:39:03 -0330").unwrap()
+        );
 
         // Day cannot be zero.
         assert!(dateparse("Wed, 0 Jan 1970 00:00:00 +0000").is_err());
